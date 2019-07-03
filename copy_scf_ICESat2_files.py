@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (05/2019)
+Written by Tyler Sutterley (07/2019)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
@@ -33,12 +33,13 @@ PYTHON DEPENDENCIES:
 		https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+	Updated 07/2019: using python3 compliant division
 	Updated 05/2019: changed host and user to scf_host and scf_user
 	Updated 04/2019: added parameters for selecting the ICESat-2 product,
 		release, version, granule, cycle and track
 	Written 04/2019
 """
-from __future__ import print_function
+from __future__ import print_function, division
 
 import sys
 import os
@@ -238,7 +239,7 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
 
 #-- PURPOSE: rounds a number to an even number less than or equal to original
 def even(i):
-	return 2*int(i/2)
+	return 2*int(i//2)
 
 #-- run main program
 if __name__ == '__main__':

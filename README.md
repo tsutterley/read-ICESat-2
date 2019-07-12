@@ -44,16 +44,16 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
 -   If we already have all the data, and we run the script again: only files added or modified on the remote server will downloaded.  
 
 ```bash
-python nsidc_icesat2_sync.py --user=<username> --password=<password> \
-	--product=ATL06 --release=205 --granule=10,11,12
+python nsidc_icesat2_sync.py --user=<username> --directory=<outgoing> \
+	--release=001 --granule=10,11,12 --mode=0o775 ATL06
 ```
-`-D X`, `--directory`: working base data directory   
 `-U X`, `--user=X`: username for NASA Earthdata Login  
-`-P X`, `--password=X`: password for NASA Earthdata Login  
-`--product=X`: ICESat-2 Product  
-`--release=X`: ICESat-2 Release  
-`--granule=X`: ICESat-2 Granule  
-`--track=X`: ICESat-2 Track  
+`-D X`, `--directory`: local working directory for receiving data  
+`--release=X`: ICESat-2 data release to sync  
+`--version=X`: ICESat-2 data version to sync  
+`--track=X`: ICESat-2 reference ground tracks to sync  
+`--granule=X`: ICESat-2 granule regions to sync  
+`--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
 `-M X`, `--mode=X`: Local permissions mode of the directories and files synced  
 `--log`: output log of files downloaded  
 `--list`: print files to be transferred, but do not execute transfer  
@@ -66,7 +66,7 @@ https://github.com/tsutterley/nsidc-subsetter
 Copies ICESat-2 HDF5 files from the SCF server  
 ```bash
 python copy_scf_ICESat2_files.py --scf_host=<host> --scf_user=<username> \
-	--product=ATL06 --release=205 --granule=10,11,12 --cycle=1,2 \
+	--product=ATL06 --release=001 --granule=10,11,12 --cycle=1,2 \
 	--scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
 ```
 `-h`, `--help`: list the command line options  

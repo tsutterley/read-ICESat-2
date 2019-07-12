@@ -91,7 +91,7 @@ def check_connection():
 		return True
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
-def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSION, GRANULES, TRACKS,
+def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
 	USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
 	LOG=False, LIST=False, MODE=None, CLOBBER=False):
 	#-- check if directory exists and recursively create if not
@@ -142,9 +142,9 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSION, GRANULES, TRACKS,
 	HOST = 'https://n5eil01u.ecs.nsidc.org'
 	#-- regular expression operator for finding files of a particular granule
 	#-- find ICESat-2 HDF5 files in the subdirectory for product and release
-	regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSION])
 	regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
 	regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
+	regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
 	regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
 	remote_regex_pattern = ('{0}_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
 		'(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}')
@@ -280,7 +280,7 @@ def main():
 	DIRECTORY = os.getcwd()
 	YEARS = None
 	SUBDIRECTORY = None
-	VERSION = [1,2]
+	VERSIONS = [1,2]
 	RELEASE = '001'
 	GRANULES = np.arange(1,15)
 	TRACKS = np.arange(1,1388)
@@ -307,7 +307,7 @@ def main():
 		elif opt in ("--release"):
 			RELEASE = arg
 		elif opt in ("--version"):
-			VERSION = np.array(arg.split(','), dtype=np.int)
+			VERSIONS = np.array(arg.split(','), dtype=np.int)
 		elif opt in ("--granule"):
 			GRANULES = np.array(arg.split(','), dtype=np.int)
 		elif opt in ("--track"):
@@ -357,7 +357,7 @@ def main():
 
 	#-- check internet connection before attempting to run program
 	if check_connection():
-		nsidc_icesat2_sync(DIRECTORY, arglist, RELEASE, VERSION, GRANULES,
+		nsidc_icesat2_sync(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
 			TRACKS, USER=USER, PASSWORD=PASSWORD, YEARS=YEARS,
 			SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, LOG=LOG,
 			LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)

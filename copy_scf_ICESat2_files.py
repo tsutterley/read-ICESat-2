@@ -86,8 +86,8 @@ def main():
 	base_dir = os.getcwd()
 	#-- ICESat-2 parameters
 	PRODUCT = 'ATL06'
-	RELEASE = '203'
-	VERSION = '01'
+	RELEASE = '001'
+	VERSIONS = [1,2]
 	CYCLES = np.arange(1,3)
 	GRANULES = None
 	TRACKS = None
@@ -113,7 +113,7 @@ def main():
 		elif opt in ("--release"):
 			RELEASE = arg
 		elif opt in ("--version"):
-			VERSION = arg
+			VERSIONS = np.array(arg.split(','), dtype=np.int)
 		elif opt in ("--granule"):
 			GRANULES = np.array(arg.split(','), dtype=np.int)
 		elif opt in ("--cycle"):
@@ -164,7 +164,7 @@ def main():
 
 	#-- run program
 	copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
-		PRODUCT, RELEASE, VERSION, GRANULES, CYCLES, TRACKS, CLOBBER=CLOBBER,
+		PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=CLOBBER,
 		VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
 
 	#-- close the secure FTP server
@@ -174,7 +174,7 @@ def main():
 
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
-	PRODUCT, RELEASE, VERSION, GRANULES, CYCLES, TRACKS, CLOBBER=False,
+	PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
 	VERBOSE=False, LIST=False, MODE=0o775):
 	#-- find ICESat-2 HDF5 files in the subdirectory for product and release
 	TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
@@ -183,8 +183,9 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
 	regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
 	regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
 	regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
+	regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
 	#-- compile regular expression operator for extracting data from files
-	args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,VERSION)
+	args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
 	rx = re.compile(('({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
 		'(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$'.format(*args)))
 	#-- find files within scf_outgoing

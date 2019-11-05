@@ -96,6 +96,10 @@ Read ICESat-2 ATL03 and ATL09 data files
 Read ICESat-2 ATL06 data files  
 - ATL06 datasets: Land Ice Elevation   
 
+### read\_ICESat2\_ATL07.py
+Read ICESat-2 ATL07 data files  
+- ATL07 datasets: Sea Ice Height   
+
 #### Dependencies
  - [numpy: Scientific Computing Tools For Python](http://www.numpy.org)  
  - [scipy: Scientific Tools for Python](http://www.scipy.org)  

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (07/2019)
+Written by Tyler Sutterley (09/2019)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -55,7 +55,8 @@ PYTHON DEPENDENCIES:
 		https://github.com/lxml/lxml
 
 UPDATE HISTORY:
-	Updated 07/2019: added options to sync specific granules and tracks
+	Updated 09/2019: added ssl context to urlopen headers
+	Updated 07/2019: added options to sync specific granules, tracks and version
 	Updated 06/2019: use strptime to extract last modified time of remote files
 	Written 01/2019
 """
@@ -64,6 +65,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import ssl
 import getopt
 import shutil
 import base64
@@ -84,7 +86,8 @@ else:
 def check_connection():
 	#-- attempt to connect to https host for NSIDC
 	try:
-		urllib2.urlopen('https://n5eil01u.ecs.nsidc.org/',timeout=20)
+		HOST = 'https://n5eil01u.ecs.nsidc.org'
+		urllib2.urlopen(HOST,timeout=20,context=ssl.SSLContext())
 	except urllib2.URLError:
 		raise RuntimeError('Check internet connection')
 	else:
@@ -94,17 +97,17 @@ def check_connection():
 def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
 	USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
 	LOG=False, LIST=False, MODE=None, CLOBBER=False):
+
 	#-- check if directory exists and recursively create if not
 	os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
 
 	#-- output of synchronized files
 	if LOG:
-		#-- output to log file
 		#-- format: NSIDC_IceBridge_sync_2002-04-01.log
 		today = time.strftime('%Y-%m-%d',time.localtime())
 		LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
 		fid = open(os.path.join(ddir,LOGFILE),'w')
-		print('IceBridge Data Sync Log ({0})'.format(today), file=fid)
+		print('ICESat-2 Data Sync Log ({0})'.format(today), file=fid)
 	else:
 		#-- standard output (terminal output)
 		fid = sys.stdout
@@ -126,8 +129,7 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
 	#-- create "opener" (OpenerDirector instance)
 	opener = urllib2.build_opener(
 		urllib2.HTTPBasicAuthHandler(password_mgr),
-	    #urllib2.HTTPHandler(debuglevel=1),  # Uncomment these two lines to see
-	    #urllib2.HTTPSHandler(debuglevel=1), # details of the requests/responses
+		urllib2.HTTPSHandler(context=ssl.SSLContext()),
 		urllib2.HTTPCookieProcessor(cookie_jar))
 	#-- add Authorization header to opener
 	authorization_header = "Basic {0}".format(base64_string.decode())
@@ -277,11 +279,12 @@ def main():
 
 	#-- command line parameters
 	USER = ''
+	#-- Working data directory
 	DIRECTORY = os.getcwd()
 	YEARS = None
 	SUBDIRECTORY = None
-	VERSIONS = [1,2]
-	RELEASE = '001'
+	VERSIONS = np.arange(1,10)
+	RELEASE = '002'
 	GRANULES = np.arange(1,15)
 	TRACKS = np.arange(1,1388)
 	AUXILIARY = False

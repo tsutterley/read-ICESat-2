@@ -100,6 +100,10 @@ Read ICESat-2 ATL06 data files
 Read ICESat-2 ATL07 data files  
 - ATL07 datasets: Sea Ice Height   
 
+### read\_ICESat2\_ATL12.py
+Read ICESat-2 ATL12 data files  
+- ATL12 datasets: Ocean Surface Height   
+
 #### Dependencies
  - [numpy: Scientific Computing Tools For Python](http://www.numpy.org)  
  - [scipy: Scientific Tools for Python](http://www.scipy.org)  

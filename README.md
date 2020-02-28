@@ -1,5 +1,7 @@
 read-icesat-2
 =============
+[![Language](https://img.shields.io/badge/python-v3.7-green.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/tsutterley/read-ICESat-2/blob/master/LICENSE)
 
 Python tools to read elevation data from the NASA ICESat-2 mission  
 https://icesat-2.gsfc.nasa.gov  

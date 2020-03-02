@@ -73,6 +73,7 @@ Thumbs.db
 *.mtc0
 *.sw*
 *.hidden
+None*.png
 
 # Jupyter Checkpoints #
 #######################

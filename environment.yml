@@ -1,0 +1,15 @@
+name: example-environment
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.6
+  - notebook
+  - numpy
+  - scipy
+  - matplotlib
+  - cartopy
+  - h5py
+  - future
+  - lxml
+  - paramiko
+  - scp

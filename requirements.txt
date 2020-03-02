@@ -1,0 +1,9 @@
+numpy
+scipy
+h5py
+matplotlib
+cartopy
+future
+lxml
+paramiko
+scp

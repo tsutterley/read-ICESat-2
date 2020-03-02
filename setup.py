@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name='read-ICESat-2',
-    version='1.0.0.6',
+    version='1.0.0.7',
     description='Tools for reading and using data from the NASA ICESat-2 mission',
     url='https://github.com/tsutterley/read-ICESat-2',
     author='Tyler Sutterley',
@@ -17,5 +17,5 @@ setup(
     ],
     keywords='ICESat-2 laser altimetry, ATLAS',
     packages=find_packages(),
-    install_requires=['numpy','scipy','h5py','future','lxml','paramiko','scp'],
+    install_requires=['numpy','scipy','h5py','matplotlib','cartopy','future','lxml','paramiko','scp'],
 )

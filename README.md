@@ -91,6 +91,18 @@ python copy_scf_ICESat2_files.py --scf_host=<host> --scf_user=<username> \
 `-M X`, `--mode=X`: permission mode of directories and files synced  
 `-L`, `--list`: only list files to be transferred  
 
+### nsidc\_icesat2\_associated.py
+Downloads an ICESat-2 product associated with an input file of a different product.  
+
+```bash
+python nsidc_icesat2_associated.py --user=<username> --directory=<outgoing> \
+	--product=ATL03 --mode=0o775 ATL06_files
+```
+`-U X`, `--user=X`: username for NASA Earthdata Login  
+`-D X`, `--directory`: local working directory for receiving data  
+`--product=X`: ICESat-2 data product to download  
+`--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
+`-M X`, `--mode=X`: Local permissions mode of the directories and files synced  
 
 ### read\_ICESat2\_ATL03.py
 Read ICESat-2 ATL03 and ATL09 data files  

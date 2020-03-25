@@ -24,8 +24,8 @@ COMMAND LINE OPTIONS:
     --granule=X: ICESat-2 granule regions to copy
     --cycle=X: ICESat-2 cycle to copy
     --track=X: ICESat-2 tracks to copy
-     --scf_incoming=X: directory on the SCF where the rscf sends PANS
-     --scf_outgoing=X: directory on the SCF where the data resides
+    --scf_incoming=X: directory on the SCF where the rscf sends PANS
+    --scf_outgoing=X: directory on the SCF where the data resides
     -C, --clobber: overwrite existing data in transfer
     -V, --verbose: output information about each synced file
     -M X, --mode=X: permission mode of directories and files synced

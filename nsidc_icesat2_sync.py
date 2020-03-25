@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (09/2019)
+Written by Tyler Sutterley (03/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -41,6 +41,7 @@ COMMAND LINE OPTIONS:
     --track=X: ICESat-2 reference ground tracks to sync
     --granule=X: ICESat-2 granule regions to sync
     --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
+    -F, --flatten: Do not create subdirectories
     -M X, --mode=X: Local permissions mode of the directories and files synced
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
@@ -55,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 03/2020: added option flatten to not create subdirectories
     Updated 09/2019: added ssl context to urlopen headers
     Updated 07/2019: added options to sync specific granules, tracks and version
     Updated 06/2019: use strptime to extract last modified time of remote files
@@ -96,7 +98,7 @@ def check_connection():
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
-    LOG=False, LIST=False, MODE=None, CLOBBER=False):
+    FLATTEN=False, LOG=False, LIST=False, MODE=None, CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
@@ -166,8 +168,6 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     #-- for each icesat2 product listed
     for p in PRODUCTS:
         print('PRODUCT={0}'.format(p), file=fid)
-        #-- input directory for product
-        DIRECTORY = os.path.join(ddir,'{0}.{1}'.format(p,RELEASE))
         #-- get directories from remote directory (* splat operator)
         remote_directories = ['ATLAS','{0}.{1}'.format(p,RELEASE)]
         d = posixpath.join(HOST,*remote_directories)
@@ -181,8 +181,12 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         remote_sub = [sd for sd in colnames if R2.match(sd)]
         #-- for each remote subdirectory
         for sd in remote_sub:
+            #-- local directory for product and subdirectory
+            if FLATTEN:
+                local_dir = os.path.expanduser(ddir)
+            else:
+                local_dir = os.path.join(ddir,'{0}.{1}'.format(p,RELEASE),sd)
             #-- check if data directory exists and recursively create if not
-            local_dir = os.path.join(DIRECTORY,sd)
             os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
             #-- find ICESat-2 data files
             req=urllib2.Request(url=posixpath.join(d,sd))
@@ -261,6 +265,7 @@ def usage():
     print(' --granule=X\t\tICESat-2 granule regions to sync')
     print(' --track=X\t\tICESat-2 reference ground tracks to sync')
     print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
+    print(' -F, --flatten\t\tDo not create subdirectories')
     print(' -M X, --mode=X\t\tPermission mode of directories and files synced')
     print(' -L, --list\t\tOnly print files that are to be transferred')
     print(' -C, --clobber\t\tOverwrite existing data in transfer')
@@ -273,9 +278,9 @@ def usage():
 def main():
     #-- Read the system arguments listed after the program
     long_options=['help','user=','directory=','year=','subdirectory=',
-        'release=','version=','granule=','track=','auxiliary','list','log',
-        'mode=','clobber']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:D:Y:S:LCM:l',long_options)
+        'release=','version=','granule=','track=','auxiliary','flatten',
+        'list','log','mode=','clobber']
+    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:D:Y:S:FLCM:l',long_options)
 
     #-- command line parameters
     USER = ''
@@ -288,6 +293,7 @@ def main():
     GRANULES = np.arange(1,15)
     TRACKS = np.arange(1,1388)
     AUXILIARY = False
+    FLATTEN = False
     LIST = False
     LOG = False
     #-- permissions mode of the local directories and files (number in octal)
@@ -305,18 +311,20 @@ def main():
             USER = arg
         elif opt in ("-D","--directory"):
             DIRECTORY = os.path.expanduser(arg)
-        elif opt in ("--product"):
+        elif opt in ("--product",):
             PRODUCT = arg
-        elif opt in ("--release"):
+        elif opt in ("--release",):
             RELEASE = arg
-        elif opt in ("--version"):
+        elif opt in ("--version",):
             VERSIONS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--granule"):
+        elif opt in ("--granule",):
             GRANULES = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--track"):
+        elif opt in ("--track",):
             TRACKS = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--auxiliary"):
+        elif opt in ("--auxiliary",):
             AUXILIARY = True
+        elif opt in ("-F","--flatten"):
+            FLATTEN = True
         elif opt in ("-L","--list"):
             LIST = True
         elif opt in ("-l","--log"):
@@ -362,8 +370,8 @@ def main():
     if check_connection():
         nsidc_icesat2_sync(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
             TRACKS, USER=USER, PASSWORD=PASSWORD, YEARS=YEARS,
-            SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, LOG=LOG,
-            LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
+            SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, FLATTEN=FLATTEN,
+            LOG=LOG, LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
 
 #-- run main program
 if __name__ == '__main__':

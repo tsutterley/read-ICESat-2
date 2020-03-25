@@ -18,8 +18,8 @@ COMMAND LINE OPTIONS:
     --granule=X: ICESat-2 granule regions to create symbolic links
     --cycle=X: ICESat-2 cycle to create symbolic links
     --track=X: ICESat-2 tracks to create symbolic links
-     --scf_incoming=X: directory on the SCF where the rscf sends PANS
-     --scf_outgoing=X: directory on the SCF where the data resides
+    --scf_incoming=X: directory on the SCF where the rscf sends PANS
+    --scf_outgoing=X: directory on the SCF where the data resides
     -V, --verbose: output information about each symbolic link
     -M X, --mode=X: permission mode of directories
 

@@ -3,6 +3,7 @@ read-icesat-2
 
 [![Language](https://img.shields.io/badge/python-v3.7-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/tsutterley/read-ICESat-2/blob/master/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/read-icesat-2/badge/?version=latest)](https://read-icesat-2.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/master)
 [![Binder](https://binder.pangeo.io/badge.svg)](https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/master)
 
@@ -41,85 +42,6 @@ https://nsidc.org/data/icesat-2/
 Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundaries limit the size of each ATL03 file and simplify the formation of higher level data products.  
 ![ICESat-2-global-granules](./data/ICESat-2_granules_global.png)  
 ![ICESat-2-polar-granules](./data/ICESat-2_granules_polar.png)  
-
-### nsidc\_icesat2\_sync.py
-
--   Syncs all available ICESat-2 data for a specified data product, release, granule and track.  
--   The first time we run the script, it will copy the necessary dataset in the selected local directory.  
--   If we already have all the data, and we run the script again: only files added or modified on the remote server will downloaded.  
-
-```bash
-python nsidc_icesat2_sync.py --user=<username> --directory=<outgoing> \
-	--release=001 --granule=10,11,12 --mode=0o775 ATL06
-```
-`-U X`, `--user=X`: username for NASA Earthdata Login  
-`-D X`, `--directory`: local working directory for receiving data  
-`--release=X`: ICESat-2 data release to sync  
-`--version=X`: ICESat-2 data version to sync  
-`--track=X`: ICESat-2 reference ground tracks to sync  
-`--granule=X`: ICESat-2 granule regions to sync  
-`--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
-`-M X`, `--mode=X`: Local permissions mode of the directories and files synced  
-`--log`: output log of files downloaded  
-`--list`: print files to be transferred, but do not execute transfer  
-`-C`, `--clobber`: Overwrite existing data in transfer  
-
-Also look into using the NSIDC subsetting API  
-https://github.com/tsutterley/nsidc-subsetter  
-
-### copy\_scf\_ICESat2\_files.py
-Copies ICESat-2 HDF5 files from the SCF server  
-```bash
-python copy_scf_ICESat2_files.py --scf_host=<host> --scf_user=<username> \
-	--product=ATL06 --release=001 --granule=10,11,12 --cycle=1,2 \
-	--scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
-```
-`-h`, `--help`: list the command line options  
-`--scf_host=X`: hostname of the SCF server  
-`--scf_user=X`: SCF server username  
-`-D X`, `--directory=X`: local working directory for receiving data  
-`--product=X`: ICESat-2 data product to copy  
-`--release=X`: ICESat-2 data release to copy  
-`--version=X`: ICESat-2 data version to copy  
-`--granule=X`: ICESat-2 granule regions to copy  
-`--cycle=X`: ICESat-2 cycle to copy  
-`--track=X`: ICESat-2 tracks to copy  
-`--scf_incoming=X`: directory on the SCF where the rscf sends PANS  
-`--scf_outgoing=X`: directory on the SCF where the data resides  
-`-C`, `--clobber`: overwrite existing data in transfer  
-`-V`, `--verbose`: output information about each synced file  
-`-M X`, `--mode=X`: permission mode of directories and files synced  
-`-L`, `--list`: only list files to be transferred  
-
-### nsidc\_icesat2\_associated.py
-Downloads an ICESat-2 product associated with an input file of a different product.  
-
-```bash
-python nsidc_icesat2_associated.py --user=<username> --directory=<outgoing> \
-	--product=ATL03 --mode=0o775 ATL06_files
-```
-`-U X`, `--user=X`: username for NASA Earthdata Login  
-`-D X`, `--directory`: local working directory for receiving data  
-`--product=X`: ICESat-2 data product to download  
-`--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
-`-M X`, `--mode=X`: Local permissions mode of the directories and files synced  
-
-### read\_ICESat2\_ATL03.py
-Read ICESat-2 ATL03 and ATL09 data files  
-- ATL03 datasets: Global Geolocated Photons  
-- ATL09 datasets: Atmospheric Characteristics
-
-### read\_ICESat2\_ATL06.py
-Read ICESat-2 ATL06 data files  
-- ATL06 datasets: Land Ice Elevation   
-
-### read\_ICESat2\_ATL07.py
-Read ICESat-2 ATL07 data files  
-- ATL07 datasets: Sea Ice Height   
-
-### read\_ICESat2\_ATL12.py
-Read ICESat-2 ATL12 data files  
-- ATL12 datasets: Ocean Surface Height   
 
 #### Dependencies
  - [numpy: Scientific Computing Tools For Python](http://www.numpy.org)  

@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name='read-ICESat-2',
-    version='1.0.0.8',
+    version='1.0.0.9',
     description='Tools for reading and using data from the NASA ICESat-2 mission',
     url='https://github.com/tsutterley/read-ICESat-2',
     author='Tyler Sutterley',

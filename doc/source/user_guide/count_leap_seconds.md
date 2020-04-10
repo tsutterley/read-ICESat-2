@@ -9,6 +9,7 @@ count_leap_seconds.py
 from icesat2_toolkit.count_leap_seconds import count_leap_seconds
 n_leaps = count_leap_seconds(GPS_Time)
 ```
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/count_leap_seconds.py)  
 
 #### Inputs
  1. `GPS_Time`: seconds since January 6, 1980 at 00:00:00

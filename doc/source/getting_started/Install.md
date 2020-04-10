@@ -1,5 +1,5 @@
-Install
-=======
+Installation
+============
 
 Presently read-ICESat-2 is only available for use as a [github repository](https://github.com/tsutterley/read-ICESat-2).
 The contents of the repository can be download as a [zipped file](https://github.com/tsutterley/read-ICESat-2/archive/master.zip)  or cloned.

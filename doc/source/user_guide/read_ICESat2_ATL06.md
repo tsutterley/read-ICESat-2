@@ -8,6 +8,7 @@ read_ICESat2_ATL06.py
 from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
 IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = read_HDF5_ATL06(FILENAME)
 ```
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/read_ICESat2_ATL06.py)  
 
 #### Inputs
  1. `FILENAME`: full path to ATL06 file

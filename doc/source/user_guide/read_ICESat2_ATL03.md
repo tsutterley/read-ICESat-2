@@ -8,6 +8,7 @@ read_ICESat2_ATL03.py
 from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03
 IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams = read_HDF5_ATL03(FILENAME)
 ```
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/read_ICESat2_ATL03.py)  
 
 #### Inputs
  1. `FILENAME`: full path to ATL03 file

@@ -3,8 +3,10 @@ Citation Information
 
 #### References
 This software is developed with the goal of supporting science applications for
-the NASA ICESat-2 mission.  This work is developed in conjunction with other
-ICESat-2 projects.
+the NASA ICESat-2 mission. This work was supported by an appointment to
+the NASA Postdoctoral Program at NASA Goddard Space Flight Center, administered
+by Universities Space Research Association under contract with NASA. This work
+is developed in conjunction with other ICESat-2 projects.
 
 #### Dependencies
 This software is also dependent on other commonly used Python packages:

@@ -8,6 +8,7 @@ read_ICESat2_ATL07.py
 from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07
 IS2_atl07_mds,IS2_atl07_attrs,IS2_atl07_beams = read_HDF5_ATL07(FILENAME)
 ```
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/read_ICESat2_ATL07.py)  
 
 #### Inputs
  1. `FILENAME`: full path to ATL07 file

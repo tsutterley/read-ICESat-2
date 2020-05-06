@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (03/2020)
+Written by Tyler Sutterley (05/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -33,6 +33,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user=X: username for NASA Earthdata Login
+    -N X, --netrc=X: path to .netrc file for alternative authentication
     -D X, --directory: working data directory
     -Y X, --year=X: years to sync separated by commas
     -S X, --subdirectory=X: subdirectories to sync separated by commas
@@ -56,6 +57,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 05/2020: added option netrc to use alternative authentication
     Updated 03/2020: added option flatten to not create subdirectories
     Updated 09/2019: added ssl context to urlopen headers
     Updated 07/2019: added options to sync specific granules, tracks and version
@@ -68,6 +70,7 @@ import sys
 import os
 import re
 import ssl
+import netrc
 import getopt
 import shutil
 import base64
@@ -257,6 +260,7 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
 def usage():
     print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
     print(' -U X, --user=X\t\tUsername for NASA Earthdata Login')
+    print(' -N X, --netrc=X\t\tPath to .netrc file for authentication')
     print(' -D X, --directory=X\tWorking data directory')
     print(' -Y X, --year=X\t\tYears to sync separated by commas')
     print(' -S X, --subdirectory=X\tSubdirectories to sync separated by commas')
@@ -277,13 +281,14 @@ def usage():
 #-- Main program that calls nsidc_icesat2_sync()
 def main():
     #-- Read the system arguments listed after the program
-    long_options=['help','user=','directory=','year=','subdirectory=',
+    long_options=['help','user=','netrc=','directory=','year=','subdirectory=',
         'release=','version=','granule=','track=','auxiliary','flatten',
         'list','log','mode=','clobber']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:D:Y:S:FLCM:l',long_options)
+    optlist,arglist=getopt.getopt(sys.argv[1:],'hU:N:D:Y:S:FLCM:l',long_options)
 
     #-- command line parameters
     USER = ''
+    NETRC = None
     #-- Working data directory
     DIRECTORY = os.getcwd()
     YEARS = None
@@ -309,12 +314,14 @@ def main():
             SUBDIRECTORY = arg.split(',')
         elif opt in ("-U","--user"):
             USER = arg
+        elif opt in ("-N","--netrc"):
+            NETRC = os.path.expanduser(arg)
         elif opt in ("-D","--directory"):
             DIRECTORY = os.path.expanduser(arg)
         elif opt in ("--product",):
             PRODUCT = arg
         elif opt in ("--release",):
-            RELEASE = arg
+            RELEASE = '{0:03d}'.format(int(arg))
         elif opt in ("--version",):
             VERSIONS = np.array(arg.split(','), dtype=np.int)
         elif opt in ("--granule",):
@@ -360,11 +367,17 @@ def main():
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
-    #-- check that NASA Earthdata credentials were entered
-    if not USER:
+    #-- get authentication
+    if not USER and not NETRC:
+        #-- check that NASA Earthdata credentials were entered
         USER = builtins.input('Username for {0}: '.format(HOST))
-    #-- enter password securely from command-line
-    PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        #-- enter password securely from command-line
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+    elif NETRC:
+        USER,LOGIN,PASSWORD = netrc.netrc(NETRC).authenticators(HOST)
+    else:
+        #-- enter password securely from command-line
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
     #-- check internet connection before attempting to run program
     if check_connection():

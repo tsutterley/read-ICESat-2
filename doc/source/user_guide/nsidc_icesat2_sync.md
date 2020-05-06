@@ -14,6 +14,7 @@ python nsidc_icesat2_sync.py --user=<username> --directory=<outgoing> \
 
 #### Command Line Options
  - `-U X`, `--user=X`: username for NASA Earthdata Login  
+ - `-N X`, `--netrc=X`: path to .netrc file for alternative authentication  
  - `-D X`, `--directory`: local working directory for receiving data  
  - `--release=X`: ICESat-2 data release to sync  
  - `--version=X`: ICESat-2 data version to sync  
@@ -26,5 +27,4 @@ python nsidc_icesat2_sync.py --user=<username> --directory=<outgoing> \
  - `--list`: print files to be transferred, but do not execute transfer  
  - `-C`, `--clobber`: Overwrite existing data in transfer  
 
-Also look into using the NSIDC subsetting API  
-https://github.com/tsutterley/nsidc-subsetter  
+Also look into using the [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter)  

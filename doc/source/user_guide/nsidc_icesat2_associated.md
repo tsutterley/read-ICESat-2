@@ -12,6 +12,7 @@ python nsidc_icesat2_associated.py --user=<username> --directory=<outgoing> \
 
 #### Command Line Options
  - `-U X`, `--user=X`: username for NASA Earthdata Login  
+ - `-N X`, `--netrc=X`: path to .netrc file for alternative authentication  
  - `-D X`, `--directory`: local working directory for receiving data  
  - `--product=X`: ICESat-2 data product to download  
  - `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  

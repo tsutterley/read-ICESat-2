@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (09/2019)
+Written by Tyler Sutterley (05/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server that is
     associated with an input file
@@ -25,6 +25,7 @@ CALLING SEQUENCE:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user=X: username for NASA Earthdata Login
+    -N X, --netrc=X: path to .netrc file for alternative authentication
     -D X, --directory: working data directory
     -P X, --product: associated product to download
         ATL03: Global Geolocated Photon Data
@@ -48,6 +49,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 05/2020: added option netrc to use alternative authentication
     Updated 09/2019: added ssl context to urlopen headers
     Written 08/2019
 """
@@ -57,6 +59,7 @@ import sys
 import os
 import re
 import ssl
+import netrc
 import getopt
 import shutil
 import base64
@@ -192,6 +195,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,MODE):
 def usage():
     print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
     print(' -U X, --user=X\t\tUsername for NASA Earthdata Login')
+    print(' -N X, --netrc=X\t\tPath to .netrc file for authentication')
     print(' -D X, --directory=X\tOutput data directory')
     print(' -P X, --product=X\tICESat-2 product to download')
     print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
@@ -200,11 +204,13 @@ def usage():
 #-- Main program that calls nsidc_icesat2_associated()
 def main():
     #-- Read the system arguments listed after the program
-    long_options=['help','user=','directory=','product=','auxiliary','mode=']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:D:P:AM:',long_options)
+    long_options=['help','user=','netrc=','directory=','product=','auxiliary',
+        'mode=']
+    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:N:D:P:AM:',long_options)
 
     #-- command line parameters
     USER = ''
+    NETRC = None
     DIRECTORY = None
     PRODUCT = None
     AUXILIARY = False
@@ -216,6 +222,8 @@ def main():
             sys.exit()
         elif opt in ("-U","--user"):
             USER = arg
+        elif opt in ("-N","--netrc"):
+            NETRC = os.path.expanduser(arg)
         elif opt in ("-D","--directory"):
             DIRECTORY = os.path.expanduser(arg)
         elif opt in ("--product"):
@@ -244,11 +252,17 @@ def main():
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
-    #-- check that NASA Earthdata credentials were entered
-    if not USER:
+    #-- get authentication
+    if not USER and not NETRC:
+        #-- check that NASA Earthdata credentials were entered
         USER = builtins.input('Username for {0}: '.format(HOST))
-    #-- enter password securely from command-line
-    PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        #-- enter password securely from command-line
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+    elif NETRC:
+        USER,LOGIN,PASSWORD = netrc.netrc(NETRC).authenticators(HOST)
+    else:
+        #-- enter password securely from command-line
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
     #-- check internet connection before attempting to run program
     if check_connection():

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_scf_ICESat2_files.py
-Written by Tyler Sutterley (07/2019)
+Written by Tyler Sutterley (05/2020)
 Copies ICESat-2 HDF5 files from the SCF server to a remote host
 
 CALLING SEQUENCE:
@@ -39,6 +39,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 07/2019: using Python3 compliant division.  regex for file versions
     Updated 05/2019: only create directories if not --list
     Written 05/2019
@@ -216,19 +217,20 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     #-- compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
-    rx = re.compile(('({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$'.format(*args)))
+    regex_pattern = ('(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
+    rx = re.compile(regex_pattern.format(*args),re.VERBOSE)
     #-- find files within scf_outgoing
     file_list = [f for f in scf_client_ftp.listdir(scf_outgoing) if rx.match(f)]
-    for fi in sorted(file_list):
+    for f in sorted(file_list):
         #-- extract parameters from file
-        PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(fi).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         #-- put data in directories similar to NSIDC
         #-- check if data directory exists and recursively create if not
         remote_path = posixpath.join(remote_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
         remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
         #-- pull file from scf to remote
-        scp_pull_file(client_ftp, scf_client_ftp, fi, remote_path, scf_outgoing,
+        scp_pull_file(client_ftp, scf_client_ftp, f, remote_path, scf_outgoing,
             CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
 
 #-- PURPOSE: recursively create directories on remote server

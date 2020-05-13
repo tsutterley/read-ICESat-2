@@ -5,10 +5,10 @@ Read ICESat-2 ATL12 (Ocean Surface Height) data files
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
-        http://www.numpy.org
-        http://www.scipy.org/NumPy_for_Matlab_Users
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
-        http://h5py.org
+        https://www.h5py.org/
 
 UPDATE HISTORY:
     Written 12/2019

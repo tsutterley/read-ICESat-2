@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (07/2019)
+Written by Tyler Sutterley (05/2020)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
         https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+    Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 07/2019: using python3 compliant division
     Updated 05/2019: changed host and user to scf_host and scf_user
     Updated 04/2019: added parameters for selecting the ICESat-2 product,
@@ -186,19 +187,20 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     #-- compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
-    rx = re.compile(('({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$'.format(*args)))
+    regex_pattern = ('(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
+    rx = re.compile(regex_pattern.format(*args),re.VERBOSE)
     #-- find files within scf_outgoing
     file_transfers = [f for f in client_ftp.listdir(scf_outgoing) if rx.match(f)]
-    for fi in file_transfers:
+    for f in file_transfers:
         #-- extract parameters from file
-        PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(fi).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         #-- local directory set by product
         #-- check if data directory exists and recursively create if not
         local_dir = os.path.join(base_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
         #-- pull file from remote to local
-        scp_pull_file(client, client_ftp, fi, local_dir, scf_outgoing,
+        scp_pull_file(client, client_ftp, f, local_dir, scf_outgoing,
             CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally

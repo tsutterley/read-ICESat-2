@@ -42,14 +42,15 @@ COMMAND LINE OPTIONS:
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
-        http://www.numpy.org
-        http://www.scipy.org/NumPy_for_Matlab_Users
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
     lxml: Pythonic XML and HTML processing library using libxml2/libxslt
-        http://lxml.de/
+        https://lxml.de/
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
     Updated 05/2020: added option netrc to use alternative authentication
+        adjust regular expression to allow syncing of ATL07 sea ice products
     Updated 09/2019: added ssl context to urlopen headers
     Written 08/2019
 """
@@ -122,12 +123,12 @@ def nsidc_icesat2_associated(file_list, PRODUCT, USER='', PASSWORD='',
     #-- remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
     #-- regular expression operator for extracting information from files
-    rx = re.compile('(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
-        '(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+    rx = re.compile('(processed_)?(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})'
+        '(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     #-- regular expression pattern for finding specific files
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
-    remote_regex_pattern = ('{0}_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}')
+    remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}')
 
     #-- for each input file
     for f in file_list:
@@ -142,13 +143,13 @@ def nsidc_icesat2_associated(file_list, PRODUCT, USER='', PASSWORD='',
             local_dir = os.path.expanduser(DIRECTORY)
 
         #-- extract parameters from ICESat-2 ATLAS HDF5 file name
-        SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX=rx.findall(f).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         #-- set subdirectories for full remote directory (* splat operator)
         sd=['ATLAS','{0}.{1}'.format(PRODUCT,RL),'{0}.{1}.{2}'.format(YY,MM,DD)]
         d = posixpath.join(HOST,*sd)
 
         #-- compile regular expression operator for file parameters
-        args = (PRODUCT,TRK,GRAN,RL,VERS,regex_suffix)
+        args = (PRODUCT,TRK,CYC,GRN,RL,VRS,regex_suffix)
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
 
         #-- find ICESat-2 data file

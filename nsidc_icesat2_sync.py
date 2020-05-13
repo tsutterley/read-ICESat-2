@@ -50,14 +50,15 @@ COMMAND LINE OPTIONS:
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
-        http://www.numpy.org
-        http://www.scipy.org/NumPy_for_Matlab_Users
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
     lxml: Pythonic XML and HTML processing library using libxml2/libxslt
-        http://lxml.de/
+        https://lxml.de/
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
     Updated 05/2020: added option netrc to use alternative authentication
+        adjust regular expression to allow syncing of ATL07 sea ice products
     Updated 03/2020: added option flatten to not create subdirectories
     Updated 09/2019: added ssl context to urlopen headers
     Updated 07/2019: added options to sync specific granules, tracks and version
@@ -153,8 +154,8 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
-    remote_regex_pattern = ('{0}_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}')
+    remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
+        '(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}')
 
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:
@@ -294,7 +295,7 @@ def main():
     YEARS = None
     SUBDIRECTORY = None
     VERSIONS = np.arange(1,10)
-    RELEASE = '002'
+    RELEASE = '003'
     GRANULES = np.arange(1,15)
     TRACKS = np.arange(1,1388)
     AUXILIARY = False

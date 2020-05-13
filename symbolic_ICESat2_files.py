@@ -24,6 +24,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode=X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Written 07/2019
 """
 from __future__ import print_function
@@ -115,24 +116,25 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     #-- compile regular expression operator for extracting data from files
-    arg = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
-    rx = re.compile(('(processed_)?({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$'.format(*arg)))
+    args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
+    regex_pattern = ('(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
+    rx = re.compile(regex_pattern.format(*args),re.VERBOSE)
     #-- find files within scf_outgoing
     file_transfers = [f for f in os.listdir(scf_outgoing) if rx.match(f)]
-    for fi in sorted(file_transfers):
+    for f in sorted(file_transfers):
         #-- extract parameters from file
-        SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX=rx.findall(fi).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         #-- put symlinks in directories similar to NSIDC
         #-- check if data directory exists and recursively create if not
         local_dir = os.path.join(base_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
         #-- print original and symbolic link of file
         if VERBOSE:
-            print('{0} -->'.format(os.path.join(scf_outgoing,fi)))
-            print('\t{0}'.format(os.path.join(local_dir,fi)))
+            print('{0} -->'.format(os.path.join(scf_outgoing,f)))
+            print('\t{0}'.format(os.path.join(local_dir,f)))
         #-- create symbolic link of file from scf_outgoing to local
-        os.symlink(os.path.join(scf_outgoing,fi), os.path.join(local_dir,fi))
+        os.symlink(os.path.join(scf_outgoing,f), os.path.join(local_dir,f))
 
 #-- run main program
 if __name__ == '__main__':

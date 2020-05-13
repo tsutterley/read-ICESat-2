@@ -44,8 +44,8 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
 ![ICESat-2-polar-granules](./data/ICESat-2_granules_polar.png)  
 
 #### Dependencies
- - [numpy: Scientific Computing Tools For Python](http://www.numpy.org)  
- - [scipy: Scientific Tools for Python](http://www.scipy.org)  
+ - [numpy: Scientific Computing Tools For Python](https://numpy.org)  
+ - [scipy: Scientific Tools for Python](https://docs.scipy.org/doc/)  
  - [h5py: Python interface for Hierarchal Data Format 5 (HDF5)](http://h5py.org)  
  - [lxml: processing XML and HTML in Python](https://pypi.python.org/pypi/lxml)  
  - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org/)  

@@ -51,6 +51,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
+        adjust regular expression for auxiliary products
     Updated 09/2019: added ssl context to urlopen headers
     Written 08/2019
 """
@@ -128,7 +129,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, USER='', PASSWORD='',
     #-- regular expression pattern for finding specific files
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
     remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}')
+        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}$')
 
     #-- for each input file
     for f in file_list:

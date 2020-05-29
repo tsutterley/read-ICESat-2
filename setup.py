@@ -1,8 +1,14 @@
 from setuptools import setup, find_packages
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
     name='read-ICESat-2',
     version='1.0.0.11',
     description='Tools for reading and using data from the NASA ICESat-2 mission',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url='https://github.com/tsutterley/read-ICESat-2',
     author='Tyler Sutterley',
     author_email='tsutterl@uw.edu',

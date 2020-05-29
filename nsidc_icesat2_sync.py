@@ -59,6 +59,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
+        adjust regular expression for auxiliary products
     Updated 03/2020: added option flatten to not create subdirectories
     Updated 09/2019: added ssl context to urlopen headers
     Updated 07/2019: added options to sync specific granules, tracks and version
@@ -155,7 +156,7 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
     remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}')
+        '(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
 
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:

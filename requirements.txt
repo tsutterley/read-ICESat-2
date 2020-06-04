@@ -1,6 +1,7 @@
 numpy
 scipy
 h5py
+scikit-learn
 matplotlib
 cartopy
 future

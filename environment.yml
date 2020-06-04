@@ -6,6 +6,7 @@ dependencies:
   - notebook
   - numpy
   - scipy
+  - scikit-learn
   - matplotlib
   - cartopy
   - h5py

@@ -320,8 +320,6 @@ def main():
             NETRC = os.path.expanduser(arg)
         elif opt in ("-D","--directory"):
             DIRECTORY = os.path.expanduser(arg)
-        elif opt in ("--product",):
-            PRODUCT = arg
         elif opt in ("--release",):
             RELEASE = '{0:03d}'.format(int(arg))
         elif opt in ("--version",):

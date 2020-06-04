@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='read-ICESat-2',
-    version='1.0.0.11',
+    version='1.0.0.12',
     description='Tools for reading and using data from the NASA ICESat-2 mission',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -23,5 +23,5 @@ setup(
     ],
     keywords='ICESat-2 laser altimetry, ATLAS',
     packages=find_packages(),
-    install_requires=['numpy','scipy','h5py','matplotlib','cartopy','future','lxml','paramiko','scp'],
+    install_requires=['numpy','scipy','h5py','scikit-learn','matplotlib','cartopy','future','lxml','paramiko','scp'],
 )

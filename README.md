@@ -47,6 +47,7 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
  - [numpy: Scientific Computing Tools For Python](https://numpy.org)  
  - [scipy: Scientific Tools for Python](https://docs.scipy.org/doc/)  
  - [h5py: Python interface for Hierarchal Data Format 5 (HDF5)](http://h5py.org)  
+ - [scikit-learn: Machine Learning in Python](https://scikit-learn.org/stable/index.html)  
  - [lxml: processing XML and HTML in Python](https://pypi.python.org/pypi/lxml)  
  - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org/)  
  - [scp: scp module for paramiko](https://github.com/jbardin/scp.py)  

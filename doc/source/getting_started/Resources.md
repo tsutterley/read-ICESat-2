@@ -13,3 +13,4 @@ Resources
  - [icesat2-viz](https://github.com/abarciauskas-bgse/icesat2-viz): Icesat-2 Visualization Sandbox
  - [pyTMD](https://github.com/tsutterley/pyTMD): Python-based tidal prediction software for ICESat-2 and Operation IceBridge
  - [ATL11](https://github.com/suzanne64/ATL11): Python code for producing the ICESat-2 Land-Ice Along-Track product (ATL11)
+ - [ICESat-2HackWeek](https://github.com/ICESAT-2HackWeek): University of Washington ICESat-2 Hack Week Repositories  

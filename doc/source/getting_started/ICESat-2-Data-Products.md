@@ -24,3 +24,8 @@ ICESat-2 Data Products
 | **ATL19** | Mean Sea Surface (MSS) | Gridded ocean height product.|
 | **ATL20** | Arctic / Antarctic Gridded Sea Ice Freeboard | Gridded sea ice freeboard.|
 | **ATL21** | Arctic/Antarctic Gridded Sea Surface Height w/in Sea Ice | Gridded monthly sea surface height inside the sea ice cover.|
+
+### ICESat-2 Granules
+Each orbit of ICESat-2 data is broken up into 14 granule regions.  The granule boundaries limit the size of each ATL03 file and simplify the formation of higher level data products.  
+![ICESat-2-global-granules](https://raw.githubusercontent.com/tsutterley/read-ICESat-2/master/data/ICESat-2_granules_global.png)  
+![ICESat-2-polar-granules](https://raw.githubusercontent.com/tsutterley/read-ICESat-2/master/data/ICESat-2_granules_polar.png)  

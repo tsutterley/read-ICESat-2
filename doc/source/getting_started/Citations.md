@@ -17,3 +17,4 @@ This software is also dependent on other commonly used Python packages:
 - [lxml: processing XML and HTML in Python](https://pypi.python.org/pypi/lxml)  
 - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org)  
 - [scp: scp module for paramiko](https://github.com/jbardin/scp.py)  
+- [mpi4py: Python bindings of the Message Passing Interface (MPI)](https://mpi4py.readthedocs.io/en/stable/)  

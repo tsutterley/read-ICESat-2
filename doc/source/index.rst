@@ -11,6 +11,7 @@ Python tools to read and use data from the NASA ICESat-2 mission
     getting_started/Getting-Started.md
     getting_started/NASA-Earthdata.md
     getting_started/ICESat-2-Data-Products.md
+    getting_started/Parallel-HDF5.md
     getting_started/Resources.md
     getting_started/Citations.md
 

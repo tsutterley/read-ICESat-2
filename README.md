@@ -52,6 +52,7 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
  - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org/)  
  - [scp: scp module for paramiko](https://github.com/jbardin/scp.py)  
  - [future: Compatibility layer between Python 2 and Python 3](http://python-future.org/)  
+ - [mpi4py: Python bindings of the Message Passing Interface (MPI)](https://mpi4py.readthedocs.io/en/stable/)  
 
 #### Download
 The program homepage is:   
@@ -61,3 +62,6 @@ https://github.com/tsutterley/read-icesat-2/archive/master.zip
 
 #### Disclaimer  
 This program is not sponsored or maintained by the Universities Space Research Association (USRA) or NASA.  It is provided here for your convenience but _with no guarantees whatsoever_.  
+
+#### License
+The content of this project is licensed under the [Creative Commons Attribution 4.0 Attribution license](https://creativecommons.org/licenses/by/4.0/) and the underlying source code is licensed under the [MIT license](LICENSE).  

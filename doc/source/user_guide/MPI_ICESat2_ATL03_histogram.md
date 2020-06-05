@@ -14,7 +14,7 @@ mpiexec -np <processes> python3 MPI_ICESat2_ATL03_histogram.py <path_to_ATL03_fi
 
 #### Inputs
 1. `ATL03_file`: full path to ATL03 file  
-1. `ATL09_file`: full path to ATL09 file  
+2. `ATL09_file`: full path to ATL09 file  
 
 #### Command Line Options
 - `-V`, `--verbose`: output module information for process  

@@ -256,6 +256,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
         RMSE = np.sqrt(fit['MSE'])
         #-- Normalized root mean square error
         NRMSE = RMSE/(zmax-zmin)
+        #-- histogram fit
+        model = np.copy(fit['model'])
         #-- histogram fit residuals
         resid = np.copy(fit['residuals'])
         #-- cumulative probability distribution function of initial histogram
@@ -376,6 +378,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
             RMSE = np.sqrt(fit['MSE'])
             #-- Normalized root mean square error
             NRMSE = RMSE/(zmax-zmin)
+            #-- histogram fit
+            model = np.copy(fit['model'])
             #-- histogram fit residuals
             resid = np.copy(fit['residuals'])
             #-- cumulative probability distribution function of initial histogram
@@ -411,8 +415,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
         #-- return values
         return {'height':height, 'error':height_errors, 'amplitude':amplitude,
             'MSE':MSE, 'NRMSE':NRMSE, 'residuals':resid, 'time': t_full,
-            'DOF':DOF, 'count':n_max, 'indices':indices, 'iterations':n_iter,
-            'window':window, 'RDE':RDE}
+            'model':model, 'DOF':DOF, 'count':n_max, 'indices':indices,
+            'iterations':n_iter, 'window':window, 'RDE':RDE}
     else:
         raise ValueError('No valid fit found')
 

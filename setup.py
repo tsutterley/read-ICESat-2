@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setup(
     name='read-ICESat-2',
     version='1.0.0.13',
-    description='Tools for reading and using data from the NASA ICESat-2 mission',
+    description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/tsutterley/read-ICESat-2',

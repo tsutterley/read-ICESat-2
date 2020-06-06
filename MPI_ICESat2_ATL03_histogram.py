@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (10/2019)
+MPI_ICESat2_ATL03_histogram.py (05/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -67,6 +67,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 05/2020: add mean median difference of histogram fit residuals
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
     Updated 04/2019: updated backup algorithm for when the histogram fit fails
@@ -176,8 +177,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
 
     #-- find positive peaks above amplitude threshold (percent of max)
     #-- by calculating the histogram differentials
-    #-- signal amplitude threshold greater than 30% of max
-    AmpThreshold = 0.30
+    #-- signal amplitude threshold greater than 20% of max
+    AmpThreshold = 0.20
     HistThreshold = AmpThreshold*np.max(hist_smooth)
     n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
         ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
@@ -274,7 +275,7 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
         #-- run only if number of points is above number of terms
         n_rem = np.count_nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
         nz = (np.max(z[filt])-np.min(z[filt]))//dz + 1
-        FLAG1 = ((nz - n_terms) > 10)
+        FLAG1 = ((nz - n_terms) > 10) & ((n_rem - n_terms) > 10)
         #-- maximum number of iterations to prevent infinite loops
         FLAG2 = (n_iter <= ITERATE)
         #-- compare indices over two iterations to prevent false stoppages
@@ -307,7 +308,7 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
             dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
             #-- find positive peaks above amplitude threshold (percent of max)
             #-- by calculating the histogram differentials
-            #-- signal amplitude threshold greater than 30% of max
+            #-- signal amplitude threshold greater than 20% of max
             HistThreshold = AmpThreshold*np.max(hist_smooth)
             n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
                 ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
@@ -400,7 +401,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
             window_p1 = np.copy(window)
             #-- run only if number of points is above number of terms
             n_rem = np.count_nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
-            FLAG1 = ((n_rem - n_terms) > 10)
+            nz = (np.max(z[filt])-np.min(z[filt]))//dz + 1
+            FLAG1 = ((nz - n_terms) > 10) & ((n_rem - n_terms) > 10)
             #-- maximum number of iterations to prevent infinite loops
             FLAG2 = (n_iter <= ITERATE)
             #-- compare indices over two iterations to prevent false stoppages
@@ -817,6 +819,7 @@ def main():
     Segment_Maximum_Error = {}
     Segment_dH_along_Error = {}
     Segment_dH_across_Error = {}
+    Segment_Mean_Median = {}
     Segment_X_atc = {}
     Segment_X_spread = {}
     Segment_Y_atc = {}
@@ -948,6 +951,9 @@ def main():
         #-- segment fit along-track slope errors
         Distributed_dH_along_Error = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_dH_along_Error.mask = np.ones((n_seg),dtype=np.bool)
+        #-- difference between the mean and median of the residuals from fit height
+        Distributed_Mean_Median = np.ma.zeros((n_seg),fill_value=fill_value)
+        Distributed_Mean_Median.mask = np.ones((n_seg),dtype=np.bool)
         #-- along-track X coordinates of segment fit
         Distributed_X_atc = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_X_atc.mask = np.ones((n_seg),dtype=np.bool)
@@ -1129,6 +1135,13 @@ def main():
                         Distributed_Source.mask[j] = False
                         Distributed_Pulses.data[j] = np.copy(n_pulses)
                         Distributed_Pulses.mask[j] = False
+                        #-- calculate difference between the mean and the median from the fit
+                        z_full = -c*fit['time']/2.0
+                        residual_mean = np.sum(z_full*fit['residuals'])/np.sum(fit['residuals'])
+                        residual_cpdf = np.cumsum(fit['residuals']/np.sum(fit['residuals']))
+                        residual_median = np.interp(0.5,residual_cpdf,z_full)
+                        Distributed_Mean_Median.data[j] = residual_mean - residual_median
+                        Distributed_Mean_Median.mask[j] = False
                         #-- estimate first photon bias corrections
                         #-- step-size for histograms (50 ps ~ 7.5mm height)
                         FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
@@ -1280,6 +1293,13 @@ def main():
                         Distributed_Source.mask[j] = False
                         Distributed_Pulses.data[j] = np.copy(n_pulses)
                         Distributed_Pulses.mask[j] = False
+                        #-- calculate difference between the mean and the median from the fit
+                        z_full = -c*fit['time']/2.0
+                        residual_mean = np.sum(z_full*fit['residuals'])/np.sum(fit['residuals'])
+                        residual_cpdf = np.cumsum(fit['residuals']/np.sum(fit['residuals']))
+                        residual_median = np.interp(0.5,residual_cpdf,z_full)
+                        Distributed_Mean_Median.data[j] = residual_mean - residual_median
+                        Distributed_Mean_Median.mask[j] = False
                         #-- estimate first photon bias corrections
                         #-- step-size for histograms (50 ps ~ 7.5mm height)
                         FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
@@ -1419,6 +1439,14 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_Maximum_Error.mask, MPI.BOOL], \
             recvbuf=[Segment_Maximum_Error[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Maximum_Error = None
+        #-- difference between the mean and median of the residuals from fit height
+        Segment_Mean_Median[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
+        Segment_Mean_Median[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        comm.Allreduce(sendbuf=[Distributed_Mean_Median.data, MPI.DOUBLE], \
+            recvbuf=[Segment_Mean_Median[gtx].data, MPI.DOUBLE], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Mean_Median.mask, MPI.BOOL], \
+            recvbuf=[Segment_Mean_Median[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Mean_Median = None
         #-- along-track X coordinates of segment fit
         Segment_X_atc[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
         Segment_X_atc[gtx].mask = np.ones((n_seg),dtype=np.bool)
@@ -1716,6 +1744,7 @@ def main():
         Segment_Land_Ice_Error[gtx].data[Segment_Land_Ice_Error[gtx].mask] = Segment_Land_Ice_Error[gtx].fill_value
         Segment_dH_along_Error[gtx].data[Segment_dH_along_Error[gtx].mask] = Segment_dH_along_Error[gtx].fill_value
         Segment_dH_across_Error[gtx].data[Segment_dH_across_Error[gtx].mask] = Segment_dH_across_Error[gtx].fill_value
+        Segment_Mean_Median[gtx].data[Segment_Mean_Median[gtx].mask] = Segment_Mean_Median[gtx].fill_value
         Segment_X_atc[gtx].data[Segment_X_atc[gtx].mask] = Segment_X_atc[gtx].fill_value
         Segment_X_spread[gtx].data[Segment_X_spread[gtx].mask] = Segment_X_spread[gtx].fill_value
         Segment_Y_atc[gtx].data[Segment_Y_atc[gtx].mask] = Segment_Y_atc[gtx].fill_value
@@ -2358,6 +2387,17 @@ def main():
             "with the received pulse")
         IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['tx_med_corr']['source'] = tep[gtx]['pce']
         IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['tx_med_corr']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+        #-- difference between the mean and median of the histogram fit residuals
+        IS2_atl03_fit[gtx]['land_ice_segments']['bias_correction']['med_r_fit'] = Segment_Mean_Median[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['bias_correction']['med_r_fit'] = Segment_Mean_Median[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit']['units'] = "meters"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit']['contentType'] = "qualityInformation"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit']['long_name'] = "mean median residual"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit']['description'] = ("Difference between "
+            "uncorrected mean and median of the histogram fit residuals")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['bias_correction']['med_r_fit']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
 
         #-- fit statistics variables

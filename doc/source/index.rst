@@ -1,7 +1,7 @@
 read-ICESat-2
 ==============
 
-Python tools to read and use data from the NASA ICESat-2 mission
+Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission
 
 .. toctree::
     :maxdepth: 2

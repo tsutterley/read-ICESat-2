@@ -22,6 +22,7 @@ python nsidc_icesat2_sync.py --user=<username> --directory=<outgoing> \
  - `--granule=X`: ICESat-2 granule regions to sync  
  - `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
  - `-F`, `--flatten`: Do not create subdirectories  
+ - `-P X`, `--np=X`: Number of processes to use in file downloads  
  - `-M X`, `--mode=X`: Local permissions mode of the directories and files synced  
  - `--log`: output log of files downloaded  
  - `--list`: print files to be transferred, but do not execute transfer  

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (05/2020)
+Written by Tyler Sutterley (06/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -43,6 +43,7 @@ COMMAND LINE OPTIONS:
     --granule=X: ICESat-2 granule regions to sync
     --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
     -F, --flatten: Do not create subdirectories
+    -P X, --np=X: Number of processes to use in file downloads
     -M X, --mode=X: Local permissions mode of the directories and files synced
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
@@ -57,6 +58,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 06/2020: added multiprocessing option for parallel download
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
         adjust regular expression for auxiliary products
@@ -79,9 +81,11 @@ import base64
 import getpass
 import builtins
 import posixpath
+import traceback
 import lxml.etree
 import numpy as np
 import calendar, time
+import multiprocessing as mp
 if sys.version_info[0] == 2:
     from cookielib import CookieJar
     import urllib2
@@ -103,7 +107,7 @@ def check_connection():
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
-    FLATTEN=False, LOG=False, LIST=False, MODE=None, CLOBBER=False):
+    FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, MODE=None, CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
@@ -170,7 +174,11 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         #-- Sync all available subdirectories for product
         R2 = re.compile('(\d+).(\d+).(\d+)', re.VERBOSE)
 
-    #-- for each icesat2 product listed
+    #-- build list of remote files, remote modification times and local files
+    remote_files = []
+    remote_mtimes = []
+    local_files = []
+    #-- for each ICESat-2 product listed
     for p in PRODUCTS:
         print('PRODUCT={0}'.format(p), file=fid)
         #-- get directories from remote directory (* splat operator)
@@ -201,28 +209,70 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
             #-- find matching files (for granule, release, version, track)
             remote_file_lines=[i for i,f in enumerate(colnames) if R1.match(f)]
-            #-- sync each ICESat-2 data file
+            #-- build lists of each ICESat-2 data file
             for i in remote_file_lines:
                 #-- remote and local versions of the file
-                remote_file = posixpath.join(d,sd,colnames[i])
-                local_file = os.path.join(local_dir,colnames[i])
+                remote_files.append(posixpath.join(d,sd,colnames[i]))
+                local_files.append(os.path.join(local_dir,colnames[i]))
                 #-- get last modified date and convert into unix time
                 LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
-                remote_mtime = calendar.timegm(LMD)
-                #-- sync ICESat-2 files with NSIDC server
-                http_pull_file(fid, remote_file, remote_mtime, local_file,
-                    LIST, CLOBBER, MODE)
+                remote_mtimes.append(calendar.timegm(LMD))
         #-- close request
         req = None
+
+    #-- sync in series if PROCESSES = 0
+    if (PROCESSES == 0):
+        #-- sync each ICESat-2 data file
+        for i,remote_file in enumerate(remote_files):
+            #-- sync ICESat-2 files with NSIDC server
+            output = http_pull_file(remote_file, remote_mtimes[i],
+                local_files[i], LIST, CLOBBER, MODE)
+            #-- print the output string
+            print(output, file=fid)
+    else:
+        #-- sync in parallel with multiprocessing Pool
+        pool = mp.Pool(processes=PROCESSES)
+        #-- sync each ICESat-2 data file
+        output = []
+        for i,remote_file in enumerate(remote_files):
+            #-- sync ICESat-2 files with NSIDC server
+            args = (remote_file,remote_mtimes[i],local_files[i])
+            kwds = dict(LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            output.append(pool.apply_async(multiprocess_sync,
+                args=args,kwds=kwds))
+        #-- start multiprocessing jobs
+        #-- close the pool
+        #-- prevents more tasks from being submitted to the pool
+        pool.close()
+        #-- exit the completed processes
+        pool.join()
+        #-- print the output string
+        for out in output:
+            print(out.get(), file=fid)
 
     #-- close log file and set permissions level to MODE
     if LOG:
         fid.close()
         os.chmod(os.path.join(ddir,LOGFILE), MODE)
 
+#-- PURPOSE: wrapper for running the sync program in multiprocessing mode
+def multiprocess_sync(remote_file, remote_mtime, local_file,
+    LIST=False, CLOBBER=False, MODE=0o775):
+    try:
+        output = http_pull_file(remote_file,remote_mtime,local_file,
+            LIST,CLOBBER,MODE)
+    except:
+        #-- if there has been an error exception
+        #-- print the type, value, and stack trace of the
+        #-- current exception being handled
+        print('process id {0:d} failed'.format(os.getpid()))
+        traceback.print_exc()
+    else:
+        return output
+
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
+def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -239,9 +289,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
         OVERWRITE = ' (new)'
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        #-- Printing files transferred
-        print('{0} --> '.format(remote_file), file=fid)
-        print('\t{0}{1}\n'.format(local_file,OVERWRITE), file=fid)
+        #-- output string for printing files transferred
+        output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
@@ -257,12 +306,14 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
+        #-- return the output string
+        return output
 
 #-- PURPOSE: help module to describe the optional input parameters
 def usage():
     print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
     print(' -U X, --user=X\t\tUsername for NASA Earthdata Login')
-    print(' -N X, --netrc=X\t\tPath to .netrc file for authentication')
+    print(' -N X, --netrc=X\tPath to .netrc file for authentication')
     print(' -D X, --directory=X\tWorking data directory')
     print(' -Y X, --year=X\t\tYears to sync separated by commas')
     print(' -S X, --subdirectory=X\tSubdirectories to sync separated by commas')
@@ -272,6 +323,7 @@ def usage():
     print(' --track=X\t\tICESat-2 reference ground tracks to sync')
     print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
     print(' -F, --flatten\t\tDo not create subdirectories')
+    print(' -P X, --np=X\t\tNumber of processes to use in file downloads')
     print(' -M X, --mode=X\t\tPermission mode of directories and files synced')
     print(' -L, --list\t\tOnly print files that are to be transferred')
     print(' -C, --clobber\t\tOverwrite existing data in transfer')
@@ -283,10 +335,11 @@ def usage():
 #-- Main program that calls nsidc_icesat2_sync()
 def main():
     #-- Read the system arguments listed after the program
+    short_options = 'hU:N:D:Y:S:FP:LCM:l'
     long_options=['help','user=','netrc=','directory=','year=','subdirectory=',
         'release=','version=','granule=','track=','auxiliary','flatten',
-        'list','log','mode=','clobber']
-    optlist,arglist=getopt.getopt(sys.argv[1:],'hU:N:D:Y:S:FLCM:l',long_options)
+        'np=','list','log','mode=','clobber']
+    optlist,arglist=getopt.getopt(sys.argv[1:],short_options,long_options)
 
     #-- command line parameters
     USER = ''
@@ -301,6 +354,8 @@ def main():
     TRACKS = np.arange(1,1388)
     AUXILIARY = False
     FLATTEN = False
+    #-- sync in series if processes is 0
+    PROCESSES = 0
     LIST = False
     LOG = False
     #-- permissions mode of the local directories and files (number in octal)
@@ -330,6 +385,8 @@ def main():
             TRACKS = np.sort(arg.split(',')).astype(np.int)
         elif opt in ("--auxiliary",):
             AUXILIARY = True
+        elif opt in ("-P","--np"):
+            PROCESSES = int(arg)
         elif opt in ("-F","--flatten"):
             FLATTEN = True
         elif opt in ("-L","--list"):
@@ -384,7 +441,7 @@ def main():
         nsidc_icesat2_sync(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
             TRACKS, USER=USER, PASSWORD=PASSWORD, YEARS=YEARS,
             SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, FLATTEN=FLATTEN,
-            LOG=LOG, LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
+            PROCESSES=PROCESSES, LOG=LOG, LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
 
 #-- run main program
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (05/2020)
+MPI_ICESat2_ATL03_histogram.py (06/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -67,6 +67,8 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 06/2020: reduce the maximum number of peaks to fit
+        reduce the amplitude threshold to 10%
     Updated 05/2020: add mean median difference of histogram fit residuals
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
@@ -127,7 +129,7 @@ def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
 
 #-- PURPOSE: iteratively use decomposition fitting to the elevation data to
 #-- reduce to within a valid window
-def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
+def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=3):
     #-- speed of light
     c = 299792458.0
     #-- use same delta time as calculating first photon bias
@@ -177,15 +179,14 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
 
     #-- find positive peaks above amplitude threshold (percent of max)
     #-- by calculating the histogram differentials
-    #-- signal amplitude threshold greater than 20% of max
-    AmpThreshold = 0.20
+    #-- signal amplitude threshold greater than 10% of max
+    AmpThreshold = 0.10
     HistThreshold = AmpThreshold*np.max(hist_smooth)
     n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
         ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
     n_peaks = np.min([n_peaks,PEAKS])
     peak_index, = np.nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
         ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
-
     #-- initial indices for reducing to window
     filt = np.arange(n_max)
     filt_p1 = np.copy(filt)
@@ -308,7 +309,7 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=10):
             dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
             #-- find positive peaks above amplitude threshold (percent of max)
             #-- by calculating the histogram differentials
-            #-- signal amplitude threshold greater than 20% of max
+            #-- signal amplitude threshold greater than 10% of max
             HistThreshold = AmpThreshold*np.max(hist_smooth)
             n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
                 ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))

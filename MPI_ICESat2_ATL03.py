@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     count_leap_seconds: determines the number of leap seconds for a GPS time
 
 UPDATE HISTORY:
+    Updated 06/2020: verify that complementary beam pair is in list of beams
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
     Updated 04/2019: updated backup algorithm for when the surface fit fails
@@ -1387,7 +1388,8 @@ def main():
         #-- here in 0-based indexing: invalid == -1
         segment_indices, = np.nonzero((Segment_Index_begin[gtx][:-1] >= 0) &
             (Segment_Index_begin[gtx][1:] >= 0))
-        iteration_count = len(segment_indices)
+        #-- verify that complementary beam pair is in list of beams
+        iteration_count = len(segment_indices) if (cmp in IS2_atl03_beams) else 0
         #-- run for each geoseg (distributed over comm.size # of processes)
         for iteration in range(comm.rank, iteration_count, comm.size):
             #-- indice for iteration (can run through a subset of segments)

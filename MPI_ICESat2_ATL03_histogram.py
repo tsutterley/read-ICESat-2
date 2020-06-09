@@ -67,8 +67,8 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
-    Updated 06/2020: reduce the maximum number of peaks to fit
-        reduce the amplitude threshold to 10%
+    Updated 06/2020: reduce the maximum number of peaks to fit and reduce threshold
+        verify that complementary beam pair is in list of beams
     Updated 05/2020: add mean median difference of histogram fit residuals
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
@@ -129,7 +129,7 @@ def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
 
 #-- PURPOSE: iteratively use decomposition fitting to the elevation data to
 #-- reduce to within a valid window
-def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=3):
+def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=2):
     #-- speed of light
     c = 299792458.0
     #-- use same delta time as calculating first photon bias
@@ -419,7 +419,7 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=3):
         return {'height':height, 'error':height_errors, 'amplitude':amplitude,
             'MSE':MSE, 'NRMSE':NRMSE, 'residuals':resid, 'time': t_full,
             'model':model, 'DOF':DOF, 'count':n_max, 'indices':indices,
-            'iterations':n_iter, 'window':window, 'RDE':RDE}
+            'iterations':n_iter, 'window':window, 'RDE':RDE, 'peaks':n_peaks}
     else:
         raise ValueError('No valid fit found')
 
@@ -520,7 +520,7 @@ def fit_geolocation(var, distance_along_X, X_atc):
     return beta_mat[0]
 
 #-- PURPOSE: estimate mean and median first photon bias corrections
-def calc_first_photon_bias(t_full, hist, n_pulses,n_pixels,dead_time,dt,
+def calc_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
     METHOD='direct',ITERATE=20):
     #-- number of time points
     nt = len(t_full)
@@ -828,6 +828,7 @@ def main():
     Segment_Longitude = {}
     Segment_Latitude = {}
     Segment_N_Fit = {}
+    Segment_N_Peaks = {}
     Segment_Window = {}
     Segment_RDE = {}
     Segment_SNR = {}
@@ -973,6 +974,9 @@ def main():
         #-- number of photons in fit
         Distributed_N_Fit = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
         Distributed_N_Fit.mask = np.ones((n_seg),dtype=np.bool)
+        #-- number of peaks in the final histogram fit
+        Distributed_N_Peaks = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_N_Peaks.mask = np.ones((n_seg),dtype=np.bool)
         #-- size of the window used in the fit
         Distributed_Window = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_Window.mask = np.ones((n_seg),dtype=np.bool)
@@ -1119,6 +1123,9 @@ def main():
                         #-- number of photons used in fit
                         Distributed_N_Fit.data[j] = len(ifit)
                         Distributed_N_Fit.mask[j] = False
+                        #-- number of peaks used in histogram fit
+                        Distributed_N_Peaks.data[j] = np.copy(fit['peaks'])
+                        Distributed_N_Peaks.mask[j] = False
                         #-- size of the final window
                         Distributed_Window.data[j] = np.copy(fit['window'])
                         Distributed_Window.mask[j] = False
@@ -1277,6 +1284,9 @@ def main():
                         #-- number of photons used in fit
                         Distributed_N_Fit.data[j] = len(ifit)
                         Distributed_N_Fit.mask[j] = False
+                        #-- number of peaks used in histogram fit
+                        Distributed_N_Peaks.data[j] = np.copy(fit['peaks'])
+                        Distributed_N_Peaks.mask[j] = False
                         #-- size of the final window
                         Distributed_Window.data[j] = np.copy(fit['window'])
                         Distributed_Window.mask[j] = False
@@ -1496,6 +1506,14 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_N_Fit.mask, MPI.BOOL], \
             recvbuf=[Segment_N_Fit[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_N_Fit = None
+        #-- number of peaks used in histogram fit
+        Segment_N_Peaks[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Segment_N_Peaks[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        comm.Allreduce(sendbuf=[Distributed_N_Peaks.data, MPI.INT], \
+            recvbuf=[Segment_N_Peaks[gtx].data, MPI.INT], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_N_Peaks.mask, MPI.BOOL], \
+            recvbuf=[Segment_N_Peaks[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_N_Peaks = None
         #-- size of the window used in the fit
         Segment_Window[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
         Segment_Window[gtx].mask = np.ones((n_seg),dtype=np.bool)
@@ -1677,7 +1695,8 @@ def main():
         #-- here in 0-based indexing: invalid == -1
         segment_indices, = np.nonzero((Segment_Index_begin[gtx][:-1] >= 0) &
             (Segment_Index_begin[gtx][1:] >= 0))
-        iteration_count = len(segment_indices)
+        #-- verify that complementary beam pair is in list of beams
+        iteration_count = len(segment_indices) if (cmp in IS2_atl03_beams) else 0
         #-- run for each geoseg (distributed over comm.size # of processes)
         for iteration in range(comm.rank, iteration_count, comm.size):
             #-- indice for iteration (can run through a subset of segments)
@@ -1753,6 +1772,7 @@ def main():
         Segment_Longitude[gtx].data[Segment_Longitude[gtx].mask] = Segment_Longitude[gtx].fill_value
         Segment_Latitude[gtx].data[Segment_Latitude[gtx].mask] = Segment_Latitude[gtx].fill_value
         Segment_N_Fit[gtx].data[Segment_N_Fit[gtx].mask] = Segment_N_Fit[gtx].fill_value
+        Segment_N_Peaks[gtx].data[Segment_N_Peaks[gtx].mask] = Segment_N_Peaks[gtx].fill_value
         Segment_Window[gtx].data[Segment_Window[gtx].mask] = Segment_Window[gtx].fill_value
         Segment_RDE[gtx].data[Segment_RDE[gtx].mask] = Segment_RDE[gtx].fill_value
         Segment_SNR[gtx].data[Segment_SNR[gtx].mask] = Segment_SNR[gtx].fill_value
@@ -2531,6 +2551,17 @@ def main():
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_photons']['description'] = ("Number of PEs used to "
             "determine mean surface height in the iterative histogram fit")
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_photons']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+        #-- number of peaks in histogram fit
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks'] = Segment_N_Peaks[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks'] = Segment_N_Peaks[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks']['contentType'] = "physicalMeasurement"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks']['long_name'] = "Number of Photons in Fit"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks']['description'] = ("Number of Peaks used to "
+            "in the iterative histogram fit")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_peaks']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- size of the window used in the fit
         IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['w_surface_window_final'] = Segment_Window[gtx]

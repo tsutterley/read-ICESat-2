@@ -69,6 +69,8 @@ REFERENCES:
 UPDATE HISTORY:
     Updated 06/2020: reduce the maximum number of peaks to fit and reduce threshold
         verify that complementary beam pair is in list of beams
+        set masks of output arrays after reading from HDF5
+        save histogram fit amplitudes to output HDF5 file
     Updated 05/2020: add mean median difference of histogram fit residuals
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
@@ -109,14 +111,15 @@ def info(rank, size):
 #-- PURPOSE: try fitting a function to the signal photons with progressively
 #-- less confidence if no valid histogram fit is found
 def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
-    FIT_TYPE='gaussian', ITERATE=25, CONFIDENCE=[4,3,2,1,0]):
+    FIT_TYPE='gaussian', ITERATE=25, BACKGROUND=0, CONFIDENCE=[2,1,0]):
     #-- try with progressively less confidence
     for i,conf in enumerate(CONFIDENCE):
         ind, = np.nonzero(confidence_mask >= conf)
         centroid = dict(x=dist_along, y=np.mean(y[ind]))
         try:
             surf = reduce_histogram_fit(x[ind], y[ind], z[ind], ind,
-                dt, FIT_TYPE=FIT_TYPE, ITERATE=ITERATE)
+                dt, FIT_TYPE=FIT_TYPE, ITERATE=ITERATE, PEAKS=2,
+                BACKGROUND=BACKGROUND)
         except (ValueError, RuntimeError, SyntaxError):
             pass
         else:
@@ -129,12 +132,15 @@ def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
 
 #-- PURPOSE: iteratively use decomposition fitting to the elevation data to
 #-- reduce to within a valid window
-def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=2):
+def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
+    ITERATE=25, PEAKS=2, BACKGROUND=0):
     #-- speed of light
     c = 299792458.0
     #-- use same delta time as calculating first photon bias
     #-- so that the residuals will be the same
     dz = dt*c
+    #-- number of background photons in each bin
+    N_BG = dz*BACKGROUND
     #-- create a histogram of the heights
     zmin,zmax = (z.min(),z.max())
     z_full = np.arange(zmin,zmax+dz,dz)
@@ -179,9 +185,9 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=2):
 
     #-- find positive peaks above amplitude threshold (percent of max)
     #-- by calculating the histogram differentials
-    #-- signal amplitude threshold greater than 10% of max
+    #-- signal amplitude threshold greater than 10% of max or 3xbackground rate
     AmpThreshold = 0.10
-    HistThreshold = AmpThreshold*np.max(hist_smooth)
+    HistThreshold = np.max([3.0*N_BG, AmpThreshold*np.max(hist_smooth)])
     n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
         ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
     n_peaks = np.min([n_peaks,PEAKS])
@@ -309,8 +315,8 @@ def reduce_histogram_fit(x,y,z,ind,dt,FIT_TYPE='gaussian',ITERATE=25,PEAKS=2):
             dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
             #-- find positive peaks above amplitude threshold (percent of max)
             #-- by calculating the histogram differentials
-            #-- signal amplitude threshold greater than 10% of max
-            HistThreshold = AmpThreshold*np.max(hist_smooth)
+            #-- signal amplitude threshold greater than 10% of max or 3xbackground rate
+            HistThreshold = np.max([3.0*N_BG, AmpThreshold*np.max(hist_smooth)])
             n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
                 ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
             n_peaks = np.min([n_peaks,PEAKS])
@@ -812,6 +818,9 @@ def main():
     Segment_Land_Ice = {}
     Segment_Minimum = {}
     Segment_Maximum = {}
+    Segment_Amplitude = {}
+    Segment_Minimum_Amplitude = {}
+    Segment_Maximum_Amplitude = {}
     Segment_dH_along = {}
     Segment_dH_across = {}
     Segment_Height_Error = {}
@@ -869,7 +878,8 @@ def main():
         #-- ocean tide
         fv = fileID[gtx]['geophys_corr']['tide_ocean'].attrs['_FillValue']
         tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_ocean'][:] == fv), fill_value=fv)
+            fill_value=fv)
+        tide_ocean.mask = tide_ocean.data == tide_ocean.fill_value
         #-- interpolate background photon rate based on 50-shot summation
         background_delta_time = fileID[gtx]['bckgrd_atlas']['delta_time'][:]
         SPL = scipy.interpolate.UnivariateSpline(background_delta_time,
@@ -937,6 +947,13 @@ def main():
         #-- land ice height corrected for first photon bias and transmit-pulse shape
         Distributed_Land_Ice = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_Land_Ice.mask = np.ones((n_seg),dtype=np.bool)
+        #-- segment fit amplitudes
+        Distributed_Amplitude = np.ma.zeros((n_seg),fill_value=fill_value)
+        Distributed_Amplitude.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Minimum_Amplitude = np.ma.zeros((n_seg),fill_value=fill_value)
+        Distributed_Minimum_Amplitude.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Maximum_Amplitude = np.ma.zeros((n_seg),fill_value=fill_value)
+        Distributed_Maximum_Amplitude.mask = np.ones((n_seg),dtype=np.bool)
         #-- segment fit along-track slopes
         Distributed_dH_along = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_dH_along.mask = np.ones((n_seg),dtype=np.bool)
@@ -1081,7 +1098,8 @@ def main():
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
                     valid,fit,centroid = try_histogram_fit(distance_along_X,
                         distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20, CONFIDENCE=[1,0])
+                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20,
+                        BACKGROUND=background_density, CONFIDENCE=[2,1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
                     if bool(valid) & (np.abs(fit['error'][0]) < 20):
@@ -1091,18 +1109,24 @@ def main():
                         Distributed_Height.mask[j] = False
                         Distributed_Height_Error.data[j] = fit['error'][iamp]
                         Distributed_Height_Error.mask[j] = False
+                        Distributed_Amplitude.data[j] = fit['amplitude'][iamp]
+                        Distributed_Amplitude.mask[j] = False
                         #-- minimum decomposed height and error
                         imin = np.argmin(fit['height'])
                         Distributed_Minimum.data[j] = fit['height'][imin]
                         Distributed_Minimum.mask[j] = False
                         Distributed_Minimum_Error.data[j] = fit['error'][imin]
                         Distributed_Minimum_Error.mask[j] = False
+                        Distributed_Minimum_Amplitude.data[j] = fit['amplitude'][imin]
+                        Distributed_Minimum_Amplitude.mask[j] = False
                         #-- maximum decomposed height and error
                         imax = np.argmax(fit['height'])
                         Distributed_Maximum.data[j] = fit['height'][imax]
                         Distributed_Maximum.mask[j] = False
                         Distributed_Maximum_Error.data[j] = fit['error'][imax]
                         Distributed_Maximum_Error.mask[j] = False
+                        Distributed_Maximum_Amplitude.data[j] = fit['amplitude'][imax]
+                        Distributed_Maximum_Amplitude.mask[j] = False
                         #-- along-track and cross-track coordinates
                         Distributed_X_atc.data[j] = np.copy(centroid['x'])
                         Distributed_X_atc.mask[j] = False
@@ -1244,7 +1268,8 @@ def main():
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
                     valid,fit,centroid = try_histogram_fit(distance_along_X,
                         distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20, CONFIDENCE=[0])
+                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20,
+                        BACKGROUND=background_density, CONFIDENCE=[1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
                     if bool(valid) & (np.abs(fit['error'][0]) < 20):
@@ -1254,18 +1279,24 @@ def main():
                         Distributed_Height.mask[j] = False
                         Distributed_Height_Error.data[j] = fit['error'][iamp]
                         Distributed_Height_Error.mask[j] = False
+                        Distributed_Amplitude.data[j] = fit['amplitude'][iamp]
+                        Distributed_Amplitude.mask[j] = False
                         #-- minimum decomposed height and error
                         imin = np.argmin(fit['height'])
                         Distributed_Minimum.data[j] = fit['height'][imin]
                         Distributed_Minimum.mask[j] = False
                         Distributed_Minimum_Error.data[j] = fit['error'][imin]
                         Distributed_Minimum_Error.mask[j] = False
+                        Distributed_Minimum_Amplitude.data[j] = fit['amplitude'][imin]
+                        Distributed_Minimum_Amplitude.mask[j] = False
                         #-- maximum decomposed height and error
                         imax = np.argmax(fit['height'])
                         Distributed_Maximum.data[j] = fit['height'][imax]
                         Distributed_Maximum.mask[j] = False
                         Distributed_Maximum_Error.data[j] = fit['error'][imax]
                         Distributed_Maximum_Error.mask[j] = False
+                        Distributed_Maximum_Amplitude.data[j] = fit['amplitude'][imax]
+                        Distributed_Maximum_Amplitude.mask[j] = False
                         #-- along-track and cross-track coordinates
                         Distributed_X_atc.data[j] = np.copy(centroid['x'])
                         Distributed_X_atc.mask[j] = False
@@ -1378,6 +1409,14 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_Height.mask, MPI.BOOL], \
             recvbuf=[Segment_Height[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Height = None
+        #-- segment fit height amplitudes (maximum amplitude)
+        Segment_Amplitude[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
+        Segment_Amplitude[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        comm.Allreduce(sendbuf=[Distributed_Amplitude.data, MPI.DOUBLE], \
+            recvbuf=[Segment_Amplitude[gtx].data, MPI.DOUBLE], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Amplitude.mask, MPI.BOOL], \
+            recvbuf=[Segment_Amplitude[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Amplitude = None
         #-- land ice height corrected for first photon bias and transmit-pulse shape
         Segment_Land_Ice[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
         Segment_Land_Ice[gtx].mask = np.ones((n_seg),dtype=np.bool)
@@ -1441,7 +1480,7 @@ def main():
             recvbuf=[Segment_Minimum_Error[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Minimum_Error.mask, MPI.BOOL], \
             recvbuf=[Segment_Minimum_Error[gtx].mask, MPI.BOOL], op=MPI.LAND)
-        Distributed_Minimum = None
+        Distributed_Minimum_Error = None
         #-- segment fit height errors (maximum)
         Segment_Maximum_Error[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
         Segment_Maximum_Error[gtx].mask = np.ones((n_seg),dtype=np.bool)
@@ -1450,6 +1489,22 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_Maximum_Error.mask, MPI.BOOL], \
             recvbuf=[Segment_Maximum_Error[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Maximum_Error = None
+        #-- segment fit height amplitudes (minimum)
+        Segment_Minimum_Amplitude[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
+        Segment_Minimum_Amplitude[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        comm.Allreduce(sendbuf=[Distributed_Minimum_Amplitude.data, MPI.DOUBLE], \
+            recvbuf=[Segment_Minimum_Amplitude[gtx].data, MPI.DOUBLE], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Minimum_Amplitude.mask, MPI.BOOL], \
+            recvbuf=[Segment_Minimum_Amplitude[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Minimum_Amplitude = None
+        #-- segment fit height amplitudes (maximum)
+        Segment_Maximum_Amplitude[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
+        Segment_Maximum_Amplitude[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        comm.Allreduce(sendbuf=[Distributed_Maximum_Amplitude.data, MPI.DOUBLE], \
+            recvbuf=[Segment_Maximum_Amplitude[gtx].data, MPI.DOUBLE], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Maximum_Amplitude.mask, MPI.BOOL], \
+            recvbuf=[Segment_Maximum_Amplitude[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Maximum_Amplitude = None
         #-- difference between the mean and median of the residuals from fit height
         Segment_Mean_Median[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
         Segment_Mean_Median[gtx].mask = np.ones((n_seg),dtype=np.bool)
@@ -1762,6 +1817,9 @@ def main():
         Segment_Minimum_Error[gtx].data[Segment_Minimum_Error[gtx].mask] = Segment_Minimum_Error[gtx].fill_value
         Segment_Maximum_Error[gtx].data[Segment_Maximum_Error[gtx].mask] = Segment_Maximum_Error[gtx].fill_value
         Segment_Land_Ice_Error[gtx].data[Segment_Land_Ice_Error[gtx].mask] = Segment_Land_Ice_Error[gtx].fill_value
+        Segment_Amplitude[gtx].data[Segment_Amplitude[gtx].mask] = Segment_Amplitude[gtx].fill_value
+        Segment_Minimum_Amplitude[gtx].data[Segment_Minimum_Amplitude[gtx].mask] = Segment_Minimum_Amplitude[gtx].fill_value
+        Segment_Maximum_Amplitude[gtx].data[Segment_Maximum_Amplitude[gtx].mask] = Segment_Maximum_Amplitude[gtx].fill_value
         Segment_dH_along_Error[gtx].data[Segment_dH_along_Error[gtx].mask] = Segment_dH_along_Error[gtx].fill_value
         Segment_dH_across_Error[gtx].data[Segment_dH_across_Error[gtx].mask] = Segment_dH_across_Error[gtx].fill_value
         Segment_Mean_Median[gtx].data[Segment_Mean_Median[gtx].mask] = Segment_Mean_Median[gtx].fill_value
@@ -1995,8 +2053,8 @@ def main():
             "are stored at the land_ice_segments segment rate.")
         #-- geoid height
         fv = fileID[gtx]['geophys_corr']['geoid'].attrs['_FillValue']
-        geoid = np.ma.array(fileID[gtx]['geophys_corr']['geoid'][:],
-            mask=(fileID[gtx]['geophys_corr']['geoid'][:] == fv), fill_value=fv)
+        geoid = np.ma.array(fileID[gtx]['geophys_corr']['geoid'][:], fill_value=fv)
+        geoid.mask = geoid.data == geoid.fill_value
         geoid_h = (geoid[1:] + geoid[0:-1])/2.0
         geoid_h.data[geoid_h.mask] = geoid_h.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['dem']['geoid_h'] = geoid_h
@@ -2146,8 +2204,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- range bias correction
         fv = fileID[gtx]['geolocation']['range_bias_corr'].attrs['_FillValue']
-        range_bias_corr = np.ma.array(fileID[gtx]['geolocation']['range_bias_corr'][:],
-            mask=(fileID[gtx]['geolocation']['range_bias_corr'][:] == fv), fill_value=fv)
+        range_bias_corr = np.ma.array(fileID[gtx]['geolocation']['range_bias_corr'][:], fill_value=fv)
+        range_bias_corr.mask = range_bias_corr.data == range_bias_corr.fill_value
         segment_range_bias = (range_bias_corr[1:] + range_bias_corr[0:-1])/2.0
         segment_range_bias.data[segment_range_bias.mask] = segment_range_bias.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['range_bias_corr'] = segment_range_bias
@@ -2161,8 +2219,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- total neutral atmosphere delay correction
         fv = fileID[gtx]['geolocation']['neutat_delay_total'].attrs['_FillValue']
-        neutat_delay_total = np.ma.array(fileID[gtx]['geolocation']['neutat_delay_total'][:],
-            mask=(fileID[gtx]['geolocation']['neutat_delay_total'][:] == fv), fill_value=fv)
+        neutat_delay_total = np.ma.array(fileID[gtx]['geolocation']['neutat_delay_total'][:], fill_value=fv)
+        neutat_delay_total.mask = neutat_delay_total.data == neutat_delay_total.fill_value
         segment_neutat_delay = (neutat_delay_total[1:] + neutat_delay_total[0:-1])/2.0
         segment_neutat_delay.data[segment_neutat_delay.mask] = segment_neutat_delay.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['neutat_delay_total'] = segment_neutat_delay
@@ -2176,8 +2234,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solar elevation
         fv = fileID[gtx]['geolocation']['solar_elevation'].attrs['_FillValue']
-        solar_elevation = np.ma.array(fileID[gtx]['geolocation']['solar_elevation'][:],
-            mask=(fileID[gtx]['geolocation']['solar_elevation'][:] == fv), fill_value=fv)
+        solar_elevation = np.ma.array(fileID[gtx]['geolocation']['solar_elevation'][:], fill_value=fv)
+        solar_elevation.mask = solar_elevation.data == solar_elevation.fill_value
         segment_solar_elevation = (solar_elevation[1:] + solar_elevation[0:-1])/2.0
         segment_solar_elevation.data[segment_solar_elevation.mask] = segment_solar_elevation.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_elevation'] = segment_solar_elevation
@@ -2193,8 +2251,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solar azimuth
         fv = fileID[gtx]['geolocation']['solar_azimuth'].attrs['_FillValue']
-        solar_azimuth = np.ma.array(fileID[gtx]['geolocation']['solar_azimuth'][:],
-            mask=(fileID[gtx]['geolocation']['solar_azimuth'][:] == fv), fill_value=fv)
+        solar_azimuth = np.ma.array(fileID[gtx]['geolocation']['solar_azimuth'][:], fill_value=fv)
+        solar_azimuth.mask = solar_azimuth.data == solar_azimuth.fill_value
         segment_solar_azimuth = (solar_azimuth[1:] + solar_azimuth[0:-1])/2.0
         segment_solar_azimuth.data[segment_solar_azimuth.mask] = segment_solar_azimuth.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_azimuth'] = segment_solar_azimuth
@@ -2211,8 +2269,8 @@ def main():
         #-- geophysical correction values at segment reference photons
         #-- dynamic atmospheric correction
         fv = fileID[gtx]['geophys_corr']['dac'].attrs['_FillValue']
-        dac = np.ma.array(fileID[gtx]['geophys_corr']['dac'][:],
-            mask=(fileID[gtx]['geophys_corr']['dac'][:] == fv), fill_value=fv)
+        dac = np.ma.array(fileID[gtx]['geophys_corr']['dac'][:], fill_value=fv)
+        dac.mask = dac.data == dac.fill_value
         segment_dac = (dac[1:] + dac[0:-1])/2.0
         segment_dac.data[segment_dac.mask] = segment_dac.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['dac'] = segment_dac
@@ -2228,8 +2286,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solid earth tide
         fv = fileID[gtx]['geophys_corr']['tide_earth'].attrs['_FillValue']
-        tide_earth = np.ma.array(fileID[gtx]['geophys_corr']['tide_earth'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_earth'][:] == fv), fill_value=fv)
+        tide_earth = np.ma.array(fileID[gtx]['geophys_corr']['tide_earth'][:], fill_value=fv)
+        tide_earth.mask = tide_earth.data == tide_earth.mask
         segment_earth_tide = (tide_earth[1:] + tide_earth[0:-1])/2.0
         segment_earth_tide.data[segment_earth_tide.mask] = segment_earth_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_earth'] = segment_earth_tide
@@ -2243,8 +2301,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- load tide
         fv = fileID[gtx]['geophys_corr']['tide_load'].attrs['_FillValue']
-        tide_load = np.ma.array(fileID[gtx]['geophys_corr']['tide_load'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_load'][:] == fv), fill_value=fv)
+        tide_load = np.ma.array(fileID[gtx]['geophys_corr']['tide_load'][:], fill_value=fv)
+        tide_load.mask = tide_load.data == tide_load.fill_value
         segment_load_tide = (tide_load[1:] + tide_load[0:-1])/2.0
         segment_load_tide.data[segment_load_tide.mask] = segment_load_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_load'] = segment_load_tide
@@ -2259,8 +2317,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- ocean tide
         fv = fileID[gtx]['geophys_corr']['tide_ocean'].attrs['_FillValue']
-        tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_ocean'][:] == fv), fill_value=fv)
+        tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:], fill_value=fv)
+        tide_ocean.mask = tide_ocean.data == tide_ocean.fill_value
         segment_ocean_tide = (tide_ocean[1:] + tide_ocean[0:-1])/2.0
         segment_ocean_tide.data[segment_ocean_tide.mask] = segment_ocean_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_ocean'] = segment_ocean_tide
@@ -2276,8 +2334,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- ocean pole tide
         fv = fileID[gtx]['geophys_corr']['tide_oc_pole'].attrs['_FillValue']
-        tide_oc_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_oc_pole'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_oc_pole'][:] == fv), fill_value=fv)
+        tide_oc_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_oc_pole'][:], fill_value=fv)
+        tide_oc_pole.mask = tide_oc_pole.data == tide_oc_pole.fill_value
         segment_oc_pole_tide = (tide_oc_pole[1:] + tide_oc_pole[0:-1])/2.0
         segment_oc_pole_tide.data[segment_oc_pole_tide.mask] = segment_oc_pole_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_oc_pole'] = segment_oc_pole_tide
@@ -2292,8 +2350,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- pole tide
         fv = fileID[gtx]['geophys_corr']['tide_pole'].attrs['_FillValue']
-        tide_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_pole'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_pole'][:] == fv), fill_value=fv)
+        tide_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_pole'][:], fill_value=fv)
+        tide_pole.mask = tide_pole.data == tide_pole.fill_value
         segment_pole_tide = (tide_pole[1:] + tide_pole[0:-1])/2.0
         segment_pole_tide.data[segment_pole_tide.mask] = segment_pole_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_pole'] = segment_pole_tide
@@ -2541,6 +2599,39 @@ def main():
             "the across-track segment slope calculated from segment fits to weak and strong beam")
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['dh_fit_dy_sigma']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
+        #-- segment histogram fit amplitudes
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['amp_mean'] = Segment_Amplitude[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['amp_mean'] = Segment_Amplitude[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean']['contentType'] = "modelResult"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean']['long_name'] = "Amplitude Mean"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean']['description'] = ("Amplitude of the "
+            "mean surface height from histogram decomposition")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_mean']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+        #-- segment minimum histogram fit heights
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['amp_min'] = Segment_Minimum_Amplitude[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['amp_min'] = Segment_Minimum_Amplitude[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min']['contentType'] = "modelResult"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min']['long_name'] = "Minimum Amplitude"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min']['description'] = ("Amplitude of the "
+            "minimum surface height from histogram decomposition")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_min']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+        #-- segment maximum histogram fit heights
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['amp_max'] = Segment_Maximum_Amplitude[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['amp_max'] = Segment_Maximum_Amplitude[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max']['contentType'] = "modelResult"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max']['long_name'] = "Maximum Amplitude"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max']['description'] = ("Amplitude of the  "
+            "maximum surface height from histogram decomposition")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['amp_max']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
         #-- number of photons in fit
         IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['n_fit_photons'] = Segment_N_Fit[gtx]
         IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['n_fit_photons'] = Segment_N_Fit[gtx].fill_value
@@ -2682,8 +2773,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- elevation
         fv = fileID[gtx]['geolocation']['ref_elev'].attrs['_FillValue']
-        ref_elev = np.ma.array(fileID[gtx]['geolocation']['ref_elev'][:],
-            mask=(fileID[gtx]['geolocation']['ref_elev'][:] == fv), fill_value=fv)
+        ref_elev = np.ma.array(fileID[gtx]['geolocation']['ref_elev'][:], fill_value=fv)
+        ref_elev.mask = ref_elev.data == ref_elev.fill_value
         segment_ref_elev = (ref_elev[1:] + ref_elev[0:-1])/2.0
         segment_ref_elev.data[segment_ref_elev.mask] = segment_ref_elev.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_elev'] = segment_ref_elev
@@ -2699,8 +2790,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- azimuth
         fv = fileID[gtx]['geolocation']['ref_azimuth'].attrs['_FillValue']
-        ref_azimuth = np.ma.array(fileID[gtx]['geolocation']['ref_azimuth'][:],
-            mask=(fileID[gtx]['geolocation']['ref_azimuth'][:] == fv), fill_value=fv)
+        ref_azimuth = np.ma.array(fileID[gtx]['geolocation']['ref_azimuth'][:], fill_value=fv)
+        ref_azimuth.mask = ref_azimuth.data == ref_azimuth.fill_value
         segment_ref_azimuth = (ref_azimuth[1:] + ref_azimuth[0:-1])/2.0
         segment_ref_azimuth.data[segment_ref_azimuth.mask] = segment_ref_azimuth.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_azimuth'] = segment_ref_azimuth

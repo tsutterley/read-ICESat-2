@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 06/2020: verify that complementary beam pair is in list of beams
+        set masks of output arrays after reading from HDF5
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
     Updated 04/2019: updated backup algorithm for when the surface fit fails
@@ -635,7 +636,8 @@ def main():
         #-- ocean tide
         fv = fileID[gtx]['geophys_corr']['tide_ocean'].attrs['_FillValue']
         tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_ocean'][:] == fv), fill_value=fv)
+            fill_value=fv)
+        tide_ocean.mask = tide_ocean.data == tide_ocean.fill_value
         #-- interpolate background photon rate based on 50-shot summation
         background_delta_time = fileID[gtx]['bckgrd_atlas']['delta_time'][:]
         SPL = scipy.interpolate.UnivariateSpline(background_delta_time,
@@ -1683,8 +1685,8 @@ def main():
             "are stored at the land_ice_segments segment rate.")
         #-- geoid height
         fv = fileID[gtx]['geophys_corr']['geoid'].attrs['_FillValue']
-        geoid = np.ma.array(fileID[gtx]['geophys_corr']['geoid'][:],
-            mask=(fileID[gtx]['geophys_corr']['geoid'][:] == fv), fill_value=fv)
+        geoid = np.ma.array(fileID[gtx]['geophys_corr']['geoid'][:], fill_value=fv)
+        geoid.mask = geoid.data == geoid.fill_value
         geoid_h = (geoid[1:] + geoid[0:-1])/2.0
         geoid_h.data[geoid_h.mask] = geoid_h.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['dem']['geoid_h'] = geoid_h
@@ -1834,8 +1836,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- range bias correction
         fv = fileID[gtx]['geolocation']['range_bias_corr'].attrs['_FillValue']
-        range_bias_corr = np.ma.array(fileID[gtx]['geolocation']['range_bias_corr'][:],
-            mask=(fileID[gtx]['geolocation']['range_bias_corr'][:] == fv), fill_value=fv)
+        range_bias_corr = np.ma.array(fileID[gtx]['geolocation']['range_bias_corr'][:], fill_value=fv)
+        range_bias_corr.mask = range_bias_corr.data == range_bias_corr.fill_value
         segment_range_bias = (range_bias_corr[1:] + range_bias_corr[0:-1])/2.0
         segment_range_bias.data[segment_range_bias.mask] = segment_range_bias.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['range_bias_corr'] = segment_range_bias
@@ -1849,8 +1851,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- total neutral atmosphere delay correction
         fv = fileID[gtx]['geolocation']['neutat_delay_total'].attrs['_FillValue']
-        neutat_delay_total = np.ma.array(fileID[gtx]['geolocation']['neutat_delay_total'][:],
-            mask=(fileID[gtx]['geolocation']['neutat_delay_total'][:] == fv), fill_value=fv)
+        neutat_delay_total = np.ma.array(fileID[gtx]['geolocation']['neutat_delay_total'][:], fill_value=fv)
+        neutat_delay_total.mask = neutat_delay_total.data == neutat_delay_total.fill_value
         segment_neutat_delay = (neutat_delay_total[1:] + neutat_delay_total[0:-1])/2.0
         segment_neutat_delay.data[segment_neutat_delay.mask] = segment_neutat_delay.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['neutat_delay_total'] = segment_neutat_delay
@@ -1864,8 +1866,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solar elevation
         fv = fileID[gtx]['geolocation']['solar_elevation'].attrs['_FillValue']
-        solar_elevation = np.ma.array(fileID[gtx]['geolocation']['solar_elevation'][:],
-            mask=(fileID[gtx]['geolocation']['solar_elevation'][:] == fv), fill_value=fv)
+        solar_elevation = np.ma.array(fileID[gtx]['geolocation']['solar_elevation'][:], fill_value=fv)
+        solar_elevation.mask = solar_elevation.data == solar_elevation.fill_value
         segment_solar_elevation = (solar_elevation[1:] + solar_elevation[0:-1])/2.0
         segment_solar_elevation.data[segment_solar_elevation.mask] = segment_solar_elevation.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_elevation'] = segment_solar_elevation
@@ -1881,8 +1883,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solar azimuth
         fv = fileID[gtx]['geolocation']['solar_azimuth'].attrs['_FillValue']
-        solar_azimuth = np.ma.array(fileID[gtx]['geolocation']['solar_azimuth'][:],
-            mask=(fileID[gtx]['geolocation']['solar_azimuth'][:] == fv), fill_value=fv)
+        solar_azimuth = np.ma.array(fileID[gtx]['geolocation']['solar_azimuth'][:], fill_value=fv)
+        solar_azimuth.mask = solar_azimuth.data == solar_azimuth.fill_value
         segment_solar_azimuth = (solar_azimuth[1:] + solar_azimuth[0:-1])/2.0
         segment_solar_azimuth.data[segment_solar_azimuth.mask] = segment_solar_azimuth.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_azimuth'] = segment_solar_azimuth
@@ -1899,8 +1901,8 @@ def main():
         #-- geophysical correction values at segment reference photons
         #-- dynamic atmospheric correction
         fv = fileID[gtx]['geophys_corr']['dac'].attrs['_FillValue']
-        dac = np.ma.array(fileID[gtx]['geophys_corr']['dac'][:],
-            mask=(fileID[gtx]['geophys_corr']['dac'][:] == fv), fill_value=fv)
+        dac = np.ma.array(fileID[gtx]['geophys_corr']['dac'][:], fill_value=fv)
+        dac.mask = dac.data == dac.fill_value
         segment_dac = (dac[1:] + dac[0:-1])/2.0
         segment_dac.data[segment_dac.mask] = segment_dac.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['dac'] = segment_dac
@@ -1916,8 +1918,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- solid earth tide
         fv = fileID[gtx]['geophys_corr']['tide_earth'].attrs['_FillValue']
-        tide_earth = np.ma.array(fileID[gtx]['geophys_corr']['tide_earth'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_earth'][:] == fv), fill_value=fv)
+        tide_earth = np.ma.array(fileID[gtx]['geophys_corr']['tide_earth'][:], fill_value=fv)
+        tide_earth.mask = tide_earth.data == tide_earth.mask
         segment_earth_tide = (tide_earth[1:] + tide_earth[0:-1])/2.0
         segment_earth_tide.data[segment_earth_tide.mask] = segment_earth_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_earth'] = segment_earth_tide
@@ -1931,8 +1933,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- load tide
         fv = fileID[gtx]['geophys_corr']['tide_load'].attrs['_FillValue']
-        tide_load = np.ma.array(fileID[gtx]['geophys_corr']['tide_load'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_load'][:] == fv), fill_value=fv)
+        tide_load = np.ma.array(fileID[gtx]['geophys_corr']['tide_load'][:], fill_value=fv)
+        tide_load.mask = tide_load.data == tide_load.fill_value
         segment_load_tide = (tide_load[1:] + tide_load[0:-1])/2.0
         segment_load_tide.data[segment_load_tide.mask] = segment_load_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_load'] = segment_load_tide
@@ -1947,8 +1949,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- ocean tide
         fv = fileID[gtx]['geophys_corr']['tide_ocean'].attrs['_FillValue']
-        tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_ocean'][:] == fv), fill_value=fv)
+        tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:], fill_value=fv)
+        tide_ocean.mask = tide_ocean.data == tide_ocean.fill_value
         segment_ocean_tide = (tide_ocean[1:] + tide_ocean[0:-1])/2.0
         segment_ocean_tide.data[segment_ocean_tide.mask] = segment_ocean_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_ocean'] = segment_ocean_tide
@@ -1980,8 +1982,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- pole tide
         fv = fileID[gtx]['geophys_corr']['tide_pole'].attrs['_FillValue']
-        tide_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_pole'][:],
-            mask=(fileID[gtx]['geophys_corr']['tide_pole'][:] == fv), fill_value=fv)
+        tide_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_pole'][:], fill_value=fv)
+        tide_pole.mask = tide_pole.data == tide_pole.fill_value
         segment_pole_tide = (tide_pole[1:] + tide_pole[0:-1])/2.0
         segment_pole_tide.data[segment_pole_tide.mask] = segment_pole_tide.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_pole'] = segment_pole_tide
@@ -2315,8 +2317,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- elevation
         fv = fileID[gtx]['geolocation']['ref_elev'].attrs['_FillValue']
-        ref_elev = np.ma.array(fileID[gtx]['geolocation']['ref_elev'][:],
-            mask=(fileID[gtx]['geolocation']['ref_elev'][:] == fv), fill_value=fv)
+        ref_elev = np.ma.array(fileID[gtx]['geolocation']['ref_elev'][:], fill_value=fv)
+        ref_elev.mask = ref_elev.data == ref_elev.fill_value
         segment_ref_elev = (ref_elev[1:] + ref_elev[0:-1])/2.0
         segment_ref_elev.data[segment_ref_elev.mask] = segment_ref_elev.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_elev'] = segment_ref_elev
@@ -2332,8 +2334,8 @@ def main():
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- azimuth
         fv = fileID[gtx]['geolocation']['ref_azimuth'].attrs['_FillValue']
-        ref_azimuth = np.ma.array(fileID[gtx]['geolocation']['ref_azimuth'][:],
-            mask=(fileID[gtx]['geolocation']['ref_azimuth'][:] == fv), fill_value=fv)
+        ref_azimuth = np.ma.array(fileID[gtx]['geolocation']['ref_azimuth'][:], fill_value=fv)
+        ref_azimuth.mask = ref_azimuth.data == ref_azimuth.fill_value
         segment_ref_azimuth = (ref_azimuth[1:] + ref_azimuth[0:-1])/2.0
         segment_ref_azimuth.data[segment_ref_azimuth.mask] = segment_ref_azimuth.fill_value
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_azimuth'] = segment_ref_azimuth

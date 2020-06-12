@@ -70,6 +70,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 06/2020: transfer to BytesIO obj in chunks to prevent overflow error
     Written 06/2020
 """
 from __future__ import print_function
@@ -309,7 +310,15 @@ def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             #-- Create and submit request. There are a wide range of exceptions
             #-- that can be thrown here, including HTTPError and URLError.
             request = urllib2.Request(remote_file)
-            fid = io.BytesIO(urllib2.urlopen(request).read())
+            response = urllib2.urlopen(request)
+            #-- chunked transfer encoding size
+            CHUNK = 16 * 1024
+            #-- copy contents to local file using chunked transfer encoding
+            #-- transfer should work properly with ascii and binary data formats
+            fid = io.BytesIO()
+            shutil.copyfileobj(response, fid, CHUNK)
+            #-- rewind retrieved binary to start of file
+            fid.seek(0)
             #-- copy everything from the HDF5 file to the zarr file
             with h5py.File(fid,'r') as source:
                 dest = zarr.open_group(local_file,mode='w')

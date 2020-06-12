@@ -23,5 +23,6 @@ setup(
     ],
     keywords='ICESat-2 laser altimetry, ATLAS',
     packages=find_packages(),
-    install_requires=['numpy','scipy','h5py','scikit-learn','matplotlib','cartopy','future','lxml','paramiko','scp'],
+    install_requires=['numpy','scipy','h5py','zarr','scikit-learn','matplotlib',
+        'cartopy','future','lxml','paramiko','scp'],
 )

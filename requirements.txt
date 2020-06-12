@@ -1,6 +1,7 @@
 numpy
 scipy
 h5py
+zarr
 scikit-learn
 matplotlib
 cartopy

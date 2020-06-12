@@ -21,7 +21,7 @@ The [National Snow and Ice Data Center (NSIDC)](https://nsidc.org/daac/) DAAC pr
 echo "machine urs.earthdata.nasa.gov login <uid> password <password>" >> ~/.netrc
 chmod 0600 ~/.netrc
 ```
-5. [Sync data from NSIDC](https://github.com/tsutterley/read-ICESat-2/blob/master/nsidc_icesat2_sync.py) or use [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter) to gather data  
+5. Sync data from NSIDC as [HDF5](https://github.com/tsutterley/read-ICESat-2/blob/master/nsidc_icesat2_sync.py) or [zarr](https://github.com/tsutterley/read-ICESat-2/blob/master/nsidc_icesat2_zarr.py), or use the [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter) to gather data  
 
 #### Other Data Access Examples   
 - [Curl and Wget](https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+cURL+And+Wget)   

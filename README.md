@@ -36,7 +36,7 @@ https://nsidc.org/data/icesat-2/
 | **ATL18** | Land/Canopy Gridded | Gridded ground surface height, canopy height, and canopy cover estimates.|
 | **ATL19** | Mean Sea Surface (MSS) | Gridded ocean height product.|
 | **ATL20** | Arctic/Antarctic Gridded Sea Ice Freeboard | Gridded sea ice freeboard.|
-| **ATL21** | Arctic/Antarctic Gridded Sea Surface Height w/in Sea Ice | Gridded monthly sea surface height inside the sea ice cover.| 
+| **ATL21** | Arctic/Antarctic Gridded Sea Surface Height w/in Sea Ice | Gridded monthly sea surface height inside the sea ice cover.|
 
 ### ICESat-2 Granules
 Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundaries limit the size of each ATL03 file and simplify the formation of higher level data products.  
@@ -47,6 +47,7 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
  - [numpy: Scientific Computing Tools For Python](https://numpy.org)  
  - [scipy: Scientific Tools for Python](https://docs.scipy.org/doc/)  
  - [h5py: Python interface for Hierarchal Data Format 5 (HDF5)](http://h5py.org)  
+ - [zarr: Chunked, compressed, N-dimensional arrays in Python](https://github.com/zarr-developers/zarr-python)  
  - [scikit-learn: Machine Learning in Python](https://scikit-learn.org/stable/index.html)  
  - [lxml: processing XML and HTML in Python](https://pypi.python.org/pypi/lxml)  
  - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org/)  

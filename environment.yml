@@ -10,6 +10,7 @@ dependencies:
   - matplotlib
   - cartopy
   - h5py
+  - zarr
   - future
   - lxml
   - paramiko

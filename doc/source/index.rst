@@ -30,6 +30,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/MPI_reduce_ICESat2_ATL06_RGI.md
     user_guide/nsidc_icesat2_associated.md
     user_guide/nsidc_icesat2_sync.md
+    user_guide/nsidc_icesat2_zarr.md
     user_guide/read_ICESat2_ATL03.md
     user_guide/read_ICESat2_ATL06.md
     user_guide/read_ICESat2_ATL07.md

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL03.py
-Written by Tyler Sutterley (10/2019)
+Written by Tyler Sutterley (06/2020)
 Determines which digital elevation model tiles to read for a given ATL03 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to ICESat-2 ATL03 photon event locations
@@ -59,6 +59,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 06/2020: add additional beam check within heights groups
     Updated 10/2019: using delta_time as output HDF5 variable dimensions
         changing Y/N flags to True/False
     Updated 09/2019: fiona for shapefile read.  pyproj for coordinate conversion
@@ -393,7 +394,17 @@ def main():
     tile_epsg = comm.bcast(tile_epsg, root=0)
 
     #-- read each input beam within the file
-    IS2_atl03_beams = [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]
+    IS2_atl03_beams = []
+    for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+        #-- check if subsetted beam contains data
+        #-- check in both the geolocation and heights groups
+        try:
+            fileID[gtx]['geolocation']['segment_id']
+            fileID[gtx]['heights']['delta_time']
+        except KeyError:
+            pass
+        else:
+            IS2_atl03_beams.append(gtx)
 
     #-- copy variables for outputting to HDF5 file
     IS2_atl03_dem = {}

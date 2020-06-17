@@ -52,12 +52,11 @@ PYTHON DEPENDENCIES:
         https://github.com/GeospatialPython/pyshp
 
 PROGRAM DEPENDENCIES:
-    base_directory.py: sets the user-specific working data directory as
-        specified by the $PYTHONDATA environmental variable set in .pythonrc
     convert_julian.py: returns the calendar date and time given a Julian date
     count_leap_seconds.py: determines number of leap seconds for a GPS time
 
 UPDATE HISTORY:
+    Updated 06/2020: add additional beam check within heights groups
     Updated 10/2019: using delta_time as output HDF5 variable dimensions
         changing Y/N flags to True/False
     Updated 09/2019: using date functions paralleling public repository
@@ -226,8 +225,10 @@ def main():
     IS2_atl03_beams = []
     for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
         #-- check if subsetted beam contains data
+        #-- check in both the geolocation and heights groups
         try:
             fileID[gtx]['geolocation']['segment_id']
+            fileID[gtx]['heights']['delta_time']
         except KeyError:
             pass
         else:

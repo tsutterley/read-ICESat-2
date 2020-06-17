@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (11/2019)
+read_ICESat2_ATL03.py (06/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 06/2020: add additional beam check within heights groups
     Updated 11/2019: create attribute dictionaries but don't fill if False
     Updated 09/2019: add functions for reading main and beam level variables
     Updated 03/2019: extract a set of ATL09 parameters for each ATL03 segment_ID
@@ -47,8 +48,10 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     IS2_atl03_beams = []
     for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
         #-- check if subsetted beam contains data
+        #-- check in both the geolocation and heights groups
         try:
             fileID[gtx]['geolocation']['segment_id']
+            fileID[gtx]['heights']['delta_time']
         except KeyError:
             pass
         else:

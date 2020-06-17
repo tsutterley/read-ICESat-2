@@ -52,8 +52,6 @@ PYTHON DEPENDENCIES:
         https://github.com/GeospatialPython/pyshp
 
 PROGRAM DEPENDENCIES:
-    base_directory.py: sets the user-specific working data directory as
-        specified by the $PYTHONDATA environmental variable set in .pythonrc
     convert_julian.py: returns the calendar date and time given a Julian date
     count_leap_seconds.py: determines number of leap seconds for a GPS time
 

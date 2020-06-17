@@ -313,7 +313,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             response = urllib2.urlopen(request)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- copy contents to local file using chunked transfer encoding
+            #-- copy contents to BytesIO object using chunked transfer encoding
             #-- transfer should work properly with ascii and binary data formats
             fid = io.BytesIO()
             shutil.copyfileobj(response, fid, CHUNK)

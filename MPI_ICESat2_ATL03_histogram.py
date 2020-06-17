@@ -71,6 +71,7 @@ UPDATE HISTORY:
         verify that complementary beam pair is in list of beams
         set masks of output arrays after reading from HDF5
         save histogram fit amplitudes to output HDF5 file
+        add additional beam check within heights groups
     Updated 05/2020: add mean median difference of histogram fit residuals
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: adding segment quality summary variable
@@ -792,7 +793,17 @@ def main():
     fileID = h5py.File(ATL03_file, 'r', driver='mpio', comm=comm)
 
     #-- read each input beam within the file
-    IS2_atl03_beams = [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]
+    IS2_atl03_beams = []
+    for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+        #-- check if subsetted beam contains data
+        #-- check in both the geolocation and heights groups
+        try:
+            fileID[gtx]['geolocation']['segment_id']
+            fileID[gtx]['heights']['delta_time']
+        except KeyError:
+            pass
+        else:
+            IS2_atl03_beams.append(gtx)
 
     #-- number of GPS seconds between the GPS epoch
     #-- and ATLAS Standard Data Product (SDP) epoch

@@ -11,7 +11,7 @@ nsidc_icesat2_zarr.py
 python nsidc_icesat2_zarr.py --user=<username> --directory=<outgoing> \
 	--release=001 --granule=10,11,12 --mode=0o775 ATL06
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/nsidc_icesat2_zarr.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/nsidc_icesat2_zarr.py)  
 
 #### Command Line Options
  - `-U X`, `--user=X`: username for NASA Earthdata Login  

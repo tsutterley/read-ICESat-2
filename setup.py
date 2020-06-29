@@ -1,11 +1,15 @@
+import os
 from setuptools import setup, find_packages
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open('requirements.txt') as fh:
+    install_requires = fh.read().splitlines()
+
 setup(
     name='read-ICESat-2',
-    version='1.0.0.14',
+    version='1.0.0.15',
     description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -23,6 +27,6 @@ setup(
     ],
     keywords='ICESat-2 laser altimetry, ATLAS',
     packages=find_packages(),
-    install_requires=['numpy','scipy','h5py','zarr','scikit-learn','matplotlib',
-        'cartopy','future','lxml','paramiko','scp'],
+    install_requires=install_requires,
+    scripts=[os.path.join('scripts',f) for f in os.listdir('scripts')],
 )

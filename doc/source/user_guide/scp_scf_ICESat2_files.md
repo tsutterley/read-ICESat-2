@@ -11,7 +11,7 @@ python scp_scf_ICESat2_files.py --host=<host> --user=<username> \
     --remote=<path_to_remote> --scf_outgoing=<path_to_outgoing> \
     --verbose --mode=0o775
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scp_scf_ICESat2_files.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/scp_scf_ICESat2_files.py)  
 
 #### Command Line Options
  - `-h`, `--help`: list the command line options

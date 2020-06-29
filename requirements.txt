@@ -1,10 +1,13 @@
 numpy
 scipy
+mpi4py
 h5py
 zarr
 scikit-learn
 matplotlib
 cartopy
+shapely
+fiona
 future
 lxml
 paramiko

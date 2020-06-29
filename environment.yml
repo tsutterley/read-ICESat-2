@@ -9,6 +9,7 @@ dependencies:
   - scikit-learn
   - matplotlib
   - cartopy
+  - mpi4py
   - h5py
   - zarr
   - future

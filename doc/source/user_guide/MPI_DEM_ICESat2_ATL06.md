@@ -20,7 +20,7 @@ MPI_DEM_ICESat2_ATL06.py
 ```bash
 mpiexec -np <processes> python3 MPI_DEM_ICESat2_ATL06.py <path_to_ATL06_file>
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/MPI_DEM_ICESat2_ATL06.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/MPI_DEM_ICESat2_ATL06.py)  
 
 #### Inputs
 1. `ATL06_file`: full path to ATL06 file  

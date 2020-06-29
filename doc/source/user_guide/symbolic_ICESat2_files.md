@@ -9,7 +9,7 @@ python symbolic_ICESat2_files.py --product=ATL06 --release=001 \
     --granule=10,11,12 --cycle=1,2 --directory=<path_to_directory>
     --scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/symbolic_ICESat2_files.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/symbolic_ICESat2_files.py)  
 
 #### Command Line Options
  - `-h`, `--help`: list the command line options

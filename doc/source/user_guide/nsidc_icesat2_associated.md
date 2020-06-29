@@ -8,7 +8,7 @@ nsidc_icesat2_associated.py
 python nsidc_icesat2_associated.py --user=<username> --directory=<outgoing> \
 	--product=ATL03 --mode=0o775 ATL06_files
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/nsidc_icesat2_associated.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/nsidc_icesat2_associated.py)  
 
 #### Command Line Options
  - `-U X`, `--user=X`: username for NASA Earthdata Login  

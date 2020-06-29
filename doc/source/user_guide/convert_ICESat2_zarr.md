@@ -9,7 +9,7 @@ convert_ICESat2_zarr.py
 python convert_ICESat2_zarr.py --directory=<outgoing> \
 	--release=001 --granule=10,11,12 --mode=0o775 ATL06
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/convert_ICESat2_zarr.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/convert_ICESat2_zarr.py)  
 
 #### Command Line Options
  - `-D X`, `--directory`: working data directory  

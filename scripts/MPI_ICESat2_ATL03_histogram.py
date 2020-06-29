@@ -186,9 +186,9 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
 
     #-- find positive peaks above amplitude threshold (percent of max)
     #-- by calculating the histogram differentials
-    #-- signal amplitude threshold greater than 10% of max or 3xbackground rate
+    #-- signal amplitude threshold greater than 10% of max or 5.5xbackground rate
     AmpThreshold = 0.10
-    HistThreshold = np.max([3.0*N_BG, AmpThreshold*np.max(hist_smooth)])
+    HistThreshold = np.max([5.5*N_BG, AmpThreshold*np.max(hist_smooth)])
     n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
         ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
     n_peaks = np.min([n_peaks,PEAKS])
@@ -316,8 +316,8 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
             dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
             #-- find positive peaks above amplitude threshold (percent of max)
             #-- by calculating the histogram differentials
-            #-- signal amplitude threshold greater than 10% of max or 3xbackground rate
-            HistThreshold = np.max([3.0*N_BG, AmpThreshold*np.max(hist_smooth)])
+            #-- signal amplitude threshold greater than 10% of max or 5.5xbackground rate
+            HistThreshold = np.max([5.5*N_BG, AmpThreshold*np.max(hist_smooth)])
             n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
                 ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
             n_peaks = np.min([n_peaks,PEAKS])

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL12.py (12/2019)
+read_ICESat2_ATL12.py (07/2020)
 Read ICESat-2 ATL12 (Ocean Surface Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 07/2020: added function docstrings
     Written 12/2019
 """
 from __future__ import print_function
@@ -22,6 +23,24 @@ import numpy as np
 
 #-- PURPOSE: read ICESat-2 ATL12 HDF5 data files
 def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+    """
+    Reads ICESat-2 ATL12 (Ocean Surface Height) data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL12 file
+
+    Keyword arguments
+    -----------------
+    ATTRIBUTES: read HDF5 attributes for groups and variables
+    VERBOSE: output information about input ATL12 file
+
+    Returns
+    -------
+    IS2_atl12_mds: dictionary with ATL12 variables
+    IS2_atl12_attrs: dictionary with ATL12 attributes
+    IS2_atl12_beams: list with valid ICESat-2 beams within ATL12 file
+    """
     #-- Open the HDF5 file for reading
     fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 

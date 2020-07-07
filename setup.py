@@ -1,11 +1,16 @@
 import os
 from setuptools import setup, find_packages
 
+# get long_description from README.md
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+# get install requirements
 with open('requirements.txt') as fh:
     install_requires = fh.read().splitlines()
+
+# list of all scripts to be included with package
+scripts=[os.path.join('scripts',f) for f in os.listdir('scripts') if f.endswith('.py')]
 
 setup(
     name='read-ICESat-2',
@@ -28,5 +33,5 @@ setup(
     keywords='ICESat-2 laser altimetry, ATLAS',
     packages=find_packages(),
     install_requires=install_requires,
-    scripts=[os.path.join('scripts',f) for f in os.listdir('scripts')],
+    scripts=scripts,
 )

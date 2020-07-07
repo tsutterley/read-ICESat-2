@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (06/2020)
+read_ICESat2_ATL03.py (07/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 07/2020: added function docstrings
     Updated 06/2020: add additional beam check within heights groups
     Updated 11/2019: create attribute dictionaries but don't fill if False
     Updated 09/2019: add functions for reading main and beam level variables
@@ -32,6 +33,24 @@ import scipy.interpolate
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files
 def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+    """
+    Reads ICESat-2 ATL03 Global Geolocated Photons data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL03 file
+
+    Keyword arguments
+    -----------------
+    ATTRIBUTES: read file, group and variable attributes
+    VERBOSE: output information about top-level HDF5 groups
+
+    Returns
+    -------
+    IS2_atl03_mds: dictionary with ATL03 variables
+    IS2_atl03_attrs: dictionary with ATL03 attributes
+    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    """
     #-- Open the HDF5 file for reading
     fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
@@ -219,6 +238,25 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
 
 #-- PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
 def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
+    """
+    Reads ICESat-2 ATL09 Atmospheric Characteristics data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL03 file
+    pfl: profile for a given beam
+    segID: ATL03 segment_ID variable for interpolating from high_rate to segments
+
+    Keyword arguments
+    -----------------
+    ATTRIBUTES: read file, group and variable attributes
+    VERBOSE: output information about top-level HDF5 groups
+
+    Returns
+    -------
+    IS2_atl09_mds: dictionary with ATL09 variables
+    IS2_atl09_attrs: dictionary with ATL09 attributes
+    """
     #-- Open the HDF5 file for reading
     fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
@@ -267,6 +305,25 @@ def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files for main level variables
 def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+    """
+    Reads ICESat-2 ATL03 Global Geolocated Photons data files
+    for only the main-level variables and not the beam-level data
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL03 file
+
+    Keyword arguments
+    -----------------
+    ATTRIBUTES: read file, group and variable attributes
+    VERBOSE: output information about top-level HDF5 groups
+
+    Returns
+    -------
+    IS2_atl03_mds: dictionary with ATL03 main-level variables
+    IS2_atl03_attrs: dictionary with ATL03 main-level attributes
+    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    """
     #-- Open the HDF5 file for reading
     fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
@@ -388,6 +445,31 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files for beam variables
 def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
+    """
+    Reads ICESat-2 ATL03 Global Geolocated Photons data files
+    for a specific beam
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL03 file
+    gtx: beam name based on ground track and position
+        GT1L
+        GT1R
+        GT2L
+        GT2R
+        GT3L
+        GT3R
+
+    Keyword arguments
+    -----------------
+    ATTRIBUTES: read file, group and variable attributes
+    VERBOSE: output information about top-level HDF5 groups
+
+    Returns
+    -------
+    IS2_atl03_mds: dictionary with ATL03 beam-level variables
+    IS2_atl03_attrs: dictionary with ATL03 beam-level attributes
+    """
     #-- Open the HDF5 file for reading
     fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 

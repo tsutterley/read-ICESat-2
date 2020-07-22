@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (06/2020)
+MPI_ICESat2_ATL03_histogram.py (07/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -67,6 +67,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 07/2020: "re-tiding" is no longer unnecessary
     Updated 06/2020: reduce the maximum number of peaks to fit and reduce threshold
         verify that complementary beam pair is in list of beams
         set masks of output arrays after reading from HDF5
@@ -1070,8 +1071,10 @@ def main():
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
                 #-- Photon event lat/lon and elevation (re-tided WGS84)
                 segment_heights = np.copy(fileID[gtx]['heights']['h_ph'][idx:idx+cnt])
-                segment_heights[:c1] += tide_ocean[j]
-                segment_heights[c1:] += tide_ocean[j+1]
+                #-- ATL03 pe heights no longer apply the ocean tide
+                #-- and so "re-tiding" is no longer unnecessary
+                # segment_heights[:c1] += tide_ocean[j]
+                # segment_heights[c1:] += tide_ocean[j+1]
                 segment_lats = np.copy(fileID[gtx]['heights']['lat_ph'][idx:idx+cnt])
                 segment_lons = np.copy(fileID[gtx]['heights']['lon_ph'][idx:idx+cnt])
                 #-- Photon event channel and identification
@@ -1236,10 +1239,12 @@ def main():
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
                 #-- Photon event lat/lon and elevation (re-tided WGS84)
                 segment_heights = np.copy(fileID[gtx]['heights']['h_ph'][idx:idx+cnt])
-                segment_heights[:c1] += tide_ocean[j-1]
-                segment_heights[c1:c1+c2] += tide_ocean[j]
-                segment_heights[c1+c2:c1+c2+c3] += tide_ocean[j+1]
-                segment_heights[c1+c2+c3:] += tide_ocean[j+2]
+                #-- ATL03 pe heights no longer apply the ocean tide
+                #-- and so "re-tiding" is no longer unnecessary
+                # segment_heights[:c1] += tide_ocean[j-1]
+                # segment_heights[c1:c1+c2] += tide_ocean[j]
+                # segment_heights[c1+c2:c1+c2+c3] += tide_ocean[j+1]
+                # segment_heights[c1+c2+c3:] += tide_ocean[j+2]
                 segment_lats = np.copy(fileID[gtx]['heights']['lat_ph'][idx:idx+cnt])
                 segment_lons = np.copy(fileID[gtx]['heights']['lon_ph'][idx:idx+cnt])
                 #-- Photon event channel and identification

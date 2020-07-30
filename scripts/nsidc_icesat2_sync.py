@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (06/2020)
+Written by Tyler Sutterley (07/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -42,6 +42,7 @@ COMMAND LINE OPTIONS:
     --track=X: ICESat-2 reference ground tracks to sync
     --granule=X: ICESat-2 granule regions to sync
     --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
+    -I X, --index=X: Input index of ICESat-2 files to sync
     -F, --flatten: Do not create subdirectories
     -P X, --np=X: Number of processes to use in file downloads
     -M X, --mode=X: Local permissions mode of the directories and files synced
@@ -58,6 +59,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 UPDATE HISTORY:
+    Updated 07/2020: added option index to use a list of files to sync
     Updated 06/2020: added multiprocessing option for parallel download
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
@@ -107,7 +109,8 @@ def check_connection():
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
-    FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, MODE=None, CLOBBER=False):
+    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, MODE=None,
+    CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
@@ -178,47 +181,89 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     remote_files = []
     remote_mtimes = []
     local_files = []
-    #-- for each ICESat-2 product listed
-    for p in PRODUCTS:
-        print('PRODUCT={0}'.format(p), file=fid)
-        #-- get directories from remote directory (* splat operator)
-        remote_directories = ['ATLAS','{0}.{1}'.format(p,RELEASE)]
-        d = posixpath.join(HOST,*remote_directories)
-        req = urllib2.Request(url=d)
-        #-- compile regular expression operator for product, release and version
-        args = (p,regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
-        R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
-        #-- read and parse request for subdirectories (find column names)
-        tree = lxml.etree.parse(urllib2.urlopen(req), parser)
-        colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
-        remote_sub = [sd for sd in colnames if R2.match(sd)]
-        #-- for each remote subdirectory
-        for sd in remote_sub:
+    #-- build lists of files or use existing index file
+    if INDEX:
+        #-- read the index file, split at lines and remove all commented lines
+        with open(os.path.expanduser(INDEX),'r') as f:
+            files = [i for i in f.read().splitlines() if re.match('^(?!#)',i)]
+        #-- regular expression operator for extracting information from files
+        rx = re.compile('(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
+            '(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+        #-- for each line in the index
+        for f in files:
+            #-- extract parameters from ICESat-2 ATLAS HDF5 file
+            PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
+            #-- get directories from remote directory (* splat operator)
+            sd = ['{0}.{1}'.format(PRD,RL),'{0}.{1}.{2}'.format(YY,MM,DD)]
+            remote_dir = posixpath.join(HOST,'ATLAS',*sd)
             #-- local directory for product and subdirectory
             if FLATTEN:
                 local_dir = os.path.expanduser(ddir)
             else:
-                local_dir = os.path.join(ddir,'{0}.{1}'.format(p,RELEASE),sd)
+                local_dir = os.path.join(ddir,*sd)
             #-- check if data directory exists and recursively create if not
             os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
-            #-- find ICESat-2 data files
-            req=urllib2.Request(url=posixpath.join(d,sd))
+            #-- find ICESat-2 data file to get last modified time
+            req=urllib2.Request(url=remote_dir)
             #-- read and parse request for remote files (columns and dates)
             tree = lxml.etree.parse(urllib2.urlopen(req), parser)
             colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
             collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
             #-- find matching files (for granule, release, version, track)
-            remote_file_lines=[i for i,f in enumerate(colnames) if R1.match(f)]
-            #-- build lists of each ICESat-2 data file
-            for i in remote_file_lines:
+            remote_file_line=[i for i,n in enumerate(colnames) if (n==f.strip())]
+            #-- print if file was not found
+            if not remote_file_line:
+                print('{0} not found on {1}'.format(f,remote_dir),file=fid)
+            #-- add to lists
+            for i in remote_file_line:
                 #-- remote and local versions of the file
-                remote_files.append(posixpath.join(d,sd,colnames[i]))
+                remote_files.append(posixpath.join(remote_dir,colnames[i]))
                 local_files.append(os.path.join(local_dir,colnames[i]))
                 #-- get last modified date and convert into unix time
                 LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
                 remote_mtimes.append(calendar.timegm(LMD))
-        #-- close request
-        req = None
+    else:
+        #-- for each ICESat-2 product listed
+        for p in PRODUCTS:
+            print('PRODUCT={0}'.format(p), file=fid)
+            #-- get directories from remote directory (* splat operator)
+            product_directory = '{0}.{1}'.format(p,RELEASE)
+            d = posixpath.join(HOST,'ATLAS',product_directory)
+            req = urllib2.Request(url=d)
+            #-- compile regular expression operator
+            args=(p,regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
+            R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
+            #-- read and parse request for subdirectories (find column names)
+            tree = lxml.etree.parse(urllib2.urlopen(req), parser)
+            colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
+            remote_sub = [sd for sd in colnames if R2.match(sd)]
+            #-- for each remote subdirectory
+            for sd in remote_sub:
+                #-- local directory for product and subdirectory
+                if FLATTEN:
+                    local_dir = os.path.expanduser(ddir)
+                else:
+                    local_dir = os.path.join(ddir,product_directory,sd)
+                #-- check if data directory exists and recursively create if not
+                os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
+                #-- find ICESat-2 data files
+                req=urllib2.Request(url=posixpath.join(d,sd))
+                #-- read and parse request for remote files (columns and dates)
+                tree = lxml.etree.parse(urllib2.urlopen(req), parser)
+                colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
+                collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
+                #-- find matching files (for granule, release, version, track)
+                remote_file_lines=[i for i,f in enumerate(colnames) if R1.match(f)]
+                #-- build lists of each ICESat-2 data file
+                for i in remote_file_lines:
+                    #-- remote and local versions of the file
+                    remote_files.append(posixpath.join(d,sd,colnames[i]))
+                    local_files.append(os.path.join(local_dir,colnames[i]))
+                    #-- get last modified date and convert into unix time
+                    LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
+                    remote_mtimes.append(calendar.timegm(LMD))
+            #-- close request
+            req = None
 
     #-- sync in series if PROCESSES = 0
     if (PROCESSES == 0):
@@ -322,6 +367,7 @@ def usage():
     print(' --granule=X\t\tICESat-2 granule regions to sync')
     print(' --track=X\t\tICESat-2 reference ground tracks to sync')
     print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
+    print(' -I X, --index=X\t\tInput index of ICESat-2 files to sync')
     print(' -F, --flatten\t\tDo not create subdirectories')
     print(' -P X, --np=X\t\tNumber of processes to use in file downloads')
     print(' -M X, --mode=X\t\tPermission mode of directories and files synced')
@@ -335,10 +381,10 @@ def usage():
 #-- Main program that calls nsidc_icesat2_sync()
 def main():
     #-- Read the system arguments listed after the program
-    short_options = 'hU:N:D:Y:S:FP:LCM:l'
+    short_options = 'hU:N:D:Y:S:I:FP:LCM:l'
     long_options=['help','user=','netrc=','directory=','year=','subdirectory=',
-        'release=','version=','granule=','track=','auxiliary','flatten',
-        'np=','list','log','mode=','clobber']
+        'release=','version=','granule=','track=','auxiliary','index=',
+        'flatten','np=','list','log','mode=','clobber']
     optlist,arglist=getopt.getopt(sys.argv[1:],short_options,long_options)
 
     #-- command line parameters
@@ -353,6 +399,7 @@ def main():
     GRANULES = np.arange(1,15)
     TRACKS = np.arange(1,1388)
     AUXILIARY = False
+    INDEX = None
     FLATTEN = False
     #-- sync in series if processes is 0
     PROCESSES = 0
@@ -385,6 +432,8 @@ def main():
             TRACKS = np.sort(arg.split(',')).astype(np.int)
         elif opt in ("--auxiliary",):
             AUXILIARY = True
+        elif opt in ("-I","--index"):
+            INDEX = os.path.expanduser(arg)
         elif opt in ("-P","--np"):
             PROCESSES = int(arg)
         elif opt in ("-F","--flatten"):
@@ -411,7 +460,7 @@ def main():
     PROD['ATL13'] = 'Inland Water Surface Height'
 
     #-- enter dataset to transfer as system argument
-    if not arglist:
+    if not INDEX and not arglist:
         for key,val in PROD.items():
             print('{0}: {1}'.format(key, val))
         raise Exception('No System Arguments Listed')
@@ -440,8 +489,9 @@ def main():
     if check_connection():
         nsidc_icesat2_sync(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
             TRACKS, USER=USER, PASSWORD=PASSWORD, YEARS=YEARS,
-            SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, FLATTEN=FLATTEN,
-            PROCESSES=PROCESSES, LOG=LOG, LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
+            SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, INDEX=INDEX,
+            FLATTEN=FLATTEN, PROCESSES=PROCESSES, LOG=LOG, LIST=LIST, MODE=MODE,
+            CLOBBER=CLOBBER)
 
 #-- run main program
 if __name__ == '__main__':

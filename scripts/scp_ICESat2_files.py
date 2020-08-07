@@ -53,6 +53,7 @@ import scp
 import getopt
 import getpass
 import logging
+import builtins
 import paramiko
 import posixpath
 import numpy as np
@@ -224,11 +225,11 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     #-- compile regular expression operator for finding subdirectories
     #-- and extracting date information from the subdirectory
-    rx1 = re.compile('(\d+)\.(\d+)\.(\d+)',re.VERBOSE)
+    rx1 = re.compile(r'(\d+)\.(\d+)\.(\d+)',re.VERBOSE)
     #-- compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
-    regex_pattern = ('(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
+    regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
     rx2 = re.compile(regex_pattern.format(*args,re.VERBOSE))
     #-- if pushing from local directory to remote directory
     if PUSH:
@@ -260,7 +261,7 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
                 #-- check if data directory exists and recursively create if not
                 if not os.access(local_dir, os.F_OK) and not LIST:
                     os.makedirs(local_dir, MODE)
-                 #-- push file from local to remote
+                #-- push file from local to remote
                 scp_pull_file(client, client_ftp, fi, local_dir, remote_path,
                     CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
 

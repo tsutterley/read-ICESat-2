@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-convert_delta_time.py (07/2020)
+convert_delta_time.py (08/2020)
 Converts time from delta seconds into Julian and year-decimal
 
 INPUTS:
@@ -18,16 +18,17 @@ PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python (https://numpy.org)
 
 PROGRAM DEPENDENCIES:
-    count_leap_seconds.py: determines number of leap seconds for a GPS time
     convert_julian.py: converts from Julian date to calendar date and time
     convert_calendar_decimal.py: converts from calendar date to decimal year
+    time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 08/2020: time utilities for counting leap seconds and JD conversion
     Updated 07/2020: added function docstrings
     Written 05/2020
 """
 import numpy as np
-from icesat2_toolkit.count_leap_seconds import count_leap_seconds
+import icesat2_toolkit.time
 from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_calendar_decimal import convert_calendar_decimal
 
@@ -54,9 +55,11 @@ def convert_delta_time(delta_time, gps_epoch=1198800018.0):
         delta_time = np.array([delta_time])
     #-- calculate gps time from delta_time
     gps_seconds = gps_epoch + delta_time
-    time_leaps = count_leap_seconds(gps_seconds)
-    #-- calculate Julian time (UTC)
-    time_julian = 2444244.5 + (gps_seconds - time_leaps)/86400.0
+    time_leaps = icesat2_toolkit.time.count_leap_seconds(gps_seconds)
+    #-- calculate Julian time (UTC) by converting to MJD and then adding offset
+    time_julian = 2400000.5 + icesat2_toolkit.time.convert_delta_time(
+        gps_seconds - time_leaps, epoch1=(1980,1,6,0,0,0),
+        epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
     #-- convert to calendar date with convert_julian.py
     Y,M,D,h,m,s = convert_julian(time_julian,FORMAT='tuple')
     #-- calculate year-decimal time (UTC)

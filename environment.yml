@@ -10,7 +10,7 @@ dependencies:
   - matplotlib
   - cartopy
   - mpi4py
-  - h5py
+  - h5py>=2.9=mpi
   - zarr
   - future
   - lxml

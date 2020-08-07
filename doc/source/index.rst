@@ -24,7 +24,6 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/convert_ICESat2_zarr.md
     user_guide/convert_julian.md
     user_guide/copy_scf_ICESat2_files.md
-    user_guide/count_leap_seconds.md
     user_guide/MPI_DEM_ICESat2_ATL03.md
     user_guide/MPI_DEM_ICESat2_ATL06.md
     user_guide/MPI_ICESat2_ATL03.md
@@ -42,3 +41,5 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/scp_ICESat2_files.md
     user_guide/scp_scf_ICESat2_files.md
     user_guide/symbolic_ICESat2_files.md
+    user_guide/time.rst
+    user_guide/utilities.rst

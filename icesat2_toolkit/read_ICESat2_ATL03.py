@@ -154,11 +154,12 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     #-- and add leap seconds since 2018-01-01T00:00:00Z UTC (ATLAS SDP epoch)
     IS2_atl03_mds['ancillary_data'] = {}
     IS2_atl03_attrs['ancillary_data'] = {}
-    for key in ['atlas_sdp_gps_epoch','data_end_utc','data_start_utc','end_cycle',
-        'end_geoseg','end_gpssow','end_gpsweek','end_orbit','end_region',
-        'end_rgt','granule_end_utc','granule_start_utc','release','start_cycle',
-        'start_geoseg','start_gpssow','start_gpsweek','start_orbit','start_region',
-        'start_rgt','version']:
+    ancillary_keys = ['atlas_sdp_gps_epoch','data_end_utc','data_start_utc',
+        'end_cycle','end_geoseg','end_gpssow','end_gpsweek','end_orbit',
+        'end_region','end_rgt','granule_end_utc','granule_start_utc','release',
+        'start_cycle','start_geoseg','start_gpssow','start_gpsweek',
+        'start_orbit','start_region','start_rgt','version']
+    for key in ancillary_keys:
         #-- get each HDF5 variable
         IS2_atl03_mds['ancillary_data'][key] = fileID['ancillary_data'][key][:]
         #-- Getting attributes of group and included variables
@@ -337,7 +338,7 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     IS2_atl03_attrs = {}
 
     #-- read each input beam within the file
-    IS2_atl03_beams = [k for k in fileID.keys() if bool(re.match('gt\d[lr]',k))]
+    IS2_atl03_beams=[k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]
     #-- ICESat-2 spacecraft orientation at time
     IS2_atl03_mds['orbit_info'] = {}
     IS2_atl03_attrs['orbit_info'] = {}
@@ -361,11 +362,12 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     #-- and add leap seconds since 2018-01-01T00:00:00Z UTC (ATLAS SDP epoch)
     IS2_atl03_mds['ancillary_data'] = {}
     IS2_atl03_attrs['ancillary_data'] = {}
-    for key in ['atlas_sdp_gps_epoch','data_end_utc','data_start_utc','end_cycle',
-        'end_geoseg','end_gpssow','end_gpsweek','end_orbit','end_region',
-        'end_rgt','granule_end_utc','granule_start_utc','release','start_cycle',
-        'start_geoseg','start_gpssow','start_gpsweek','start_orbit','start_region',
-        'start_rgt','version']:
+    ancillary_keys = ['atlas_sdp_gps_epoch','data_end_utc','data_start_utc',
+        'end_cycle','end_geoseg','end_gpssow','end_gpsweek','end_orbit',
+        'end_region','end_rgt','granule_end_utc','granule_start_utc','release',
+        'start_cycle','start_geoseg','start_gpssow','start_gpsweek',
+        'start_orbit','start_region','start_rgt','version']
+    for key in ancillary_keys:
         #-- get each HDF5 variable
         IS2_atl03_mds['ancillary_data'][key] = fileID['ancillary_data'][key][:]
         #-- Getting attributes of group and included variables

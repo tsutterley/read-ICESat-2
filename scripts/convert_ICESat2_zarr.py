@@ -75,20 +75,20 @@ def convert_ICESat2_zarr(DIRECTORY,PRODUCTS,RELEASE,VERSIONS,GRANULES,TRACKS,
     regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
-    file_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).(h5)$')
+    file_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).(h5)$')
 
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         #-- convert particular subdirectories for product
-        R2 = re.compile('('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
+        R2 = re.compile(r'('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
     elif YEARS:
         #-- convert particular years for product
         regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-        R2 = re.compile('({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
+        R2 = re.compile(r'({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
     else:
         #-- convert all available subdirectories for product
-        R2 = re.compile('(\d+).(\d+).(\d+)', re.VERBOSE)
+        R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
 
     #-- build list of HDF5 files
     hdf5_file_list = []
@@ -100,7 +100,7 @@ def convert_ICESat2_zarr(DIRECTORY,PRODUCTS,RELEASE,VERSIONS,GRANULES,TRACKS,
         subdirectories = [sd for sd in os.listdir(ddir) if R2.match(sd)]
         #-- compile regular expression operator for product, release and version
         args = (p,regex_track,regex_granule,RELEASE,regex_version)
-        R1 = re.compile(file_regex_pattern.format(*args), re.VERBOSE)        
+        R1 = re.compile(file_regex_pattern.format(*args), re.VERBOSE)
         #-- for each subdirectory
         for sd in subdirectories:
             #-- find matching files (for granule, release, version, track)
@@ -159,7 +159,7 @@ def HDF5_to_zarr(hdf5_file,CLOBBER=False,MODE=0o775):
     TEST = False
     OVERWRITE = ' (clobber)'
     #-- last modification time of HDF5 file
-    hdf5_mtime = os.stat(hdf5_file).st_mtime    
+    hdf5_mtime = os.stat(hdf5_file).st_mtime
     #-- check if local version of file exists
     if os.access(zarr_file, os.F_OK):
         #-- check last modification time of zarr file
@@ -187,7 +187,7 @@ def HDF5_to_zarr(hdf5_file,CLOBBER=False,MODE=0o775):
                 copy_from_HDF5(source[k], dest, name=k)
         #-- keep remote modification time of file and local access time
         os.utime(zarr_file, (os.stat(zarr_file).st_atime, hdf5_mtime))
-        os.chmod(zarr_file, MODE)        
+        os.chmod(zarr_file, MODE)
         #-- return the output string
         return output
 
@@ -197,7 +197,7 @@ def copy_from_HDF5(source, dest, name, **create_kws):
     if hasattr(source, 'shape'):
         #-- copy a dataset/array
         if dest is not None and name in dest:
-            raise CopyError('an object {!r} already exists in destination '
+            raise Exception('an object {!r} already exists in destination '
                 '{!r}'.format(name, dest.name))
         #-- setup creation keyword arguments
         kws = create_kws.copy()
@@ -223,7 +223,7 @@ def copy_from_HDF5(source, dest, name, **create_kws):
     else:
         #-- copy a group
         if (dest is not None and name in dest and hasattr(dest[name], 'shape')):
-            raise CopyError('an array {!r} already exists in destination '
+            raise Exception('an array {!r} already exists in destination '
                 '{!r}'.format(name, dest.name))
         #-- require group in destination
         grp = dest.require_group(name)

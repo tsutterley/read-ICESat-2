@@ -53,9 +53,12 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     convert_julian.py: returns the calendar date and time given a Julian date
-    count_leap_seconds.py: determines number of leap seconds for a GPS time
+    convert_delta_time.py: converts from delta time into Julian and year-decimal
+    convert_calendar_decimal.py: converts from calendar date to decimal year
+    time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: using date functions paralleling public repository
     Updated 05/2019: read shapefiles from RGI provided zip files
@@ -79,7 +82,7 @@ import numpy as np
 from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_julian import convert_julian
-from icesat2_toolkit.count_leap_seconds import count_leap_seconds
+from icesat2_toolkit.convert_delta_time import convert_delta_time
 
 #-- PURPOSE: help module to describe the optional input parameters
 def usage():
@@ -124,7 +127,7 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
     zs = zipfile.ZipFile(os.path.join(RGI_DIRECTORY,
         '{0}.zip'.format(RGI_files[RGI_REGION-1])))
     dbf,prj,shp,shx = [io.BytesIO(zs.read(s)) for s in sorted(zs.namelist())
-        if re.match('(.*?)\.(dbf|prj|shp|shx)$',s)]
+        if re.match(r'(.*?)\.(dbf|prj|shp|shx)$',s)]
     #-- read the shapefile and extract entities
     shape_input = shapefile.Reader(dbf=dbf, prj=prj, shp=shp, shx=shx,
         encodingErrors='ignore')
@@ -200,9 +203,9 @@ def main():
     fileID = h5py.File(FILE, 'r', driver='mpio', comm=comm)
     DIRECTORY = os.path.dirname(FILE)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
-    rx = re.compile('(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_'
-        '(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$',re.VERBOSE)
-    PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
+    rx = re.compile(r'(processed)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
+        r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
 
     #-- read data on rank 0
     if (comm.rank == 0):
@@ -217,7 +220,7 @@ def main():
     poly_dict = comm.bcast(poly_dict, root=0)
     RGI_file = comm.bcast(RGI_file, root=0)
     #-- RGI version and name
-    RGI_VERSION,RGI_NAME = re.findall('\d_rgi(\d+)_(.*?)$',RGI_file).pop()
+    RGI_VERSION,RGI_NAME = re.findall(r'\d_rgi(\d+)_(.*?)$',RGI_file).pop()
 
     #-- read each input beam within the file
     IS2_atl06_beams = []
@@ -584,13 +587,10 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['geospatial_ellipsoid'] = "WGS84"
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
-    #-- convert start and end time from ATLAS SDP seconds into Julian days
-    atlas_sdp_gps_epoch=IS2_atl06_mask['ancillary_data']['atlas_sdp_gps_epoch']
-    gps_seconds = atlas_sdp_gps_epoch + np.array([tmn,tmx])
-    time_leaps = count_leap_seconds(gps_seconds)
-    time_julian = 2444244.5 + (gps_seconds - time_leaps)/86400.0
+    #-- convert start and end time from ATLAS SDP seconds into UTC time
+    time_utc = convert_delta_time(np.array([tmn,tmx]))
     #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_julian,FORMAT='tuple')
+    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

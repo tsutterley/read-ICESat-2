@@ -36,9 +36,12 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     convert_julian.py: returns the calendar date and time given a Julian date
-    count_leap_seconds: determines the number of leap seconds for a GPS time
+    convert_delta_time.py: converts from delta time into Julian and year-decimal
+    convert_calendar_decimal.py: converts from calendar date to decimal year
+    time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 07/2020: "re-tiding" is no longer unnecessary
     Updated 06/2020: verify that complementary beam pair is in list of beams
         set masks of output arrays after reading from HDF5
@@ -69,7 +72,7 @@ import scipy.interpolate
 import sklearn.neighbors
 from mpi4py import MPI
 from icesat2_toolkit.convert_julian import convert_julian
-from icesat2_toolkit.count_leap_seconds import count_leap_seconds
+from icesat2_toolkit.convert_delta_time import convert_delta_time
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -488,7 +491,8 @@ def calc_transmit_pulse_shape(t_TX,p_TX,W_TX,W_RX,dt_W,SNR,ITERATE=50):
         tmd_prev = np.copy(t_synthetic_med)
         tmn_prev = np.copy(t_synthetic_mean)
         #-- truncate to within window
-        i,=np.nonzero((t_RX >= (tmn-0.5*dt_W)) & (t_RX <= (tmn+0.5*dt_W)))
+        i, = np.nonzero((t_RX >= (t_synthetic_mean-0.5*dt_W)) &
+            (t_RX <= (t_synthetic_mean+0.5*dt_W)))
         #-- linearly interpolate to 50th percentile to calculate median
         t_synthetic_med = np.interp(0.5,np.cumsum(RX[i]/np.sum(RX[i])),t_RX[i])
         #-- calculate mean time for window
@@ -2634,13 +2638,10 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     fileID.attrs['geospatial_ellipsoid'] = "WGS84"
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
-    #-- convert start and end time from ATLAS SDP seconds into Julian days
-    atlas_sdp_gps_epoch=IS2_atl03_data['ancillary_data']['atlas_sdp_gps_epoch']
-    gps_seconds = atlas_sdp_gps_epoch + np.array([tmn,tmx])
-    time_leaps = count_leap_seconds(gps_seconds)
-    time_julian = 2444244.5 + (gps_seconds - time_leaps)/86400.0
+    #-- convert start and end time from ATLAS SDP seconds into UTC time
+    time_utc = convert_delta_time(np.array([tmn,tmx]))
     #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_julian,FORMAT='tuple')
+    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

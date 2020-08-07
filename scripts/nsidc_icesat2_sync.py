@@ -162,20 +162,20 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
-    remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
+    remote_regex_pattern=(r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
 
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         #-- Sync particular subdirectories for product
-        R2 = re.compile('('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
+        R2 = re.compile(r'('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
     elif YEARS:
         #-- Sync particular years for product
         regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-        R2 = re.compile('({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
+        R2 = re.compile(r'({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
     else:
         #-- Sync all available subdirectories for product
-        R2 = re.compile('(\d+).(\d+).(\d+)', re.VERBOSE)
+        R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
 
     #-- build list of remote files, remote modification times and local files
     remote_files = []
@@ -187,8 +187,8 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         with open(os.path.expanduser(INDEX),'r') as f:
             files = [i for i in f.read().splitlines() if re.match('^(?!#)',i)]
         #-- regular expression operator for extracting information from files
-        rx = re.compile('(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
-            '(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+        rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
+            r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         #-- for each line in the index
         for f in files:
             #-- extract parameters from ICESat-2 ATLAS HDF5 file

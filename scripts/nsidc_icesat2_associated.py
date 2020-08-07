@@ -124,12 +124,12 @@ def nsidc_icesat2_associated(file_list, PRODUCT, USER='', PASSWORD='',
     #-- remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
     #-- regular expression operator for extracting information from files
-    rx = re.compile('(processed_)?(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})'
-        '(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+    rx = re.compile(r'(processed_)?(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})'
+        r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     #-- regular expression pattern for finding specific files
     regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
-    remote_regex_pattern = ('{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}$')
+    remote_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}$')
 
     #-- for each input file
     for f in file_list:

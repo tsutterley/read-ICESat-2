@@ -217,8 +217,8 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
     #-- compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
-    regex_pattern = ('(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
-        '(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
+    regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
     rx = re.compile(regex_pattern.format(*args),re.VERBOSE)
     #-- find files within scf_outgoing
     file_list = [f for f in scf_client_ftp.listdir(scf_outgoing) if rx.match(f)]

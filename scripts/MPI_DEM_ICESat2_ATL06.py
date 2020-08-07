@@ -51,7 +51,9 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     convert_julian.py: returns the calendar date and time given a Julian date
-    count_leap_seconds.py: determines the number of leap seconds for a GPS time
+    convert_delta_time.py: converts from delta time into Julian and year-decimal
+    convert_calendar_decimal.py: converts from calendar date to decimal year
+    time.py: Utilities for calculating time operations
 
 REFERENCES:
     https://www.pgc.umn.edu/guides/arcticdem/data-description/
@@ -59,6 +61,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: fiona for shapefile read.  pyproj for coordinate conversion
         can set the DEM model manually to use the GIMP DEM. verify DEM is finite
@@ -95,7 +98,7 @@ from mpi4py import MPI
 import scipy.interpolate
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_julian import convert_julian
-from icesat2_toolkit.count_leap_seconds import count_leap_seconds
+from icesat2_toolkit.convert_delta_time import convert_delta_time
 
 #-- digital elevation models
 elevation_dir = {}
@@ -236,7 +239,7 @@ def read_DEM_file(elevation_file, nd_value):
     #-- open file with tarfile (read)
     tar = tarfile.open(name=elevation_file, mode='r:gz')
     #-- find dem geotiff file within tar file
-    member, = [m for m in tar.getmembers() if re.search('dem\.tif',m.name)]
+    member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     #-- use GDAL memory-mapped file to read dem
     mmap_name = "/vsimem/{0}".format(uuid.uuid4().hex)
     osgeo.gdal.FileFromMemBuffer(mmap_name, tar.extractfile(member).read())
@@ -277,7 +280,7 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     #-- open file with tarfile (read)
     tar = tarfile.open(name=elevation_file, mode='r:gz')
     #-- find dem geotiff file within tar file
-    member, = [m for m in tar.getmembers() if re.search('dem\.tif',m.name)]
+    member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     #-- use GDAL memory-mapped file to read dem
     mmap_name = "/vsimem/{0}".format(uuid.uuid4().hex)
     osgeo.gdal.FileFromMemBuffer(mmap_name, tar.extractfile(member).read())
@@ -364,14 +367,14 @@ def main():
     fileID = h5py.File(FILE, 'r', driver='mpio', comm=comm)
     DIRECTORY = os.path.dirname(FILE)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
-    rx = re.compile('(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
-        '(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
+    rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
+        r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
 
     #-- set the digital elevation model based on ICESat-2 granule
     DEM_MODEL = set_DEM_model(GRAN) if (DEM_MODEL is None) else DEM_MODEL
     #-- regular expression pattern for extracting parameters from ArcticDEM name
-    rx1 = re.compile('(\d+)_(\d+)_(\d+)_(\d+)_(\d+m)_(.*?)$', re.VERBOSE)
+    rx1 = re.compile(r'(\d+)_(\d+)_(\d+)_(\d+)_(\d+m)_(.*?)$', re.VERBOSE)
     #-- full path to DEM directory
     elevation_directory=os.path.join(base_dir,*elevation_dir[DEM_MODEL])
     #-- zip file containing index shapefiles for finding DEM tiles
@@ -635,7 +638,7 @@ def main():
             #-- buffer using neighbor tiles (REMA/GIMP) or sub-tiles (ArcticDEM)
             if (DEM_MODEL == 'REMA'):
                 #-- REMA tiles to read to buffer the image
-                IMy,IMx = np.array(re.findall('(\d+)_(\d+)',sub).pop(),dtype='i')
+                IMy,IMx = np.array(re.findall(r'(\d+)_(\d+)',sub).pop(),dtype='i')
                 #-- neighboring tiles for buffering DEM (LB,LM,LT,CB,CT,RB,RM,RT)
                 xtiles = [IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
                 ytiles = [IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
@@ -661,7 +664,7 @@ def main():
                         DEM,MASK = (None,None)
             elif (DEM_MODEL == 'GIMP'):
                 #-- GIMP tiles to read to buffer the image
-                IMx,IMy = np.array(re.findall('(\d+)_(\d+)',sub).pop(),dtype='i')
+                IMx,IMy = np.array(re.findall(r'(\d+)_(\d+)',sub).pop(),dtype='i')
                 #-- neighboring tiles for buffering DEM (LB,LM,LT,CB,CT,RB,RM,RT)
                 xtiles = [IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
                 ytiles = [IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
@@ -702,7 +705,7 @@ def main():
                 ysubtiles = [(STy-2) % 2 + 1,STy,STy % 2 + 1,(STy-2) % 2 + 1,
                     STy % 2 + 1,(STy-2) % 2 + 1,STy,STy % 2 + 1]
                 #-- for each buffer tile and sub-tile
-                kwargs = (xtiles,ytiles,xsubs,ysubs,xlimits,ylimits)
+                kwargs = (xtiles,ytiles,xsubtiles,ysubtiles,xlimits,ylimits)
                 for xtl,ytl,xs,ys,xlim,ylim in zip(*kwargs):
                     #-- read DEM file (geotiff within gzipped tar file)
                     args = (ytl,xtl,xs,ys,res,vers)
@@ -930,13 +933,10 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['geospatial_ellipsoid'] = "WGS84"
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
-    #-- convert start and end time from ATLAS SDP seconds into Julian days
-    atlas_sdp_gps_epoch=IS2_atl06_dem['ancillary_data']['atlas_sdp_gps_epoch']
-    gps_seconds = atlas_sdp_gps_epoch + np.array([tmn,tmx])
-    time_leaps = count_leap_seconds(gps_seconds)
-    time_julian = 2444244.5 + (gps_seconds - time_leaps)/86400.0
+    #-- convert start and end time from ATLAS SDP seconds into UTC time
+    time_utc = convert_delta_time(np.array([tmn,tmx]))
     #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_julian,FORMAT='tuple')
+    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

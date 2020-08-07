@@ -45,4 +45,5 @@ jobs:
     - name: Test with pytest
       run: |
         pip install --no-deps .
-        pytest
+        pytest --username=${{ secrets.EARTHDATA_USERNAME }} \
+            --password=${{ secrets.EARTHDATA_PASSWORD }}

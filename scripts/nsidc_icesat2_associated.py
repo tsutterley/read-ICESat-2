@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (05/2020)
+Written by Tyler Sutterley (08/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server that is
     associated with an input file
@@ -48,7 +48,11 @@ PYTHON DEPENDENCIES:
         https://lxml.de/
         https://github.com/lxml/lxml
 
+PROGRAM DEPENDENCIES:
+    utilities: download and management utilities for syncing files
+
 UPDATE HISTORY:
+    Updated 08/2020: moved urllib opener to utilities. add credential check
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
         adjust regular expression for auxiliary products
@@ -60,66 +64,27 @@ from __future__ import print_function
 import sys
 import os
 import re
-import ssl
 import netrc
 import getopt
 import shutil
-import base64
 import getpass
 import builtins
 import posixpath
 import lxml.etree
 import numpy as np
 import calendar, time
+import icesat2_toolkit.utilities
 if sys.version_info[0] == 2:
-    from cookielib import CookieJar
     import urllib2
 else:
-    from http.cookiejar import CookieJar
     import urllib.request as urllib2
 
-#-- PURPOSE: check internet connection
-def check_connection():
-    #-- attempt to connect to https host for NSIDC
-    try:
-        HOST = 'https://n5eil01u.ecs.nsidc.org'
-        urllib2.urlopen(HOST,timeout=20,context=ssl.SSLContext())
-    except urllib2.URLError:
-        raise RuntimeError('Check internet connection')
-    else:
-        return True
-
 #-- PURPOSE: download the ICESat-2 elevation data from NSIDC matching an file
-def nsidc_icesat2_associated(file_list, PRODUCT, USER='', PASSWORD='',
-    DIRECTORY=None, AUXILIARY=False, MODE=0o775):
+def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
+    AUXILIARY=False, MODE=0o775):
 
-    #-- https://docs.python.org/3/howto/urllib2.html#id5
-    #-- create a password manager
-    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    #-- Add the username and password for NASA Earthdata Login system
-    password_mgr.add_password(None, 'https://urs.earthdata.nasa.gov',
-        USER, PASSWORD)
-    #-- Encode username/password for request authorization headers
-    base64_string = base64.b64encode('{0}:{1}'.format(USER,PASSWORD).encode())
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
-    #-- Create cookie jar for storing cookies. This is used to store and return
-    #-- the session cookie given to use by the data server (otherwise will just
-    #-- keep sending us back to Earthdata Login to authenticate).
-    cookie_jar = CookieJar()
-    #-- create "opener" (OpenerDirector instance)
-    opener = urllib2.build_opener(
-        urllib2.HTTPBasicAuthHandler(password_mgr),
-        urllib2.HTTPSHandler(context=ssl.SSLContext()),
-        urllib2.HTTPCookieProcessor(cookie_jar))
-    #-- add Authorization header to opener
-    authorization_header = "Basic {0}".format(base64_string.decode())
-    opener.addheaders = [("Authorization", authorization_header)]
-    #-- Now all calls to urllib2.urlopen use our opener.
-    urllib2.install_opener(opener)
-    #-- All calls to urllib2.urlopen will now use handler
-    #-- Make sure not to include the protocol in with the URL, or
-    #-- HTTPPasswordMgrWithDefaultRealm will be confused.
 
     #-- remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
@@ -266,10 +231,15 @@ def main():
         #-- enter password securely from command-line
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
+    #-- build a urllib opener for NSIDC
+    #-- Add the username and password for NASA Earthdata Login system
+    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
+
     #-- check internet connection before attempting to run program
-    if check_connection():
-        nsidc_icesat2_associated(arglist, PRODUCT, USER=USER, PASSWORD=PASSWORD,
-            DIRECTORY=DIRECTORY, AUXILIARY=AUXILIARY, MODE=MODE)
+    #-- check NASA earthdata credentials before attempting to run program
+    if icesat2_toolkit.utilities.check_credentials():
+        nsidc_icesat2_associated(arglist, PRODUCT, DIRECTORY=DIRECTORY,
+            AUXILIARY=AUXILIARY, MODE=MODE)
 
 #-- run main program
 if __name__ == '__main__':

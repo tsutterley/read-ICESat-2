@@ -40,8 +40,8 @@ https://nsidc.org/data/icesat-2/
 
 ### ICESat-2 Granules
 Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundaries limit the size of each ATL03 file and simplify the formation of higher level data products.  
-![ICESat-2-global-granules](./data/ICESat-2_granules_global.png)  
-![ICESat-2-polar-granules](./data/ICESat-2_granules_polar.png)  
+![ICESat-2-global-granules](./icesat2_toolkit/data/ICESat-2_granules_global.png)  
+![ICESat-2-polar-granules](./icesat2_toolkit/data/ICESat-2_granules_polar.png)  
 
 #### Dependencies
  - [numpy: Scientific Computing Tools For Python](https://numpy.org)  

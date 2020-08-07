@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     convert_calendar_decimal.py: converts from calendar date to decimal year
     time.py: Utilities for calculating time operations
+    utilities: download and management utilities for syncing files
 
 REFERENCES:
     A Chauve, C Mallet, F Bretar, S Durrieu, M P Deseilligny and W Puech.

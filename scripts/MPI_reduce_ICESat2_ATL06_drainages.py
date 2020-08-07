@@ -37,6 +37,7 @@ PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     convert_calendar_decimal.py: converts from calendar date to decimal year
     time.py: Utilities for calculating time operations
+    utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 08/2020: using convert delta time function to convert to Julian days

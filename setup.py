@@ -14,7 +14,7 @@ scripts=[os.path.join('scripts',f) for f in os.listdir('scripts') if f.endswith(
 
 setup(
     name='read-ICESat-2',
-    version='1.0.0.16',
+    version='1.0.0.17',
     description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
     long_description=long_description,
     long_description_content_type="text/markdown",

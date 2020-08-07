@@ -6,6 +6,7 @@ Download and management utilities for syncing time and auxiliary files
 
  - Can list a directory on a ftp host
  - Can download a file from a ftp or http host
+ - Can download a file from NSIDC via https when Earthdata credentials are supplied
  - Checks MD5 hashes between local and remote files
 
 `Source code`__
@@ -86,6 +87,53 @@ General Methods
         `HOST`: remote http host path split as list
 
     Keyword arguments:
+
+        `timeout`: timeout in seconds for blocking operations
+
+        `local`: path to local file
+
+        `hash`: MD5 hash of local file
+
+        `chunk`: chunk size for transfer encoding
+
+        `verbose`: print file transfer information
+
+        `mode`: permissions mode of output local file
+
+
+.. method:: icesat2_toolkit.utilities.build_opener(username,password,urs=None)
+
+    build urllib opener for NASA Earthdata with supplied credentials
+
+    Arguments:
+
+        `username`: NASA Earthdata username
+
+        `password`: NASA Earthdata password
+
+    Keyword arguments:
+
+        urs: Earthdata login URS 3 host
+
+
+.. method:: icesat2_toolkit.utilities.check_credentials()
+
+    Check that entered NASA Earthdata credentials are valid
+
+
+.. method:: icesat2_toolkit.utilities.from_nsidc(HOST,username=None,password=None,timeout=None,local=None,hash='',chunk=16384,verbose=False,mode=0o775)
+
+    Download a file from a NSIDC https server
+
+    Arguments:
+
+        `HOST`: remote http host path split as list
+
+    Keyword arguments:
+
+        `username`: NASA Earthdata username
+
+        `password`: NASA Earthdata password
 
         `timeout`: timeout in seconds for blocking operations
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_zarr.py
-Written by Tyler Sutterley (07/2020)
+Written by Tyler Sutterley (08/2020)
 
 Acquires ICESat-2 datafiles from NSIDC and directly convert to zarr datafiles
 
@@ -70,7 +70,11 @@ PYTHON DEPENDENCIES:
         https://lxml.de/
         https://github.com/lxml/lxml
 
+PROGRAM DEPENDENCIES:
+    utilities: download and management utilities for syncing files
+
 UPDATE HISTORY:
+    Updated 08/2020: moved urllib opener to utilities. add credential check
     Updated 07/2020: added option index to use a list of files to sync
     Updated 06/2020: transfer to BytesIO obj in chunks to prevent overflow error
     Written 06/2020
@@ -81,13 +85,11 @@ import sys
 import os
 import re
 import io
-import ssl
 import zarr
 import h5py
 import netrc
 import getopt
 import shutil
-import base64
 import getpass
 import builtins
 import posixpath
@@ -97,29 +99,16 @@ import lxml.etree
 import numpy as np
 import calendar, time
 import multiprocessing as mp
+import icesat2_toolkit.utilities
 if sys.version_info[0] == 2:
-    from cookielib import CookieJar
     import urllib2
 else:
-    from http.cookiejar import CookieJar
     import urllib.request as urllib2
-
-#-- PURPOSE: check internet connection
-def check_connection():
-    #-- attempt to connect to https host for NSIDC
-    try:
-        HOST = 'https://n5eil01u.ecs.nsidc.org'
-        urllib2.urlopen(HOST,timeout=20,context=ssl.SSLContext())
-    except urllib2.URLError:
-        raise RuntimeError('Check internet connection')
-    else:
-        return True
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC and convert to zarr
 def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
-    USER='', PASSWORD='', YEARS=None, SUBDIRECTORY=None, AUXILIARY=False,
-    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, MODE=None,
-    CLOBBER=False):
+    YEARS=None, SUBDIRECTORY=None, AUXILIARY=False, INDEX=None, FLATTEN=False,
+    LOG=False, LIST=False, PROCESSES=0, MODE=None, CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
@@ -135,33 +124,8 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         #-- standard output (terminal output)
         fid = sys.stdout
 
-    #-- https://docs.python.org/3/howto/urllib2.html#id5
-    #-- create a password manager
-    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    #-- Add the username and password for NASA Earthdata Login system
-    password_mgr.add_password(None, 'https://urs.earthdata.nasa.gov',
-        USER, PASSWORD)
-    #-- Encode username/password for request authorization headers
-    base64_string = base64.b64encode('{0}:{1}'.format(USER,PASSWORD).encode())
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
-    #-- Create cookie jar for storing cookies. This is used to store and return
-    #-- the session cookie given to use by the data server (otherwise will just
-    #-- keep sending us back to Earthdata Login to authenticate).
-    cookie_jar = CookieJar()
-    #-- create "opener" (OpenerDirector instance)
-    opener = urllib2.build_opener(
-        urllib2.HTTPBasicAuthHandler(password_mgr),
-        urllib2.HTTPSHandler(context=ssl.SSLContext()),
-        urllib2.HTTPCookieProcessor(cookie_jar))
-    #-- add Authorization header to opener
-    authorization_header = "Basic {0}".format(base64_string.decode())
-    opener.addheaders = [("Authorization", authorization_header)]
-    #-- Now all calls to urllib2.urlopen use our opener.
-    urllib2.install_opener(opener)
-    #-- All calls to urllib2.urlopen will now use handler
-    #-- Make sure not to include the protocol in with the URL, or
-    #-- HTTPPasswordMgrWithDefaultRealm will be confused.
 
     #-- remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
@@ -586,13 +550,17 @@ def main():
         #-- enter password securely from command-line
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
+    #-- build a urllib opener for NSIDC
+    #-- Add the username and password for NASA Earthdata Login system
+    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
+
     #-- check internet connection before attempting to run program
-    if check_connection():
+    #-- check NASA earthdata credentials before attempting to run program
+    if icesat2_toolkit.utilities.check_credentials():
         nsidc_icesat2_zarr(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
-            TRACKS, USER=USER, PASSWORD=PASSWORD, YEARS=YEARS,
-            SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY, INDEX=INDEX,
-            FLATTEN=FLATTEN, PROCESSES=PROCESSES, LOG=LOG, LIST=LIST, MODE=MODE,
-            CLOBBER=CLOBBER)
+            TRACKS, YEARS=YEARS, SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY,
+            INDEX=INDEX, FLATTEN=FLATTEN, PROCESSES=PROCESSES, LOG=LOG,
+            LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
 
 #-- run main program
 if __name__ == '__main__':

@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 08/2020: moved urllib opener to utilities. add credential check
+        moved urllib directory listing to utilities
     Updated 07/2020: added option index to use a list of files to sync
     Updated 06/2020: added multiprocessing option for parallel download
     Updated 05/2020: added option netrc to use alternative authentication
@@ -79,6 +80,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import time
 import netrc
 import getopt
 import shutil
@@ -88,7 +90,6 @@ import posixpath
 import traceback
 import lxml.etree
 import numpy as np
-import calendar, time
 import multiprocessing as mp
 import icesat2_toolkit.utilities
 if sys.version_info[0] == 2:
@@ -157,50 +158,44 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         for f in files:
             #-- extract parameters from ICESat-2 ATLAS HDF5 file
             PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
-            #-- get directories from remote directory (* splat operator)
-            sd = ['{0}.{1}'.format(PRD,RL),'{0}.{1}.{2}'.format(YY,MM,DD)]
-            remote_dir = posixpath.join(HOST,'ATLAS',*sd)
+            #-- get directories from remote directory
+            product_directory = '{0}.{1}'.format(PRD,RL)
+            sd = '{0}.{1}.{2}'.format(YY,MM,DD)
+            PATH = [HOST,'ATLAS',product_directory,sd]
+            remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
             #-- local directory for product and subdirectory
             if FLATTEN:
                 local_dir = os.path.expanduser(ddir)
             else:
-                local_dir = os.path.join(ddir,*sd)
+                local_dir = os.path.join(ddir,product_directory,sd)
             #-- check if data directory exists and recursively create if not
             os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
             #-- find ICESat-2 data file to get last modified time
-            req=urllib2.Request(url=remote_dir)
-            #-- read and parse request for remote files (columns and dates)
-            tree = lxml.etree.parse(urllib2.urlopen(req), parser)
-            colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
-            collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
             #-- find matching files (for granule, release, version, track)
-            remote_file_line=[i for i,n in enumerate(colnames) if (n==f.strip())]
+            colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+                build=False,timeout=120,parser=parser,pattern=f.strip())
             #-- print if file was not found
-            if not remote_file_line:
+            if not colnames:
                 print('{0} not found on {1}'.format(f,remote_dir),file=fid)
             #-- add to lists
-            for i in remote_file_line:
+            for colname,remote_mtime in zip(colnames,collastmod):
                 #-- remote and local versions of the file
-                remote_files.append(posixpath.join(remote_dir,colnames[i]))
-                local_files.append(os.path.join(local_dir,colnames[i]))
-                #-- get last modified date and convert into unix time
-                LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
-                remote_mtimes.append(calendar.timegm(LMD))
+                remote_files.append(posixpath.join(remote_dir,colname))
+                local_files.append(os.path.join(local_dir,colname))
+                remote_mtimes.append(remote_mtime)
     else:
         #-- for each ICESat-2 product listed
         for p in PRODUCTS:
             print('PRODUCT={0}'.format(p), file=fid)
-            #-- get directories from remote directory (* splat operator)
+            #-- get directories from remote directory
             product_directory = '{0}.{1}'.format(p,RELEASE)
-            d = posixpath.join(HOST,'ATLAS',product_directory)
-            req = urllib2.Request(url=d)
+            PATH = [HOST,'ATLAS',product_directory]
             #-- compile regular expression operator
             args=(p,regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
             R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
             #-- read and parse request for subdirectories (find column names)
-            tree = lxml.etree.parse(urllib2.urlopen(req), parser)
-            colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
-            remote_sub = [sd for sd in colnames if R2.match(sd)]
+            remote_sub,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+                build=False,timeout=120,parser=parser,pattern=R2,sort=True)
             #-- for each remote subdirectory
             for sd in remote_sub:
                 #-- local directory for product and subdirectory
@@ -211,21 +206,17 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
                 #-- check if data directory exists and recursively create if not
                 os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
-                req=urllib2.Request(url=posixpath.join(d,sd))
-                #-- read and parse request for remote files (columns and dates)
-                tree = lxml.etree.parse(urllib2.urlopen(req), parser)
-                colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
-                collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
+                PATH = [HOST,'ATLAS',product_directory,sd]
+                remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
-                remote_file_lines=[i for i,f in enumerate(colnames) if R1.match(f)]
+                colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+                    build=False,timeout=120,parser=parser,pattern=R1,sort=True)
                 #-- build lists of each ICESat-2 data file
-                for i in remote_file_lines:
+                for colname,remote_mtime in zip(colnames,collastmod):
                     #-- remote and local versions of the file
-                    remote_files.append(posixpath.join(d,sd,colnames[i]))
-                    local_files.append(os.path.join(local_dir,colnames[i]))
-                    #-- get last modified date and convert into unix time
-                    LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
-                    remote_mtimes.append(calendar.timegm(LMD))
+                    remote_files.append(posixpath.join(remote_dir,colname))
+                    local_files.append(os.path.join(local_dir,colname))
+                    remote_mtimes.append(remote_mtime)
             #-- close request
             req = None
 

@@ -21,6 +21,8 @@ import socket
 import inspect
 import hashlib
 import posixpath
+import lxml.etree
+import calendar,time
 if sys.version_info[0] == 2:
     from cookielib import CookieJar
     import urllib2
@@ -63,6 +65,26 @@ def get_hash(local):
     else:
         return ''
 
+#-- PURPOSE: returns the Unix timestamp value for a formatted date string
+def get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S'):
+    """
+    Get the Unix timestamp value for a formatted date string
+
+    Arguments
+    ---------
+    time_string: formatted time string to parse
+
+    Keyword arguments
+    -----------------
+    format: format for input time string
+    """
+    try:
+        parsed_time = time.strptime(time_string.rstrip(), format)
+    except (TypeError, ValueError):
+        return None
+    else:
+        return calendar.timegm(parsed_time)
+
 #-- PURPOSE: download a file from a ftp host
 def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
     """
@@ -78,6 +100,11 @@ def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
     basename: return the file or directory basename instead of the full path
     pattern: regular expression pattern for reducing list
     sort: sort output list
+
+    Returns
+    -------
+    output: list of items in a directory
+    mtimes: list of last modification times for items in the directory
     """
     #-- try to connect to ftp host
     try:
@@ -87,20 +114,40 @@ def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
     else:
         ftp.login()
         #-- list remote path
-        output_list = ftp.nlst(posixpath.join(*HOST[1:]))
+        output = ftp.nlst(posixpath.join(*HOST[1:]))
+        #-- get last modified date of ftp files and convert into unix time
+        mtimes = [None]*len(output)
+        #-- iterate over each file in the list and get the modification time
+        for i,f in enumerate(output):
+            try:
+                #-- try sending modification time command
+                mdtm = ftp.sendcmd('MDTM {0}'.format(f))
+            except ftplib.error_perm:
+                #-- directories will return with an error
+                pass
+            else:
+                #-- convert the modification time into unix time
+                mtimes[i] = get_unix_time(time.strptime(mdtm[4:],
+                    format="%Y%m%d%H%M%S"))
         #-- reduce to basenames
         if basename:
-            output_list = [posixpath.basename(i) for i in output_list]
+            output = [posixpath.basename(i) for i in output]
         #-- reduce using regular expression pattern
         if pattern:
-            output_list = [i for i in output_list if re.search(pattern,i)]
+            i = [i for i,f in enumerate(output) if re.search(pattern,f)]
+            #-- reduce list of listed items and last modified times
+            output = [output[indice] for indice in i]
+            mtimes = [mtimes[indice] for indice in i]
         #-- sort the list
         if sort:
-            output_list = sorted(output_list)
+            i = [i for i,j in sorted(enumerate(output), key=lambda i: i[1])]
+            #-- sort list of listed items and last modified times
+            output = [output[indice] for indice in i]
+            mtimes = [mtimes[indice] for indice in i]
         #-- close the ftp connection
         ftp.close()
-        #-- return the list
-        return output_list
+        #-- return the list of items and last modified times
+        return (output,mtimes)
 
 #-- PURPOSE: download a file from a ftp host
 def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
@@ -264,9 +311,68 @@ def check_credentials():
     else:
         return True
 
+#-- PURPOSE: list a directory on NSIDC https server
+def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
+    parser=lxml.etree.HTMLParser(),pattern='',sort=False):
+    """
+    List a directory on NSIDC
+
+    Arguments
+    ---------
+    HOST: remote https host path split as list
+
+    Keyword arguments
+    -----------------
+    username: NASA Earthdata username
+    password: NASA Earthdata password
+    build: Build opener and check NASA Earthdata credentials
+    timeout: timeout in seconds for blocking operations
+    parser: HTML parser for lxml
+    pattern: regular expression pattern for reducing list
+    sort: sort output list
+
+    Returns
+    -------
+    colnames: list of column names in a directory
+    collastmod: list of last modification times for items in the directory
+    """
+    #-- build urllib2 opener and check credentials
+    if build:
+        #-- build urllib2 opener with credentials
+        build_opener(username, password)
+        #-- check credentials
+        check_credentials()
+    #-- try listing from https
+    try:
+        #-- Create and submit request.
+        request = urllib2.Request(posixpath.join(*HOST))
+        tree = lxml.etree.parse(urllib2.urlopen(request,timeout=timeout),parser)
+    except (urllib2.HTTPError, urllib2.URLError):
+        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+    else:
+        #-- read and parse request for files (column names and modified times)
+        colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
+        #-- get the Unix timestamp value for a modification time
+        collastmod = [get_unix_time(i,format='%Y-%m-%d %H:%M')
+            for i in tree.xpath('//td[@class="indexcollastmod"]/text()')]
+        #-- reduce using regular expression pattern
+        if pattern:
+            i = [i for i,f in enumerate(colnames) if re.search(pattern,f)]
+            #-- reduce list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        #-- sort the list
+        if sort:
+            i = [i for i,j in sorted(enumerate(colnames), key=lambda i: i[1])]
+            #-- sort list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        #-- return the list of column names and last modified times
+        return (colnames,collastmod)
+
 #-- PURPOSE: download a file from a NSIDC https server
-def from_nsidc(HOST,username=None,password=None,timeout=None,local=None,hash='',
-    chunk=16384,verbose=False,mode=0o775):
+def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
+    local=None,hash='',chunk=16384,verbose=False,mode=0o775):
     """
     Download a file from a NSIDC https server
 
@@ -278,6 +384,7 @@ def from_nsidc(HOST,username=None,password=None,timeout=None,local=None,hash='',
     -----------------
     username: NASA Earthdata username
     password: NASA Earthdata password
+    build: Build opener and check NASA Earthdata credentials
     timeout: timeout in seconds for blocking operations
     local: path to local file
     hash: MD5 hash of local file
@@ -289,10 +396,12 @@ def from_nsidc(HOST,username=None,password=None,timeout=None,local=None,hash='',
     -------
     remote_buffer: BytesIO representation of file
     """
-    #-- build urllib2 opener with credentials
-    build_opener(username, password)
-    #-- check credentials
-    check_credentials()
+    #-- build urllib2 opener and check credentials
+    if build:
+        #-- build urllib2 opener with credentials
+        build_opener(username, password)
+        #-- check credentials
+        check_credentials()
     #-- try downloading from http
     try:
         #-- Create and submit request.

@@ -9,10 +9,15 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         python-version: [3.5, 3.6, 3.7, 3.8]
+        exclude:
+          # excludes unsupported python versions on macOS
+          - os: macos-latest
+            python-version: 3.5
 
     steps:
     - uses: actions/checkout@v2
@@ -20,12 +25,12 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+    - name: Install dependencies for Linux
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get install openmpi-bin mpi-default-bin openmpi-doc \
             libopenmpi-dev gdal-bin libgdal-dev libproj-dev proj-data \
-            proj-bin libgeos-dev libhdf5-openmpi-dev libnetcdf-dev \
-            libxml2-dev libxslt1-dev
+            proj-bin libgeos-dev libhdf5-openmpi-dev libxml2-dev libxslt1-dev
         pip install --upgrade pip
         pip install --upgrade setuptools
         pip install flake8 pytest pytest-cov numpy
@@ -35,6 +40,26 @@ jobs:
         export CC=mpicc
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Install dependencies for MacOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install open-mpi
+        brew install proj
+        brew install geos
+        brew install gdal
+        brew unlink hdf5
+        brew install hdf5-mpi
+        brew install libxml2
+        brew install libxslt
+        brew install pkg-config
+        pip install --upgrade pip
+        pip install --upgrade setuptools
+        pip install flake8 pytest pytest-cov numpy mpi4py
+        export CC=mpicc
+        export HDF5_MPI="ON"
+        export HDF5_DIR=/usr/local/opt/hdf5-mpi
+        pip install git+https://github.com/h5py/h5py.git
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |

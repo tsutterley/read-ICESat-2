@@ -3,6 +3,9 @@ utilities.py
 Written by Tyler Sutterley (08/2020)
 Download and management utilities for syncing time and auxiliary files
 
+PYTHON DEPENDENCIES:
+    lxml: processing XML and HTML in Python (https://pypi.python.org/pypi/lxml)
+
 UPDATE HISTORY:
     Updated 08/2020: add Earthdata opener, login and download functions
     Written 08/2020
@@ -85,7 +88,28 @@ def get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S'):
     else:
         return calendar.timegm(parsed_time)
 
-#-- PURPOSE: download a file from a ftp host
+#-- PURPOSE: make a copy of a file with all system information
+def copy(source, destination, verbose=False, move=False):
+    """
+    Copy or move a file with all system information
+
+    Arguments
+    ---------
+    source: source file
+    destination: copied destination file
+
+    Keyword arguments
+    -----------------
+    verbose: print file transfer information
+    move: remove the source file
+    """
+    print('{0} -->\n\t{1}'.format(source,destination)) if verbose else None
+    shutil.copyfile(source, destination)
+    shutil.copystat(source, destination)
+    if move:
+        os.remove(source)
+
+#-- PURPOSE: list a directory on a ftp host
 def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
     """
     List a directory on a ftp host
@@ -127,8 +151,7 @@ def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
                 pass
             else:
                 #-- convert the modification time into unix time
-                mtimes[i] = get_unix_time(time.strptime(mdtm[4:],
-                    format="%Y%m%d%H%M%S"))
+                mtimes[i] = get_unix_time(mdtm[4:], format="%Y%m%d%H%M%S")
         #-- reduce to basenames
         if basename:
             output = [posixpath.basename(i) for i in output]
@@ -186,6 +209,8 @@ def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
         remote_buffer = io.BytesIO()
         ftp.retrbinary('RETR {0}'.format(ftp_remote_path), remote_buffer.write)
         remote_buffer.seek(0)
+        #-- save file basename with bytesIO object
+        remote_buffer.filename = HOST[-1]
         #-- generate checksum hash for remote file
         remote_hash = hashlib.md5(remote_buffer.getvalue()).hexdigest()
         #-- compare checksums
@@ -204,6 +229,23 @@ def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
         #-- return the bytesIO object
         remote_buffer.seek(0)
         return remote_buffer
+
+#-- PURPOSE: check internet connection
+def check_connection(HOST):
+    """
+    Check internet connection
+
+    Arguments
+    ---------
+    HOST: remote http host
+    """
+    #-- attempt to connect to https host
+    try:
+        urllib2.urlopen(HOST,timeout=20,context=ssl.SSLContext())
+    except urllib2.URLError:
+        raise RuntimeError('Check internet connection')
+    else:
+        return True
 
 #-- PURPOSE: download a file from a http host
 def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
@@ -239,6 +281,8 @@ def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
         #-- copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
+        #-- save file basename with bytesIO object
+        remote_buffer.filename = HOST[-1]
         #-- generate checksum hash for remote file
         remote_hash = hashlib.md5(remote_buffer.getvalue()).hexdigest()
         #-- compare checksums
@@ -402,7 +446,7 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         build_opener(username, password)
         #-- check credentials
         check_credentials()
-    #-- try downloading from http
+    #-- try downloading from https
     try:
         #-- Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
@@ -413,6 +457,8 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         #-- copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
+        #-- save file basename with bytesIO object
+        remote_buffer.filename = HOST[-1]
         #-- generate checksum hash for remote file
         remote_hash = hashlib.md5(remote_buffer.getvalue()).hexdigest()
         #-- compare checksums

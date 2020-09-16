@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (07/2020)
+MPI_ICESat2_ATL03_histogram.py (09/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -70,6 +70,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 09/2020: using reference photon delta time to interpolate ATL09
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 07/2020: "re-tiding" is no longer unnecessary
     Updated 06/2020: reduce the maximum number of peaks to fit and reduce threshold
@@ -1753,8 +1754,9 @@ def main():
         #-- complementary beam in pair
         cmp = associated_beam_pair[gtx]
         #-- extract and interpolate atmospheric parameters from ATL09
+        dtime = fileID[gtx]['geolocation']['delta_time'][:]
         IS2_atl09_mds,IS2_atl09_attrs = read_HDF5_ATL09(ATL09_file, pfl,
-            Segment_ID[gtx], ATTRIBUTES=True, VERBOSE=VERBOSE, COMM=comm)
+            dtime, ATTRIBUTES=True, VERBOSE=VERBOSE, COMM=comm)
 
         #-- segment fit across-track slopes
         Distributed_dH_across = np.ma.zeros((n_seg),fill_value=fill_value)

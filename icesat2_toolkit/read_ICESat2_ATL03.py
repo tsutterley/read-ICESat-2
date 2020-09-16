@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (07/2020)
+read_ICESat2_ATL03.py (09/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 09/2020: map ATL09 to ATL03 using delta times
     Updated 07/2020: added function docstrings
     Updated 06/2020: add additional beam check within heights groups
     Updated 11/2019: create attribute dictionaries but don't fill if False
@@ -238,7 +239,7 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     return (IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams)
 
 #-- PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
-def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
+def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True):
     """
     Reads ICESat-2 ATL09 Atmospheric Characteristics data files
 
@@ -246,7 +247,7 @@ def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
     ---------
     FILENAME: full path to ATL03 file
     pfl: profile for a given beam
-    segID: ATL03 segment_ID variable for interpolating from high_rate to segments
+    dtime: ATL03 reference photon delta_time
 
     Keyword arguments
     -----------------
@@ -267,8 +268,8 @@ def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
 
     #-- read profile reported for the ATLAS strong beams within the file
     IS2_atl09_mds[pfl] = dict(high_rate={})
-    #-- extract segment_id for mapping ATL09 atmospheric parameters to ATL03
-    segment_id = fileID[pfl]['high_rate']['segment_id'][:]
+    #-- extract delta_time for mapping ATL09 atmospheric parameters to ATL03
+    delta_time = fileID[pfl]['high_rate']['delta_time'][:]
     #-- Calibrated Attenuated Backscatter at 25 hz
     high_rate_keys = ['aclr_true','bsnow_con','bsnow_dens','bsnow_h',
         'bsnow_h_dens','bsnow_od','bsnow_psc','cloud_flag_asr','cloud_flag_atm',
@@ -277,9 +278,9 @@ def read_HDF5_ATL09(FILENAME, pfl, segID, ATTRIBUTES=True):
     #-- extract variables of interest and map to ATL03 segments
     for key in high_rate_keys:
         val = np.copy(fileID[pfl]['high_rate'][key][:])
-        fint = scipy.interpolate.interp1d(segment_id, val,
+        fint = scipy.interpolate.interp1d(delta_time, val,
             kind='nearest', fill_value='extrapolate')
-        IS2_atl09_mds[pfl]['high_rate'][key] = fint(segID).astype(val.dtype)
+        IS2_atl09_mds[pfl]['high_rate'][key] = fint(dtime).astype(val.dtype)
 
     #-- Getting attributes of included variables
     if ATTRIBUTES:

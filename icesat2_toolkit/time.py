@@ -14,12 +14,11 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
-    Updated 08/2020: added NASA Earthdata routines for downloading from CDDIS
+    Updated 08/2020: added NASA Earthdata routines for downloading from NSIDC
     Written 07/2020
 """
 import os
 import re
-import netrc
 import datetime
 import numpy as np
 import icesat2_toolkit.convert_julian

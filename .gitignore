@@ -19,6 +19,9 @@
 *.rar
 *.tar
 *.zip
+*.nc
+*.h5
+*.hdf
 # Logs and databases #
 ######################
 *.log

@@ -85,8 +85,7 @@ def test_decimal_dates(YEAR,MONTH):
 @pytest.mark.parametrize("delta_time", np.random.randint(1,31536000,size=4))
 def test_delta_time(delta_time, gps_epoch=1198800018.0):
     #-- convert to array if single value
-    if (np.ndim(delta_time) == 0):
-        delta_time = np.array([delta_time])
+    delta_time = np.atleast_1d(delta_time)
     #-- calculate gps time from delta_time
     gps_seconds=gps_epoch + delta_time
     time_leaps=icesat2_toolkit.time.count_leap_seconds(gps_seconds)

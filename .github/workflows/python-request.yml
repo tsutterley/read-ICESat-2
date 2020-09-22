@@ -9,7 +9,7 @@ on:
 jobs:
   build-linux:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: [3.5, 3.6, 3.7, 3.8]
@@ -22,6 +22,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        sudo apt-get update
         sudo apt-get install openmpi-bin mpi-default-bin openmpi-doc \
             libopenmpi-dev gdal-bin libgdal-dev libproj-dev proj-data \
             proj-bin libgeos-dev libhdf5-openmpi-dev libxml2-dev libxslt1-dev

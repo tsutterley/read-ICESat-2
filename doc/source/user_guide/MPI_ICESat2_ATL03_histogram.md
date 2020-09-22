@@ -10,7 +10,7 @@ MPI_ICESat2_ATL03_histogram.py
 ```bash
 mpiexec -np <processes> python3 MPI_ICESat2_ATL03_histogram.py <path_to_ATL03_file> <path_to_ATL09_file>
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/MPI_ICESat2_ATL03_histogram.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/MPI_ICESat2_ATL03_histogram.py)  
 
 #### Inputs
 1. `ATL03_file`: full path to ATL03 file  

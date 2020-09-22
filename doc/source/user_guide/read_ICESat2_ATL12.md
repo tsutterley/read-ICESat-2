@@ -8,7 +8,7 @@ read_ICESat2_ATL12.py
 from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12
 IS2_atl12_mds,IS2_atl12_attrs,IS2_atl12_beams = read_HDF5_ATL12(FILENAME)
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/read_ICESat2_ATL12.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/read_ICESat2_ATL12.py)  
 
 #### Inputs
  1. `FILENAME`: full path to ATL12 file

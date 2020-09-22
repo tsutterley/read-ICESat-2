@@ -8,7 +8,7 @@ convert_delta_time.py
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 t_date = convert_delta_time(delta_time)['decimal']
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/convert_delta_time.py)
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/convert_delta_time.py)
 
 #### Inputs
  1. `delta_time`: seconds since gps_epoch  

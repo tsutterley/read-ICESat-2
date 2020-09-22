@@ -11,7 +11,7 @@ Download and management utilities for syncing time and auxiliary files
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/utilities.py
+.. __: https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/utilities.py
 
 
 General Methods
@@ -137,7 +137,7 @@ General Methods
         `mode`: permissions mode of output local file
 
 
-.. method:: icesat2_toolkit.utilities.build_opener(username,password,urs=None)
+.. method:: icesat2_toolkit.utilities.build_opener(username,password,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,urs=None)
 
     build urllib opener for NASA Earthdata with supplied credentials
 
@@ -149,7 +149,17 @@ General Methods
 
     Keyword arguments:
 
-        urs: Earthdata login URS 3 host
+        `context`: SSL context for opener object
+
+        `password_manager`: create password manager context using default realm
+
+        `get_ca_certs`: get list of loaded “certification authority” certificates
+
+        `redirect`: create redirect handler object
+
+        `authorization_header`: add base64 encoded authorization header to opener
+
+        `urs`: Earthdata login URS 3 host
 
 
 .. method:: icesat2_toolkit.utilities.check_credentials()

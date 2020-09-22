@@ -9,7 +9,7 @@ from icesat2_toolkit.convert_calendar_decimal import convert_calendar_decimal
 t_date = convert_calendar_decimal(year, month, DAY=day, \
     HOUR=hour, MINUTE=minute, SECOND=second)
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/icesat2_toolkit/convert_calendar_decimal.py)
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/convert_calendar_decimal.py)
 
 #### Inputs
  1. `year`: calendar year  

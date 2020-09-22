@@ -2,7 +2,7 @@ Installation
 ============
 
 Presently read-ICESat-2 is only available for use as a [GitHub repository](https://github.com/tsutterley/read-ICESat-2).
-The contents of the repository can be download as a [zipped file](https://github.com/tsutterley/read-ICESat-2/archive/master.zip)  or cloned.
+The contents of the repository can be download as a [zipped file](https://github.com/tsutterley/read-ICESat-2/archive/main.zip)  or cloned.
 To use this repository, please fork into your own account and then clone onto your system.  
 ```bash
 git clone https://github.com/tsutterley/read-ICESat-2.git
@@ -19,4 +19,4 @@ Alternatively can install the utilities directly from GitHub with `pip`:
 ```
 python3 -m pip install --user git+https://github.com/tsutterley/read-ICESat-2.git
 ```
-Executable versions of this repository can also be tested using [Binder](https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/master) and [Pangeo](https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/master).
+Executable versions of this repository can also be tested using [Binder](https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main) and [Pangeo](https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main).

@@ -7,7 +7,7 @@ MPI_reduce_ICESat2_ATL06_RGI.py
 ```bash
 mpiexec -np <processes> python3 MPI_reduce_ICESat2_ATL06_RGI.py <path_to_ATL06_file>
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/MPI_reduce_ICESat2_ATL06_RGI.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/MPI_reduce_ICESat2_ATL06_RGI.py)  
 
 #### Inputs
 1. `ATL06_file`: full path to ATL06 file  

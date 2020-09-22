@@ -9,7 +9,7 @@ python scp_ICESat2_files.py --host=<host> --user=<username> \
     --product=ATL06 --release=205 --granule=10,11,12 --cycle=1,2 \
     --remote=<path_to_remote> --verbose --mode=0o775
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/scp_ICESat2_files.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/scp_ICESat2_files.py)  
 
 #### Command Line Options
  - `-h`, `--help`: list the command line options

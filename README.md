@@ -2,10 +2,10 @@ read-icesat-2
 =============
 
 [![Language](https://img.shields.io/badge/python-v3.7-green.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/tsutterley/read-ICESat-2/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/tsutterley/read-ICESat-2/blob/main/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/read-icesat-2/badge/?version=latest)](https://read-icesat-2.readthedocs.io/en/latest/?badge=latest)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/master)
-[![Binder](https://binder.pangeo.io/badge.svg)](https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/master)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main)
+[![Binder](https://binder.pangeo.io/badge.svg)](https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main)
 
 Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission  
 https://icesat-2.gsfc.nasa.gov  
@@ -59,7 +59,7 @@ Each orbit of ICESat-2 data is broken up into 14 granules.  The granule boundari
 The program homepage is:   
 https://github.com/tsutterley/read-icesat-2   
 A zip archive of the latest version is available directly at:    
-https://github.com/tsutterley/read-icesat-2/archive/master.zip  
+https://github.com/tsutterley/read-icesat-2/archive/main.zip  
 
 #### Disclaimer  
 This program is not sponsored or maintained by the Universities Space Research Association (USRA) or NASA.  It is provided here for your convenience but _with no guarantees whatsoever_.  

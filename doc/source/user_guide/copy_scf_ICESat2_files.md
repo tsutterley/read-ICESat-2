@@ -9,7 +9,7 @@ python copy_scf_ICESat2_files.py --scf_host=<host> --scf_user=<username> \
 	--product=ATL06 --release=001 --granule=10,11,12 --cycle=1,2 \
 	--scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/master/scripts/copy_scf_ICESat2_files.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/copy_scf_ICESat2_files.py)  
 
 #### Command Line Options
  - `-h`, `--help`: list the command line options  

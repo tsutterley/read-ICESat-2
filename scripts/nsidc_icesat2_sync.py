@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (08/2020)
+Written by Tyler Sutterley (09/2020)
 
 Program to acquire ICESat-2 datafiles from NSIDC server:
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 09/2020: use urllib imported in utilities
     Updated 08/2020: moved urllib opener to utilities. add credential check
         moved urllib directory listing to utilities
     Updated 07/2020: added option index to use a list of files to sync
@@ -92,10 +93,6 @@ import lxml.etree
 import numpy as np
 import multiprocessing as mp
 import icesat2_toolkit.utilities
-if sys.version_info[0] == 2:
-    import urllib2
-else:
-    import urllib.request as urllib2
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
@@ -150,7 +147,7 @@ def nsidc_icesat2_sync(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     if INDEX:
         #-- read the index file, split at lines and remove all commented lines
         with open(os.path.expanduser(INDEX),'r') as f:
-            files = [i for i in f.read().splitlines() if re.match('^(?!#)',i)]
+            files = [i for i in f.read().splitlines() if re.match(r'^(?!#)',i)]
         #-- regular expression operator for extracting information from files
         rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
@@ -295,8 +292,8 @@ def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
             #-- that can be thrown here, including HTTPError and URLError.
-            request = urllib2.Request(remote_file)
-            response = urllib2.urlopen(request)
+            request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
+            response = icesat2_toolkit.utilities.urllib2.urlopen(request)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
             #-- copy contents to local file using chunked transfer encoding

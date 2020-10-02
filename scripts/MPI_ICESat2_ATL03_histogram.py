@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (09/2020)
+MPI_ICESat2_ATL03_histogram.py (10/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -11,9 +11,9 @@ CALLING SEQUENCE:
     mpiexec -np 6 python MPI_ICESat2_ATL03_histogram.py ATL03_file ATL09_file
 
 COMMAND LINE OPTIONS:
-    -O X, --output=X: Name and path of output file
+    -O X, --output X: Name and path of output file
     -V, --verbose: Verbose output to track progress
-    -M X, --mode=X: Permission mode of files created
+    -M X, --mode X: Permission mode of files created
 
 REQUIRES MPI PROGRAM
     MPI: standardized and portable message-passing system
@@ -70,6 +70,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 09/2020: using reference photon delta time to interpolate ATL09
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 07/2020: "re-tiding" is no longer unnecessary
@@ -93,7 +94,7 @@ import sys
 import os
 import re
 import h5py
-import getopt
+import argparse
 import datetime
 import operator
 import itertools
@@ -748,40 +749,45 @@ def main():
     #-- start MPI communicator
     comm = MPI.COMM_WORLD
 
-    #-- get input files and options from system arguments
-    long_options = ['output=','verbose','mode=']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'O:VM:',long_options)
-    #-- If no system arguments: exit with an error
-    if not arglist:
-        raise IOError('No input files entered as system arguments')
-
+    #-- Read the system arguments listed after the program
+    parser = argparse.ArgumentParser(
+        description="""Read ICESat-2 ATL03 and ATL09 data files to calculate
+            average segment surfaces using gaussian/generalized gaussian
+            decomposition to extract possibly multiple height surfaces from a
+            histogram of photon events
+            """
+    )
     #-- command line parameters
-    #-- use default output file name
-    output_file = None
-    #-- verbose output of processing run
-    VERBOSE = False
-    #-- permissions mode of the output file (number in octal)
-    MODE = 0o775
-    for opt, arg in optlist:
-        if opt in ("-V","--verbose"):
-            #-- output module information for process
-            print(arglist[0]) if (comm.rank == 0) else None
-            info(comm.rank,comm.size)
-            VERBOSE = True
-        elif opt in ("-O","--output"):
-            #-- explicitly define output file
-            output_file = os.path.expanduser(arg)
-        elif opt in ("-M","--mode"):
-            #-- set permission mode of output HDF5 datasets
-            MODE = int(arg, 8)
-
-    #-- list of input files for processing (tilde-expand paths)
     #-- first file listed contains the ATL03 file
     #-- second file listed is the associated ATL09 file
-    ATL03_file = os.path.expanduser(arglist[0])
-    ATL09_file = os.path.expanduser(arglist[1])
+    parser.add_argument('ATL03',
+        type=os.path.expanduser, nargs='?',
+        help='ICESat-2 ATL03 file to run')
+    parser.add_argument('ATL09',
+        type=os.path.expanduser, nargs='?',
+        help='ICESat-2 ATL09 file to run')
+    #-- use default output file name
+    parser.add_argument('--output','-O',
+        type=os.path.expanduser,
+        help='Name and path of output file')
+    #-- verbosity settings
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the local files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
+
+    #-- output module information for process
+    if args.verbose:
+        info(comm.rank,comm.size)
+    if args.verbose and (comm.rank==0):
+        print('{0} -->'.format(args.ATL03))
     #-- directory setup
-    ATL03_dir = os.path.dirname(ATL03_file)
+    ATL03_dir = os.path.dirname(args.ATL03)
 
     #-- compile regular expression operator for extracting data from ATL03 files
     rx1 = re.compile(r'(processed)?(ATL\d+)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})'
@@ -794,10 +800,10 @@ def main():
         gt3l='gt3r',gt3r='gt3l')
 
     #-- read ICESat-2 ATL03 HDF5 files (extract base parameters)
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX=rx1.findall(ATL03_file).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX=rx1.findall(args.ATL03).pop()
 
     #-- Open the HDF5 file for reading
-    fileID = h5py.File(ATL03_file, 'r', driver='mpio', comm=comm)
+    fileID = h5py.File(args.ATL03, 'r', driver='mpio', comm=comm)
 
     #-- read each input beam within the file
     IS2_atl03_beams = []
@@ -876,7 +882,7 @@ def main():
 
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl03_beams):
-        print(gtx) if VERBOSE and (comm.rank == 0) else None
+        print(gtx) if args.verbose and (comm.rank == 0) else None
         #-- beam type (weak versus strong) for time
         atlas_beam_type = fileID[gtx].attrs['atlas_beam_type'].decode('utf-8')
         n_pixels = 16.0 if (atlas_beam_type == "strong") else 4.0
@@ -1755,8 +1761,8 @@ def main():
         cmp = associated_beam_pair[gtx]
         #-- extract and interpolate atmospheric parameters from ATL09
         dtime = fileID[gtx]['geolocation']['delta_time'][:]
-        IS2_atl09_mds,IS2_atl09_attrs = read_HDF5_ATL09(ATL09_file, pfl,
-            dtime, ATTRIBUTES=True, VERBOSE=VERBOSE, COMM=comm)
+        IS2_atl09_mds,IS2_atl09_attrs = read_HDF5_ATL09(args.ATL09, pfl,
+            dtime, ATTRIBUTES=True, VERBOSE=args.verbose, COMM=comm)
 
         #-- segment fit across-track slopes
         Distributed_dH_across = np.ma.zeros((n_seg),fill_value=fill_value)
@@ -2832,21 +2838,23 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0):
         #-- use default output file name and path
-        if not output_file:
-            args = (SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+        if args.output:
+            output_file=os.path.expanduser(args.output)
+        else:
+            args=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
             file_format='{0}{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
             output_file=os.path.join(ATL03_dir,file_format.format(*args))
         #-- write to HDF5 file
-        HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm, VERBOSE=VERBOSE,
-            INPUT=[ATL03_file,ATL09_file], FILL_VALUE=IS2_atl03_fill, CLOBBER=True,
-            FILENAME=output_file)
+        HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm,
+            VERBOSE=args.verbose, INPUT=[args.ATL03,args.ATL09],
+            FILL_VALUE=IS2_atl03_fill, CLOBBER=True, FILENAME=output_file)
         #-- change the permissions level to MODE
-        os.chmod(output_file, MODE)
+        os.chmod(output_file, args.mode)
     #-- close the input ATL03 file
     fileID.close()
 
 #-- PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
-def read_HDF5_ATL09(FILENAME, pfl, S, ATTRIBUTES=True, VERBOSE=False, COMM=None):
+def read_HDF5_ATL09(FILENAME, pfl, D, ATTRIBUTES=True, VERBOSE=False, COMM=None):
     #-- Open the HDF5 file for reading
     fileID = h5py.File(FILENAME, 'r', driver='mpio', comm=COMM)
     print(FILENAME) if VERBOSE and (COMM.rank == 0) else None
@@ -2857,24 +2865,24 @@ def read_HDF5_ATL09(FILENAME, pfl, S, ATTRIBUTES=True, VERBOSE=False, COMM=None)
 
     #-- read profile reported for the ATLAS strong beams within the file
     IS2_atl09_mds[pfl] = dict(high_rate={})
-    #-- extract segment_id for mapping ATL09 atmospheric parameters to ATL03
-    segment_id = fileID[pfl]['high_rate']['segment_id'][:]
+    #-- extract delta_time for mapping ATL09 atmospheric parameters to ATL03
+    delta_time = fileID[pfl]['high_rate']['delta_time'][:]
     #-- Calibrated Attenuated Backscatter at 25 hz
     high_rate_keys = ['aclr_true','bsnow_con','bsnow_dens','bsnow_h',
         'bsnow_h_dens','bsnow_od','bsnow_psc','cloud_flag_asr','cloud_flag_atm',
         'cloud_fold_flag','column_od_asr','column_od_asr_qf','msw_flag',
         'snow_ice','solar_azimuth','solar_elevation','surf_refl_true']
     #-- number of output ATL03 segments
-    n_seg = len(S)
+    n_seg = len(D)
     #-- parallel indices for filling variables
     ii = np.arange(COMM.rank,n_seg,COMM.size)
     #-- extract variables of interest and map to ATL03 segments
     for key in high_rate_keys:
         val = np.copy(fileID[pfl]['high_rate'][key][:])
-        fint = scipy.interpolate.interp1d(segment_id, val,
+        fint = scipy.interpolate.interp1d(delta_time, val,
             kind='nearest', fill_value='extrapolate')
         IS2_atl09_mds[pfl]['high_rate'][key] = np.zeros((n_seg),dtype=val.dtype)
-        IS2_atl09_mds[pfl]['high_rate'][key][ii] = fint(S[ii]).astype(val.dtype)
+        IS2_atl09_mds[pfl]['high_rate'][key][ii] = fint(D[ii]).astype(val.dtype)
 
     #-- Getting attributes of included variables
     if ATTRIBUTES:

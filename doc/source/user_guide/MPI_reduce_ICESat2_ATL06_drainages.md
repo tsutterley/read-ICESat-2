@@ -13,6 +13,6 @@ mpiexec -np <processes> python3 MPI_reduce_ICESat2_ATL06_drainages.py <path_to_A
 1. `ATL06_file`: full path to ATL06 file  
 
 #### Command Line Options
-- `-D X`, `--directory=X`: Working data directory for the IMBIE-2 drainage shapefiles
+- `-D X`, `--directory X`: Working data directory for the IMBIE-2 drainage shapefiles
 - `-V`, `--verbose`: output module information for process  
-- `-M X`, `--mode=X`: permissions mode of output HDF5 datasets  
+- `-M X`, `--mode X`: permissions mode of output HDF5 datasets  

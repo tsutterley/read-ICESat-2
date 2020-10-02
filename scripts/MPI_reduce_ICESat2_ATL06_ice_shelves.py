@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 u"""
-MPI_reduce_ICESat2_ATL06_drainages.py
+MPI_reduce_ICESat2_ATL06_ice_shelves.py
 Written by Tyler Sutterley (10/2020)
 
-Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
+Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working Data Directory
+    -B X, --buffer X: Distance in kilometers to buffer ice shelves mask
     -V, --verbose: Output information about each created file
     -M X, --mode X: Permission mode of directories and files created
 
@@ -65,15 +66,15 @@ from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 
-#-- IMBIE-2 Drainage basins
-IMBIE_basin_file = {}
-IMBIE_basin_file['N'] = ['GRE_Basins_IMBIE2_v1.3','GRE_Basins_IMBIE2_v1.3.shp']
-IMBIE_basin_file['S'] = ['ANT_Basins_IMBIE2_v1.6','ANT_Basins_IMBIE2_v1.6.shp']
-#-- basin titles within shapefile to extract
-IMBIE_title = {}
-IMBIE_title['N']=('CW','NE','NO','NW','SE','SW')
-IMBIE_title['S']=('A-Ap','Ap-B','B-C','C-Cp','Cp-D','D-Dp','Dp-E','E-Ep','Ep-F',
-    'F-G','G-H','H-Hp','Hp-I','I-Ipp','Ipp-J','J-Jpp','Jpp-K','K-A')
+#-- regional ice shelf files
+ice_shelf_file = {}
+ice_shelf_file['S'] = ['IceBoundaries_Antarctica_v02.shp']
+#-- description and reference for each ice shelf file
+ice_shelf_description = {}
+ice_shelf_description['S'] = ('MEaSUREs Antarctic Boundaries for IPY 2007-2009 '
+    'from Satellite Radar, Version 2')
+ice_shelf_reference = {}
+ice_shelf_reference['S'] = 'http://dx.doi.org/10.5067/AXE4121732AD'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -91,73 +92,59 @@ def set_hemisphere(GRANULE):
         projection_flag = 'N'
     return projection_flag
 
-#-- PURPOSE: load Greenland or Antarctic drainage basins from IMBIE-2 (Mouginot)
-def load_IMBIE2_basins(basin_dir, HEM, EPSG):
-    #-- read drainage basin polylines from shapefile (using splat operator)
-    basin_shapefile = os.path.join(basin_dir,*IMBIE_basin_file[HEM])
-    shape_input = shapefile.Reader(basin_shapefile)
+#-- PURPOSE: load the polygon object for the region of interest
+def load_ice_shelves(base_dir, BUFFER, HEM):
+    #-- read ice shelves polylines from shapefile (using splat operator)
+    region_shapefile = os.path.join(base_dir,*ice_shelf_file[HEM])
+    shape_input = shapefile.Reader(region_shapefile)
+    #-- reading regional shapefile
     shape_entities = shape_input.shapes()
     shape_attributes = shape_input.records()
-    #-- projections for converting lat/lon to polar stereographic
-    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
-    crs2 = pyproj.CRS.from_string("epsg:{0:d}".format(EPSG))
-    transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
-
-    #-- python dictionary with shapely polygon objects
+    #-- python dictionary of polygon objects
     poly_dict = {}
-    #-- for each region
-    for REGION in IMBIE_title[HEM]:
-        #-- find record index for region by iterating through shape attributes
-        if (HEM == 'S'):
-            i,=[i for i,a in enumerate(shape_attributes) if (a[1] == REGION)]
-            #-- extract Polar-Stereographic coordinates for record
-            points = np.array(shape_entities[i].points)
-            #-- shapely polygon object for region outline
-            poly_obj = Polygon(np.c_[points[:,0],points[:,1]])
-        elif (HEM == 'N'):
-            #-- no glaciers or ice caps
-            i,=[i for i,a in enumerate(shape_attributes) if (a[0] == REGION)]
-            #-- extract Polar-Stereographic coordinates for record
-            points = np.array(shape_entities[i].points)
-            #-- Greenland IMBIE-2 basins can have multiple parts
-            parts = shape_entities[i].parts
-            parts.append(len(points))
-            #-- list object for x,y coordinates (exterior and holes)
-            poly_list = []
-            for p1,p2 in zip(parts[:-1],parts[1:]):
-                #-- converting basin lat/lon into Polar-Stereographic
-                X,Y = transformer.transform(points[p1:p2,0],points[p1:p2,1])
-                poly_list.append(np.c_[X,Y])
-            #-- convert poly_list into Polygon object with holes
-            poly_obj = Polygon(poly_list[0],poly_list[1:])
-        #-- check if polygon object is valid
-        if (not poly_obj.is_valid):
-            poly_obj = poly_obj.buffer(0)
-        #-- add to total polygon dictionary object
-        poly_dict[REGION] = poly_obj
+    #-- iterate through shape entities and attributes to find FL attributes
+    indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'FL')]
+    for i in indices:
+        #-- extract Polar-Stereographic coordinates for record
+        points = np.array(shape_entities[i].points)
+        #-- shape entity can have multiple parts
+        parts = shape_entities[i].parts
+        parts.append(len(points))
+        #-- list object for x,y coordinates (exterior and holes)
+        poly_list = []
+        for p1,p2 in zip(parts[:-1],parts[1:]):
+            poly_list.append(list(zip(points[p1:p2,0],points[p1:p2,1])))
+        #-- convert poly_list into Polygon object with holes
+        poly_obj = Polygon(poly_list[0],poly_list[1:])
+        #-- buffer polygon object and add to total polygon dictionary object
+        poly_dict[shape_attributes[i][0]] = poly_obj.buffer(BUFFER*1e3)
     #-- return the polygon object and the input file name
-    return poly_dict, [basin_shapefile]
+    return poly_dict, region_shapefile
 
 #-- PURPOSE: read ICESat-2 data from NSIDC or MPI_ICESat2_ATL03.py
-#-- reduce to drainage basins based on BASIN_TYPE
+#-- reduce to ice shelves (possibly buffered)
 def main():
     #-- start MPI communicator
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Create masks for reducing ICESat-2 data into IMBIE-2
-            drainage regions
+        description="""Create masks for reducing ICESat-2 data into floating
+            ice shelf regions
             """
     )
     #-- command line parameters
     parser.add_argument('file',
         type=os.path.expanduser,
         help='ICESat-2 ATL06 file to run')
-    #-- working data directory for drainage basins shapefiles
+    #-- working data directory for ice shelf shapefiles
     parser.add_argument('--directory','-D',
         type=os.path.expanduser, default=os.getcwd(),
         help='Working data directory')
+    #-- buffer in kilometers for extracting ice shelves (0.0 = exact)
+    parser.add_argument('--buffer','-B',
+        type=float, default=0.0,
+        help='Distance in kilometers to buffer ice shelves mask')
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -190,24 +177,16 @@ def main():
     crs2 = pyproj.CRS.from_string("epsg:{0:d}".format(EPSG[HEM]))
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
 
-    #-- read each basin and create shapely polygon objects
-    #-- IMBIE-2 basin drainages
-    TITLE = 'IMBIE-2_BASIN_MASKS'
-    DESCRIPTION = 'IMBIE-2_(Rignot_2016)'
-    REFERENCE=dict(N='http://imbie.org/imbie-2016/drainage-basins/',
-        S='http://imbie.org/imbie-2016/drainage-basins/')
-
     #-- read data on rank 0
     if (comm.rank == 0):
-        #-- read each basin and create shapely polygon objects
-        #-- load IMBIE-2 basin drainages
-        BASIN,basin_files = load_IMBIE2_basins(args.directory,HEM,EPSG[HEM])
+        #-- read shapefile and create shapely polygon objects
+        poly_dict,input_file = load_ice_shelves(args.directory,args.buffer,HEM)
     else:
-        #-- create empty object for list of shapely objects
-        BASIN = None
+        #-- create empty object for dictionary of shapely objects
+        poly_dict = None
 
-    #-- Broadcast Shapely basin objects
-    BASIN = comm.bcast(BASIN, root=0)
+    #-- Broadcast Shapely polygon objects
+    poly_dict = comm.bcast(poly_dict, root=0)
 
     #-- read each input beam within the file
     IS2_atl06_beams = []
@@ -273,14 +252,14 @@ def main():
         #-- convert reduced x and y to shapely multipoint object
         xy_point = MultiPoint(np.c_[X, Y])
 
-        #-- calculate mask for each drainage basin in the dictionary
+        #-- calculate mask for each ice shelf in the dictionary
         associated_map = {}
-        for key,poly_obj in BASIN.items():
+        for key,poly_obj in poly_dict.items():
             #-- create distributed intersection map for calculation
             distributed_map = np.zeros((n_seg),dtype=np.bool)
             #-- create empty intersection map array for receiving
             associated_map[key] = np.zeros((n_seg),dtype=np.bool)
-            #-- finds if points are encapsulated (within basin)
+            #-- finds if points are encapsulated (within ice shelf)
             int_test = poly_obj.intersects(xy_point)
             if int_test:
                 #-- extract intersected points
@@ -380,28 +359,43 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['data_rate'] = ("Data within this group "
             "are stored at the land_ice_segments segment rate.")
 
-        #-- for each valid drainage
+        #-- for each valid ice shelf
+        combined_map = np.zeros((n_seg),dtype=np.bool)
         valid_keys=[k for k,v in associated_map.items() if v.any()]
         for key in valid_keys:
-            #-- output mask to HDF5
+            #-- add to combined map for output of total ice shelf mask
+            combined_map += associated_map[key]
+            #-- output mask for ice shelf to HDF5
             IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][key] = associated_map[key]
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key] = {}
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = \
-                "referenceInformation"
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = \
-                '{0} Mask'.format(key)
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['description'] = \
-                'Mask calculated using the {0} drainage from {1}.'.format(key,DESCRIPTION)
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['reference'] = REFERENCE[HEM]
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = "referenceInformation"
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['description'] = ('Mask calculated '
+                'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['reference'] = ice_shelf_reference[HEM]
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['source'] = args.buffer
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['coordinates'] = \
                 "../segment_id ../delta_time ../latitude ../longitude"
+
+        #-- combined ice shelf mask
+        IS2_atl06_mask[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = combined_map
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = {}
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['contentType'] = "referenceInformation"
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['long_name'] = 'Ice Shelf Mask'
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['description'] = ('Mask calculated '
+            'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['reference'] = ice_shelf_reference[HEM]
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['source'] = args.buffer
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+
         #-- wait for all processes to finish calculation
         comm.Barrier()
 
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and valid_keys:
-        #-- output HDF5 file with drainage basin masks
-        arg = (PRD,TITLE,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
+        #-- output HDF5 files with ice shelf masks
+        arg = (PRD,'ICE_SHELF_MASK',YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format='{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         #-- print file information
         if args.verbose:

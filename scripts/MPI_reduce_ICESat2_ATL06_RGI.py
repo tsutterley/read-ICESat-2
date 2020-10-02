@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_RGI.py
-Written by Tyler Sutterley (10/2019)
+Written by Tyler Sutterley (10/2020)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
 
 COMMAND LINE OPTIONS:
-    -D X, --directory=X: Working Data Directory
-    -R X, --region=X: region of Randolph Glacier Inventory to run
+    -D X, --directory X: Working Data Directory
+    -R X, --region X: region of Randolph Glacier Inventory to run
         1: Alaska
         2: Western Canada and USA
         3: Arctic Canada North
@@ -28,8 +28,8 @@ COMMAND LINE OPTIONS:
         17: Southern Andes
         18: New Zealand
         19: Antarctic, Subantarctic
-    -M X, --mode=X: Permission mode of directories and files created
     -V, --verbose: Output information about each created file
+    -M X, --mode X: Permission mode of directories and files created
 
 REQUIRES MPI PROGRAM
     MPI: standardized and portable message-passing system
@@ -59,6 +59,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: using date functions paralleling public repository
@@ -75,23 +76,15 @@ import os
 import re
 import io
 import h5py
-import getopt
 import zipfile
 import datetime
+import argparse
 import shapefile
 import numpy as np
 from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_delta_time import convert_delta_time
-
-#-- PURPOSE: help module to describe the optional input parameters
-def usage():
-    print('\nHelp: {}'.format(os.path.basename(sys.argv[0])))
-    print(' -D X, --directory=X\tWorking Data Directory')
-    print(' -R X, --region=X\tRegion of Randolph Glacier Inventory to run')
-    print(' -M X, --mode=X\t\tPermission mode of directories and files created')
-    print(' -V, --verbose\t\tOutput information about each created file\n')
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -166,52 +159,52 @@ def main():
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
-    long_options = ['help','directory=','region=','verbose','mode=']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hD:R:VM:',long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Create masks for reducing ICESat-2 land ice data to
+            the Randolph Glacier Inventory (RGI)
+            """
+    )
+    #-- command line parameters
+    parser.add_argument('file',
+        type=os.path.expanduser,
+        help='ICESat-2 ATL06 file to run')
     #-- working data directory for location of RGI files
-    base_dir = os.getcwd()
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory')
     #-- region of Randolph Glacier Inventory to run
-    RGI_REGION = 17
+    parser.add_argument('--region','-r',
+        metavar='RGI', type=int, choices=range(1,20),
+        help='region of Randolph Glacier Inventory to run')
     #-- verbosity settings
-    VERBOSE = False
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
     #-- permissions mode of the local files (number in octal)
-    MODE = 0o775
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage() if (comm.rank==0) else None
-            sys.exit()
-        elif opt in ("-D","--directory"):
-            base_dir = os.path.expanduser(arg)
-        elif opt in ("-R","--region"):
-            RGI_REGION = np.int(arg)
-        elif opt in ("-V","--verbose"):
-            #-- output module information for process
-            info(comm.rank,comm.size)
-            VERBOSE = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
 
-    #-- enter HDF5 file as system argument
-    if not arglist:
-        raise IOError('No input file entered as system arguments')
-    #-- tilde-expansion of listed input file
-    FILE = os.path.expanduser(arglist[0])
+    #-- output module information for process
+    if args.verbose:
+        info(comm.rank,comm.size)
+    if args.verbose and (comm.rank==0):
+        print('{0} -->'.format(args.file))
 
-    #-- read data from input file
-    print('{0} -->'.format(FILE)) if (VERBOSE and (comm.rank==0)) else None
     #-- Open the HDF5 file for reading
-    fileID = h5py.File(FILE, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(FILE)
+    fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
+    DIRECTORY = os.path.dirname(args.file)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
 
     #-- read data on rank 0
     if (comm.rank == 0):
         #-- read RGI for region and create shapely polygon objects
-        poly_dict,RGI_file = load_glacier_inventory(base_dir,RGI_REGION)
+        poly_dict,RGI_file = load_glacier_inventory(args.directory,args.region)
     else:
         #-- create empty object for list of shapely objects
         poly_dict = None
@@ -431,15 +424,17 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and associated_map.any():
         #-- output HDF5 file with RGI masks
-        args = (PRD,RGI_VERSION,RGI_NAME,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+        arg=(PRD,RGI_VERSION,RGI_NAME,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format='{0}_RGI{1}_{2}_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
         #-- print file information
-        print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+        if args.verbose:
+            print('\t{0}'.format(file_format.format(*arg)))
+        #-- write to output HDF5 file
         HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs, CLOBBER=True,
-            INPUT=os.path.basename(FILE), FILL_VALUE=IS2_atl06_fill,
-            FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+            INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl06_fill,
+            FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
         #-- change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+        os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
     #-- close the input file
     fileID.close()
 
@@ -563,7 +558,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['source'] = 'Spacecraft'
     fileID.attrs['references'] = 'http://nsidc.org/data/icesat2/data.html'
     fileID.attrs['processing_level'] = '4'
-    #-- add attributes for input ATL03 and ATL09 files
+    #-- add attributes for input ATL06 files
     fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
     #-- find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)

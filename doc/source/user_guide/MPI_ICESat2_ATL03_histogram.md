@@ -18,5 +18,5 @@ mpiexec -np <processes> python3 MPI_ICESat2_ATL03_histogram.py <path_to_ATL03_fi
 
 #### Command Line Options
 - `-V`, `--verbose`: output module information for process  
-- `-O X`, `--output=X`: full path to output file  
-- `-M X`, `--mode=X`: permissions mode of output HDF5 datasets  
+- `-O X`, `--output X`: full path to output file  
+- `-M X`, `--mode X`: permissions mode of output HDF5 datasets  

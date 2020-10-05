@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (08/2020)
+Written by Tyler Sutterley (10/2020)
 
-Program to acquire ICESat-2 datafiles from NSIDC server that is
-    associated with an input file
+Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
+    server that is associated with an input file
 
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-
@@ -18,8 +18,8 @@ Add NSIDC_DATAPOOL_OPS to NASA Earthdata Applications
 https://urs.earthdata.nasa.gov/oauth/authorize?client_id=_JLuwMHxb2xX6NwYTb4dRA
 
 CALLING SEQUENCE:
-    python nsidc_icesat2_associated.py --user=<username> --release=001
-        --product=ATL03 ATL06_files
+    python nsidc_icesat2_associated.py --user <username> --release 003
+        --product ATL03 list_of_ATL06_files
     where <username> is your NASA Earthdata username
 
 COMMAND LINE OPTIONS:
@@ -27,7 +27,7 @@ COMMAND LINE OPTIONS:
     -U X, --user=X: username for NASA Earthdata Login
     -N X, --netrc=X: path to .netrc file for alternative authentication
     -D X, --directory: working data directory
-    -P X, --product: associated product to download
+    -p X, --product: associated product to download
         ATL03: Global Geolocated Photon Data
         ATL04: Normalized Relative Backscatter
         ATL06: Land Ice Height
@@ -37,7 +37,9 @@ COMMAND LINE OPTIONS:
         ATL10: Sea Ice Freeboard
         ATL12: Ocean Surface Height
         ATL13: Inland Water Surface Height
-    --auxiliary: Download ICESat-2 auxiliary files for each HDF5 file
+    -a, --auxiliary: Download ICESat-2 auxiliary files for each HDF5 file
+    -F, --flatten: Do not create subdirectories
+    -P X, --np X: Number of processes to use in file downloads
     -M X, --mode=X: Local permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
@@ -52,6 +54,8 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
+        added multiprocessing option for parallel download
     Updated 08/2020: moved urllib opener to utilities. add credential check
     Updated 05/2020: added option netrc to use alternative authentication
         adjust regular expression to allow syncing of ATL07 sea ice products
@@ -65,23 +69,19 @@ import sys
 import os
 import re
 import netrc
-import getopt
 import shutil
 import getpass
 import builtins
+import argparse
+import traceback
 import posixpath
 import lxml.etree
-import numpy as np
-import calendar, time
+import multiprocessing as mp
 import icesat2_toolkit.utilities
-if sys.version_info[0] == 2:
-    import urllib2
-else:
-    import urllib.request as urllib2
 
 #-- PURPOSE: download the ICESat-2 elevation data from NSIDC matching an file
 def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
-    AUXILIARY=False, MODE=0o775):
+    AUXILIARY=False, FLATTEN=False, PROCESSES=0, MODE=0o775):
 
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
@@ -92,62 +92,103 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
     rx = re.compile(r'(processed_)?(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     #-- regular expression pattern for finding specific files
-    regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
+    regex_suffix = '(.*?)$' if AUXILIARY else '(h5)$'
     remote_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
-        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{5}$')
+        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_(\d{{2}})(.*?).{5}')
 
+    #-- build list of remote files, remote modification times and local files
+    original_files = []
+    remote_files = []
+    remote_mtimes = []
+    local_files = []
     #-- for each input file
-    for f in file_list:
-        #-- print filename
-        print(os.path.expanduser(f))
-
-        #-- output data directory
-        if DIRECTORY is None:
-            #-- if not setting directory: use directory of file
-            local_dir = os.path.dirname(os.path.expanduser(f))
-        else:
-            local_dir = os.path.expanduser(DIRECTORY)
-
+    for input_file in file_list:
         #-- extract parameters from ICESat-2 ATLAS HDF5 file name
-        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
-        #-- set subdirectories for full remote directory (* splat operator)
-        sd=['ATLAS','{0}.{1}'.format(PRODUCT,RL),'{0}.{1}.{2}'.format(YY,MM,DD)]
-        d = posixpath.join(HOST,*sd)
-
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
+            rx.findall(input_file).pop()
+        #-- get directories from remote directory
+        product_directory = '{0}.{1}'.format(PRODUCT,RL)
+        sd = '{0}.{1}.{2}'.format(YY,MM,DD)
+        PATH = [HOST,'ATLAS',product_directory,sd]
+        #-- local and remote data directories
+        remote_dir=posixpath.join(*PATH)
+        temp=os.path.dirname(input_file) if (DIRECTORY is None) else DIRECTORY
+        local_dir=os.path.expanduser(temp) if FLATTEN else os.path.join(temp,sd)
+        #-- create output directory if not currently existing
+        if not os.access(local_dir, os.F_OK):
+            os.makedirs(local_dir, MODE)
         #-- compile regular expression operator for file parameters
-        args = (PRODUCT,TRK,CYC,GRN,RL,VRS,regex_suffix)
+        args = (PRODUCT,TRK,CYC,GRN,RL,regex_suffix)
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
-
-        #-- find ICESat-2 data file
-        req = urllib2.Request(url=posixpath.join(d))
-        #-- read and parse request for remote files (columns and dates)
-        tree = lxml.etree.parse(urllib2.urlopen(req), parser)
-        colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
-        collastmod = tree.xpath('//td[@class="indexcollastmod"]/text()')
+        #-- find associated ICESat-2 data file
         #-- find matching files (for granule, release, version, track)
-        remote_file_lines=[i for i,f in enumerate(colnames) if R1.match(f)]
-        #-- sync each ICESat-2 data file
-        for i in remote_file_lines:
+        colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+            build=False,timeout=120,parser=parser,pattern=R1,sort=True)
+        #-- print if file was not found
+        if not colnames:
+            print('File not found on {0}'.format(remote_dir))
+        #-- add to lists
+        for colname,remote_mtime in zip(colnames,collastmod):
+            #-- save original file to list (expands if getting auxiliary files)
+            original_files.append(input_file)
             #-- remote and local versions of the file
-            remote_file = posixpath.join(d,colnames[i])
-            local_file = os.path.join(local_dir,colnames[i])
-            #-- get last modified date and convert into unix time
-            LMD = time.strptime(collastmod[i].rstrip(),'%Y-%m-%d %H:%M')
-            remote_mtime = calendar.timegm(LMD)
-            #-- sync ICESat-2 files with NSIDC server
-            http_pull_file(remote_file, remote_mtime, local_file, MODE)
+            remote_files.append(posixpath.join(remote_dir,colname))
+            local_files.append(os.path.join(local_dir,colname))
+            remote_mtimes.append(remote_mtime)
         #-- close request
         req = None
 
+    #-- download in series if PROCESSES = 0
+    if (PROCESSES == 0):
+        #-- download each associated ICESat-2 data file
+        for i,input_file in enumerate(original_files):
+            #-- download associated ICESat-2 files with NSIDC server
+            out=http_pull_file(remote_files[i],remote_mtimes[i],local_files[i],
+                MODE=MODE)
+            #-- print the output string
+            print('{0}\n{1}'.format(input_file,out))
+    else:
+        #-- download in parallel with multiprocessing Pool
+        pool = mp.Pool(processes=PROCESSES)
+        #-- download each associated ICESat-2 data file
+        output = []
+        for i,input_file in enumerate(original_files):
+            #-- download associated ICESat-2 files with NSIDC server
+            out=pool.apply_async(multiprocess_sync,args=(remote_files[i],
+                remote_mtimes[i],local_files[i]),kwds=dict(MODE=MODE))
+            output.append('{0}\n{1}'.format(input_file,out))
+        #-- start multiprocessing jobs
+        #-- close the pool
+        #-- prevents more tasks from being submitted to the pool
+        pool.close()
+        #-- exit the completed processes
+        pool.join()
+        #-- print the output string
+        for out in output:
+            print(out.get())
+
+#-- PURPOSE: wrapper for running the sync program in multiprocessing mode
+def multiprocess_sync(remote_file, remote_mtime, local_file, MODE=0o775):
+    try:
+        output = http_pull_file(remote_file,remote_mtime,local_file,MODE=MODE)
+    except:
+        #-- if there has been an error exception
+        #-- print the type, value, and stack trace of the
+        #-- current exception being handled
+        print('process id {0:d} failed'.format(os.getpid()))
+        traceback.print_exc()
+    else:
+        return output
+
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file,remote_mtime,local_file,MODE):
+def http_pull_file(remote_file,remote_mtime,local_file,MODE=0o775):
     #-- Printing files transferred
-    print('{0} -->\n\t{1}\n'.format(remote_file,local_file))
+    output = '{0} -->\n\t{1}\n'.format(remote_file,local_file)
     #-- Create and submit request. There are a wide range of exceptions
     #-- that can be thrown here, including HTTPError and URLError.
-    request = urllib2.Request(remote_file)
-    response = urllib2.urlopen(request)
+    request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
+    response = icesat2_toolkit.utilities.urllib2.urlopen(request)
     #-- chunked transfer encoding size
     CHUNK = 16 * 1024
     #-- copy contents to local file using chunked transfer encoding
@@ -157,78 +198,80 @@ def http_pull_file(remote_file,remote_mtime,local_file,MODE):
     #-- keep remote modification time of file and local access time
     os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
     os.chmod(local_file, MODE)
-
-#-- PURPOSE: help module to describe the optional input parameters
-def usage():
-    print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
-    print(' -U X, --user=X\t\tUsername for NASA Earthdata Login')
-    print(' -N X, --netrc=X\t\tPath to .netrc file for authentication')
-    print(' -D X, --directory=X\tOutput data directory')
-    print(' -P X, --product=X\tICESat-2 product to download')
-    print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
-    print(' -M X, --mode=X\t\tPermission mode of files downloaded\n')
+    #-- return the output string
+    return output
 
 #-- Main program that calls nsidc_icesat2_associated()
 def main():
     #-- Read the system arguments listed after the program
-    long_options=['help','user=','netrc=','directory=','product=','auxiliary',
-        'mode=']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hU:N:D:P:AM:',long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Program to acquire ICESat-2 datafiles from the NSIDC
+            server that is associated with an input file
+            """
+    )
+    #-- ICESat-2 Products
+    PRODUCTS = {}
+    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
+    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
+    PRODUCTS['ATL06'] = 'Land Ice Height'
+    PRODUCTS['ATL07'] = 'Sea Ice Height'
+    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
+    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
+    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
+    PRODUCTS['ATL12'] = 'Ocean Surface Height'
+    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    USER = ''
-    NETRC = None
-    DIRECTORY = None
-    PRODUCT = None
-    AUXILIARY = False
+    parser.add_argument('file',
+        type=os.path.expanduser, nargs='+',
+        help='ICESat-2 products to associate')
+    #-- NASA Earthdata credentials
+    parser.add_argument('--user','-U',
+        type=str, default='',
+        help='Username for NASA Earthdata Login')
+    parser.add_argument('--netrc','-N',
+        type=os.path.expanduser, default='',
+        help='Path to .netrc file for authentication')
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory')
+    #-- ICESat-2 parameters
+    #-- ICESat-2 data product
+    parser.add_argument('--product','-p',
+        metavar='PRODUCTS', type=str,
+        choices=PRODUCTS.keys(), default='ATL06',
+        help='Associated ICESat-2 data product to download')
+    #-- download auxiliary files
+    parser.add_argument('--auxiliary','-a',
+        default=False, action='store_true',
+        help='Sync ICESat-2 auxiliary files for each HDF5 file')
+    #-- output subdirectories
+    parser.add_argument('--flatten','-f',
+        default=False, action='store_true',
+        help='Do not create subdirectories')
+    #-- run download in series if processes is 0
+    parser.add_argument('--np','-P',
+        metavar='PROCESSES', type=int, default=0,
+        help='Number of processes to use in downloading files')
     #-- permissions mode of the local directories and files (number in octal)
-    MODE = 0o775
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage()
-            sys.exit()
-        elif opt in ("-U","--user"):
-            USER = arg
-        elif opt in ("-N","--netrc"):
-            NETRC = os.path.expanduser(arg)
-        elif opt in ("-D","--directory"):
-            DIRECTORY = os.path.expanduser(arg)
-        elif opt in ("--product"):
-            PRODUCT = arg
-        elif opt in ("--auxiliary"):
-            AUXILIARY = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
-
-    #-- Pre-ICESat-2 and IceBridge Products
-    PROD = {}
-    PROD['ATL03'] = 'Global Geolocated Photon Data'
-    PROD['ATL04'] = 'Normalized Relative Backscatter'
-    PROD['ATL06'] = 'Land Ice Height'
-    PROD['ATL07'] = 'Sea Ice Height'
-    PROD['ATL08'] = 'Land and Vegetation Height'
-    PROD['ATL09'] = 'Atmospheric Layer Characteristics'
-    PROD['ATL10'] = 'Sea Ice Freeboard'
-    PROD['ATL12'] = 'Ocean Surface Height'
-    PROD['ATL13'] = 'Inland Water Surface Height'
-
-    #-- check that each data product entered was correctly typed
-    keys = ','.join(sorted([key for key in PROD.keys()]))
-    if PRODUCT not in PROD.keys():
-        raise IOError('Incorrect Data Product Entered ({0})'.format(keys))
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
-    if not USER and not NETRC:
+    if not args.user and not args.netrc:
         #-- check that NASA Earthdata credentials were entered
         USER = builtins.input('Username for {0}: '.format(HOST))
         #-- enter password securely from command-line
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
-    elif NETRC:
-        USER,LOGIN,PASSWORD = netrc.netrc(NETRC).authenticators(HOST)
+    elif args.netrc:
+        USER,LOGIN,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
+        USER = args.user
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
     #-- build a urllib opener for NSIDC
@@ -238,8 +281,9 @@ def main():
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program
     if icesat2_toolkit.utilities.check_credentials():
-        nsidc_icesat2_associated(arglist, PRODUCT, DIRECTORY=DIRECTORY,
-            AUXILIARY=AUXILIARY, MODE=MODE)
+        nsidc_icesat2_associated(args.file, args.product,
+            DIRECTORY=args.directory, AUXILIARY=args.auxiliary,
+            FLATTEN=args.flatten, PROCESSES=args.np, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

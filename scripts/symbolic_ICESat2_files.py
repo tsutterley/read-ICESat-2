@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (07/2019)
+Written by Tyler Sutterley (10/2020)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
-    python symbolic_ICESat2_files.py --product=ATL06 --release=001 \
-        --granule=10,11,12 --cycle=1,2 --directory=<path_to_directory>
-        --scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
+    python symbolic_ICESat2_files.py --product ATL06 --release 003 \
+        --granule 10 11 12 --cycle 1 2 --directory <path_to_directory>
+        --scf_outgoing <path_to_outgoing> --verbose --mode 0o775
 
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
-    -D X, --directory=X: local working directory for creating symbolic links
-    --product=X: ICESat-2 data product to create symbolic links
-    --release=X: ICESat-2 data release to create symbolic links
-    --version=X: ICESat-2 data version to create symbolic links
-    --granule=X: ICESat-2 granule regions to create symbolic links
-    --cycle=X: ICESat-2 cycle to create symbolic links
-    --track=X: ICESat-2 tracks to create symbolic links
-    --scf_incoming=X: directory on the SCF where the rscf sends PANS
-    --scf_outgoing=X: directory on the SCF where the data resides
+    -D X, --directory X: local working directory for creating symbolic links
+    --product X: ICESat-2 data product to create symbolic links
+    --release X: ICESat-2 data release to create symbolic links
+    --version X: ICESat-2 data version to create symbolic links
+    --granule X: ICESat-2 granule regions to create symbolic links
+    --cycle X: ICESat-2 cycle to create symbolic links
+    --track X: ICESat-2 tracks to create symbolic links
+    --scf_incoming X: directory on the SCF where the rscf sends PANS
+    --scf_outgoing X: directory on the SCF where the data resides
     -V, --verbose: output information about each symbolic link
-    -M X, --mode=X: permission mode of directories
+    -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Written 07/2019
 """
@@ -32,76 +33,83 @@ from __future__ import print_function
 import sys
 import os
 import re
-import getopt
+import argparse
 import numpy as np
-
-#-- PURPOSE: help module to describe the optional input command-line parameters
-def usage():
-    print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
-    print(' -D X, --directory=X\tLocal working directory for symbolic links')
-    print(' --product=X\t\tICESat-2 data product to create symbolic links')
-    print(' --release=X\t\tICESat-2 data release to create symbolic links')
-    print(' --version=X\t\tICESat-2 data version to create symbolic links')
-    print(' --granule=X\t\tICESat-2 granule regions to create symbolic links')
-    print(' --cycle=X\t\tICESat-2 cycles to create symbolic links')
-    print(' --track=X\t\tICESat-2 tracks to create symbolic links')
-    print(' --scf_incoming=X\tDirectory on the SCF where the rscf sends PANS')
-    print(' --scf_outgoing=X\tDirectory on the SCF where the data resides')
-    print(' -V, --verbose\t\tOutput information about each symbolic link')
-    print(' -M X, --mode=X\t\tPermission mode of directories\n')
 
 #-- Main program that calls symbolic_ICESat2_files()
 def main():
     #-- Read the system arguments listed after the program
-    long_opt = ['help','directory=','product=','release=','version=','granule=',
-        'cycle=','track=','scf_incoming=','scf_outgoing=','verbose','mode=']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hD:VM:',long_opt)
-
+    parser = argparse.ArgumentParser(
+        description="""Creates symbolic links for ICESat-2 HDF5 files from the
+            local scf directory to a separate directory organized by date
+            """
+    )
+    #-- ICESat-2 Products
+    PRODUCTS = {}
+    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
+    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
+    PRODUCTS['ATL06'] = 'Land Ice Height'
+    PRODUCTS['ATL07'] = 'Sea Ice Height'
+    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
+    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
+    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
+    PRODUCTS['ATL12'] = 'Ocean Surface Height'
+    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    #-- working data directories
-    base_dir = os.getcwd()
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory for symbolic link')
     #-- ICESat-2 parameters
-    PRODUCT = 'ATL06'
-    RELEASE = '002'
-    VERSIONS = None
-    CYCLES = None
-    GRANULES = None
-    TRACKS = None
-    scf_incoming = ''
-    scf_outgoing = ''
-    VERBOSE = False
-    #-- permissions mode of the local directories and files (number in octal)
-    MODE = 0o775
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage()
-            sys.exit()
-        elif opt in ("-D","--directory"):
-            base_dir = os.path.expanduser(arg)
-        elif opt in ("--product"):
-            PRODUCT = arg
-        elif opt in ("--release"):
-            RELEASE = arg
-        elif opt in ("--version"):
-            VERSIONS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--granule"):
-            GRANULES = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--cycle"):
-            CYCLES = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--track"):
-            TRACKS = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--scf_incoming"):
-            scf_incoming = arg
-        elif opt in ("--scf_outgoing"):
-            scf_outgoing = arg
-        elif opt in ("-V","--verbose"):
-            VERBOSE = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
+    #-- ICESat-2 data product
+    parser.add_argument('--product','-p',
+        metavar='PRODUCTS', type=str,
+        choices=PRODUCTS.keys(), default='ATL06',
+        help='ICESat-2 data product to create symbolic links')
+    #-- ICESat-2 data release
+    parser.add_argument('--release','-r',
+        type=str, default='003',
+        help='ICESat-2 data release to create symbolic links')
+    #-- ICESat-2 data version
+    parser.add_argument('--version','-v',
+        type=int, nargs='+', default=range(1,10),
+        help='ICESat-2 data versions to create symbolic links')
+    #-- ICESat-2 granule region
+    parser.add_argument('--granule','-g',
+        metavar='REGION', type=int, nargs='+',
+        choices=range(1,15), default=range(1,15),
+        help='ICESat-2 granule regions to create symbolic links')
+    #-- ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+',
+        default=range(1,10),
+        help='ICESat-2 orbital cycles to create symbolic links')
+    #-- ICESat-2 reference ground tracks
+    parser.add_argument('--track','-t',
+        metavar='RGT', type=int, nargs='+',
+        choices=range(1,1388), default=range(1,1388),
+        help='ICESat-2 Reference Ground Tracks (RGTs) to create symbolic links')
+    #-- ICESat-2 Science Computing Facility (SCF) parameters
+    parser.add_argument('--scf_incoming',
+        type=str,
+        help='Directory on the SCF where the rscf sends PANS')
+    parser.add_argument('--scf_outgoing',
+        type=str,
+        help='Directory on the SCF where the data resides')
+    #-- verbose will output information about each symbolic link
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Output information about each symbolic link')
+    #-- permissions mode of the local directories (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output directories')
+    args = parser.parse_args()
 
     #-- run program
-    symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
-        RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, VERBOSE=VERBOSE, MODE=MODE)
+    symbolic_ICESat2_files(args.directory, args.scf_incoming, args.scf_outgoing,
+        args.product, args.release, args.version, args.granule, args.cycle,
+        args.track, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,

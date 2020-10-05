@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL03.py
-Written by Tyler Sutterley (06/2020)
+Written by Tyler Sutterley (10/2020)
 Determines which digital elevation model tiles to read for a given ATL03 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to ICESat-2 ATL03 photon event locations
@@ -18,10 +18,10 @@ GIMP 30m digital elevation model tiles computed with nsidc_convert_GIMP_DEM.py
     https://n5eil01u.ecs.nsidc.org/MEASURES/NSIDC-0645.001/
 
 COMMAND LINE OPTIONS:
-    -D X, --directory=X: Working data directory
-    --model=X: Set the digital elevation model (REMA, ArcticDEM, GIMP) to run
-    -M X, --mode=X: Permission mode of directories and files created
+    -D X, --directory X: Working data directory
+    -m X, --model X: Digital elevation model (REMA, ArcticDEM, GIMP) to run
     -V, --verbose: Output information about each created file
+    -M X, --mode X: Permission mode of directories and files created
 
 REQUIRES MPI PROGRAM
     MPI: standardized and portable message-passing system
@@ -62,6 +62,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 06/2020: add additional beam check within heights groups
     Updated 10/2019: using delta_time as output HDF5 variable dimensions
@@ -90,10 +91,10 @@ import re
 import uuid
 import h5py
 import fiona
-import getopt
 import pyproj
 import tarfile
 import datetime
+import argparse
 import osgeo.gdal
 import numpy as np
 from mpi4py import MPI
@@ -114,14 +115,6 @@ elevation_tile_index['GIMP'] = 'gimpdem_Tile_Index_Rel1.1.zip'
 #-- REMA DEM
 elevation_dir['REMA'] = ['REMA']
 elevation_tile_index['REMA'] = 'REMA_Tile_Index_Rel1.1.zip'
-
-#-- PURPOSE: help module to describe the optional input parameters
-def usage():
-    print('\nHelp: {}'.format(os.path.basename(sys.argv[0])))
-    print(' -D X, --directory=X\tWorking data directory')
-    print(' --model=X: Set the digital elevation model (REMA,ArcticDEM,GIMP)')
-    print(' -M X, --mode=X\t\tPermission mode of directories and files created')
-    print(' -V, --verbose\t\tOutput information about each created file\n')
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -303,7 +296,7 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     fill_value = ds.GetRasterBand(1).GetNoDataValue()
     fill_value = 0.0 if (fill_value is None) else fill_value
     #-- create mask for finding invalid values
-    mask = np.zeros((ycount,xcount))
+    mask = np.zeros((ycount,xcount),dtype=np.bool)
     indy,indx = np.nonzero((im == fill_value) | (~np.isfinite(im)) |
         (np.ceil(im) == np.ceil(fill_value)))
     mask[indy,indx] = True
@@ -331,54 +324,55 @@ def main():
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
-    long_options=['help','directory=','model=','mode=','verbose']
-    optlist,arglist = getopt.getopt(sys.argv[1:], 'hD:M:V', long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Interpolate DEMs to ICESat-2 ATL03 photon event locations
+            """
+    )
+    #-- command line parameters
+    parser.add_argument('file',
+        type=os.path.expanduser,
+        help='ICESat-2 ATL03 file to run')
     #-- working data directory for location of DEM files
-    base_dir = os.getcwd()
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory')
+    #-- Digital elevation model (REMA, ArcticDEM, GIMP) to run
     #-- set the DEM model to run for a given granule (else set automatically)
-    DEM_MODEL = None
+    parser.add_argument('--model','-m',
+        metavar='DEM', type=str, choices=('REMA', 'ArcticDEM', 'GIMP'),
+        help='Digital Elevation Model to run')
     #-- verbosity settings
-    VERBOSE = False
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
     #-- permissions mode of the local files (number in octal)
-    MODE = 0o775
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage() if (comm.rank==0) else None
-            sys.exit()
-        elif opt in ("-D","--directory"):
-            base_dir = os.path.expanduser(arg)
-        elif opt in ("--model"):
-            DEM_MODEL = arg
-        elif opt in ("-V","--verbose"):
-            #-- output module information for process
-            info(comm.rank,comm.size)
-            VERBOSE = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
 
-    #-- enter HDF5 file as system argument
-    if not arglist:
-        raise IOError('No input file entered as system arguments')
-    #-- tilde-expansion of listed input file
-    FILE = os.path.expanduser(arglist[0])
+    #-- output module information for process
+    if args.verbose:
+        info(comm.rank,comm.size)
+    if args.verbose and (comm.rank==0):
+        print('{0} -->'.format(args.file))
 
     #-- read data from input file
-    print('{0} -->'.format(FILE)) if (VERBOSE and (comm.rank==0)) else None
     #-- Open the HDF5 file for reading
-    fileID = h5py.File(FILE, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(FILE)
+    fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
+    DIRECTORY = os.path.dirname(args.file)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
 
     #-- set the digital elevation model based on ICESat-2 granule
-    DEM_MODEL = set_DEM_model(GRAN) if (DEM_MODEL is None) else DEM_MODEL
+    DEM_MODEL = set_DEM_model(GRN) if (args.model is None) else args.model
     #-- regular expression pattern for extracting parameters from ArcticDEM name
     rx1 = re.compile(r'(\d+)_(\d+)_(\d+)_(\d+)_(\d+m)_(.*?)$', re.VERBOSE)
     #-- full path to DEM directory
-    elevation_directory=os.path.join(base_dir,*elevation_dir[DEM_MODEL])
+    elevation_directory = os.path.join(args.directory,*elevation_dir[DEM_MODEL])
     #-- zip file containing index shapefiles for finding DEM tiles
     index_file=os.path.join(elevation_directory,elevation_tile_index[DEM_MODEL])
 
@@ -608,8 +602,8 @@ def main():
                 #-- REMA tiles to read to buffer the image
                 IMy,IMx=np.array(re.findall(r'(\d+)_(\d+)',sub).pop(),dtype='i')
                 #-- neighboring tiles for buffering DEM (LB,LM,LT,CB,CT,RB,RM,RT)
-                xtiles = [IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
-                ytiles = [IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
+                xtiles=[IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
+                ytiles=[IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
                 for xtl,ytl,xlim,ylim in zip(xtiles,ytiles,xlimits,ylimits):
                     #-- read DEM file (geotiff within gzipped tar file)
                     bkey = '{0:02d}_{1:02d}'.format(ytl,xtl)
@@ -634,8 +628,8 @@ def main():
                 #-- GIMP tiles to read to buffer the image
                 IMx,IMy=np.array(re.findall(r'(\d+)_(\d+)',sub).pop(),dtype='i')
                 #-- neighboring tiles for buffering DEM (LB,LM,LT,CB,CT,RB,RM,RT)
-                xtiles = [IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
-                ytiles = [IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
+                xtiles=[IMx-1,IMx-1,IMx-1,IMx,IMx,IMx+1,IMx+1,IMx+1] #-- LLLCCRRR
+                ytiles=[IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] #-- BMTBTBMT
                 for xtl,ytl,xlim,ylim in zip(xtiles,ytiles,xlimits,ylimits):
                     #-- read DEM file (geotiff within gzipped tar file)
                     bkey = '{0:d}_{1:d}'.format(xtl,ytl)
@@ -676,8 +670,8 @@ def main():
                 kwargs = (xtiles,ytiles,xsubtiles,ysubtiles,xlimits,ylimits)
                 for xtl,ytl,xs,ys,xlim,ylim in zip(*kwargs):
                     #-- read DEM file (geotiff within gzipped tar file)
-                    args = (ytl,xtl,xs,ys,res,vers)
-                    bkey = '{0:02d}_{1:02d}_{2}_{3}'.format(*args)
+                    arg = (ytl,xtl,xs,ys,res,vers)
+                    bkey = '{0:02d}_{1:02d}_{2}_{3}'.format(*arg)
                     #-- if buffer file is a valid sub-tile within the DEM
                     #-- if file doesn't exist: all fill value with all mask
                     if bkey in tile_attrs.keys():
@@ -738,15 +732,17 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and bool(valid_tiles):
         #-- output HDF5 files with output masks
-        args = (PRD,DEM_MODEL,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+        arg = (PRD,DEM_MODEL,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format='{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         #-- print file information
-        print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+        if args.verbose:
+            print('\t{0}'.format(file_format.format(*arg)))
+        #-- write to output HDF5 file
         HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_dem_attrs, CLOBBER=True,
-            INPUT=os.path.basename(FILE), FILL_VALUE=IS2_atl03_fill,
-            FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+            INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl03_fill,
+            FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
         #-- change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+        os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
     #-- close the input file
     fileID.close()
 

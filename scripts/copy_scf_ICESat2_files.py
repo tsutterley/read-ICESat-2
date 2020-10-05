@@ -1,30 +1,30 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (05/2020)
+Written by Tyler Sutterley (10/2020)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
-    python copy_scf_ICESat2_files.py --scf_host=<host> --scf_user=<username> \
-        --product=ATL06 --release=205 --granule=10,11,12 --cycle=1,2 \
-        --scf_outgoing=<path_to_outgoing> --verbose --mode=0o775
+    python copy_scf_ICESat2_files.py --scf_host <host> --scf_user <username> \
+        --product ATL06 --release 003 --granule 10 11 12 --cycle 1 2 \
+        --scf_outgoing <path_to_outgoing> --verbose --mode 0o775
 
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
-    --scf_host=X: hostname of the SCF server
-    --scf_user=X: SCF server username
-    -D X, --directory=X: local working directory for receiving data
-    --product=X: ICESat-2 data product to copy
-    --release=X: ICESat-2 data release to copy
-    --version=X: ICESat-2 data version to copy
-    --granule=X: ICESat-2 granule regions to copy
-    --cycle=X: ICESat-2 cycle to copy
-    --track=X: ICESat-2 tracks to copy
-     --scf_incoming=X: directory on the SCF where the rscf sends PANS
-     --scf_outgoing=X: directory on the SCF where the data resides
+    --scf_host X: hostname of the SCF server
+    --scf_user X: SCF server username
+    -D X, --directory X: local working directory for receiving data
+    --product X: ICESat-2 data product to copy
+    --release X: ICESat-2 data release to copy
+    --version X: ICESat-2 data version to copy
+    --granule X: ICESat-2 granule regions to copy
+    --cycle X: ICESat-2 cycle to copy
+    --track X: ICESat-2 tracks to copy
+     --scf_incoming X: directory on the SCF where the rscf sends PANS
+     --scf_outgoing X: directory on the SCF where the data resides
     -C, --clobber: overwrite existing data in transfer
     -V, --verbose: output information about each synced file
-    -M X, --mode=X: permission mode of directories and files synced
+    -M X, --mode X: permission mode of directories and files synced
     -L, --list: only list files to be transferred
 
 PYTHON DEPENDENCIES:
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
         https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 07/2019: using python3 compliant division
     Updated 05/2019: changed host and user to scf_host and scf_user
@@ -45,95 +46,108 @@ from __future__ import print_function, division
 import sys
 import os
 import re
-import getopt
-import getpass
 import logging
+import argparse
 import paramiko
 import posixpath
 import numpy as np
 
-#-- PURPOSE: help module to describe the optional input command-line parameters
-def usage():
-    print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
-    print(' --scf_host=X\t\tHostname of the SCF server')
-    print(' --scf_user=X\t\tSCF server username')
-    print(' -D X, --directory=X\tLocal working directory for receiving data')
-    print(' --product=X\t\tICESat-2 data product to copy')
-    print(' --release=X\t\tICESat-2 data release to copy')
-    print(' --version=X\t\tICESat-2 data version to copy')
-    print(' --granule=X\t\tICESat-2 granule regions to copy')
-    print(' --cycle=X\t\tICESat-2 cycles to copy')
-    print(' --track=X\t\tICESat-2 tracks to copy')
-    print(' --scf_incoming=X\tDirectory on the SCF where the rscf sends PANS')
-    print(' --scf_outgoing=X\tDirectory on the SCF where the data resides')
-    print(' -C, --clobber\t\tOverwrite existing data in transfer')
-    print(' -V, --verbose\t\tOutput information about each created file')
-    print(' -M X, --mode=X\t\tPermission mode of directories and files created')
-    print(' -L, --list\t\tOnly list files to be transferred\n')
-
 #-- Main program that calls copy_scf_files()
 def main():
     #-- Read the system arguments listed after the program
-    long_options = ['help','scf_host=','scf_user=','directory=','product=',
-        'release=','version=','granule=','cycle=','track=','scf_incoming=',
-        'scf_outgoing=','verbose','clobber','mode=','list']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hD:VCM:L',long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Copies ICESat-2 HDF5 files from the SCF server
+            """
+    )
+    #-- ICESat-2 Products
+    PRODUCTS = {}
+    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
+    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
+    PRODUCTS['ATL06'] = 'Land Ice Height'
+    PRODUCTS['ATL07'] = 'Sea Ice Height'
+    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
+    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
+    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
+    PRODUCTS['ATL12'] = 'Ocean Surface Height'
+    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    HOST = ''
-    USER = None
-    IDENTITYFILE = None
-    #-- working data directories
-    base_dir = os.getcwd()
+    #-- SCF credentials credentials
+    parser.add_argument('--scf_host',
+        type=str, default='',
+        help='Hostname of the SCF server')
+    parser.add_argument('--scf_user',
+        type=str, default='',
+        help='SCF server username')
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory')
+    #-- years of data to copy
+    parser.add_argument('--year','-Y',
+        type=int, nargs='+',
+        help='Years to copy')
+    #-- subdirectories of data to copy
+    parser.add_argument('--subdirectory','-S',
+        type=str, nargs='+',
+        help='subdirectories of data to copy')
     #-- ICESat-2 parameters
-    PRODUCT = 'ATL06'
-    RELEASE = '001'
-    VERSIONS = [1,2]
-    CYCLES = np.arange(1,3)
-    GRANULES = None
-    TRACKS = None
-    scf_incoming = ''
-    scf_outgoing = ''
-    VERBOSE = False
-    CLOBBER = False
+    #-- ICESat-2 data product
+    parser.add_argument('--product','-p',
+        metavar='PRODUCTS', type=str,
+        choices=PRODUCTS.keys(), default='ATL06',
+        help='ICESat-2 data product to copy')
+    #-- ICESat-2 data release
+    parser.add_argument('--release','-r',
+        type=str, default='003',
+        help='ICESat-2 data release to copy')
+    #-- ICESat-2 data version
+    parser.add_argument('--version','-v',
+        type=int, nargs='+', default=range(1,10),
+        help='ICESat-2 data versions to copy')
+    #-- ICESat-2 granule region
+    parser.add_argument('--granule','-g',
+        metavar='REGION', type=int, nargs='+',
+        choices=range(1,15), default=range(1,15),
+        help='ICESat-2 granule regions to copy')
+    #-- ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+',
+        default=range(1,10),
+        help='ICESat-2 orbital cycles to copy')
+    #-- ICESat-2 reference ground tracks
+    parser.add_argument('--track','-t',
+        metavar='RGT', type=int, nargs='+',
+        choices=range(1,1388), default=range(1,1388),
+        help='ICESat-2 Reference Ground Tracks (RGTs) to copy')
+    #-- ICESat-2 Science Computing Facility (SCF) parameters
+    parser.add_argument('--scf_incoming',
+        type=str,
+        help='Directory on the SCF where the rscf sends PANS')
+    parser.add_argument('--scf_outgoing',
+        type=str,
+        help='Directory on the SCF where the data resides')
+    #-- sync options
+    parser.add_argument('--list','-L',
+        default=False, action='store_true',
+        help='Only print files that could be transferred')
+    #-- verbose will output information about each copied file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- clobber will overwrite the existing data
+    parser.add_argument('--clobber','-C',
+        default=False, action='store_true',
+        help='Overwrite existing data')
     #-- permissions mode of the local directories and files (number in octal)
-    MODE = 0o775
-    LIST = False
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage()
-            sys.exit()
-        elif opt in ("--scf_host"):
-            HOST = arg
-        elif opt in ("--scf_user"):
-            USER = arg
-        elif opt in ("-D","--directory"):
-            base_dir = os.path.expanduser(arg)
-        elif opt in ("--product"):
-            PRODUCT = arg
-        elif opt in ("--release"):
-            RELEASE = arg
-        elif opt in ("--version"):
-            VERSIONS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--granule"):
-            GRANULES = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--cycle"):
-            CYCLES = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--track"):
-            TRACKS = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--scf_incoming"):
-            scf_incoming = arg
-        elif opt in ("--scf_outgoing"):
-            scf_outgoing = arg
-        elif opt in ("-V","--verbose"):
-            VERBOSE = True
-        elif opt in ("-C","--clobber"):
-            CLOBBER = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
-        elif opt in ("-L","--list"):
-            LIST = True
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
 
+    #-- use entered host and username
+    scf_kwds = {}
+    scf_kwds.setdefault('hostname',args.scf_host)
+    scf_kwds.setdefault('username',args.scf_user)
     #-- use ssh configuration file to extract hostname, user and identityfile
     user_config_file = os.path.join(os.environ['HOME'],".ssh","config")
     if os.path.exists(user_config_file):
@@ -142,31 +156,32 @@ def main():
         with open(user_config_file) as f:
             ssh_config.parse(f)
         #-- lookup hostname from list of hosts
-        user_config = ssh_config.lookup(HOST)
-        HOST = user_config['hostname']
+        scf_user_config = ssh_config.lookup(args.scf_host)
+        scf_kwds['hostname'] = scf_user_config['hostname']
         #-- get username if not entered from command-line
-        if USER is None and 'username' in user_config.keys():
-            USER = user_config['username']
+        if args.scf_user is None and 'username' in scf_user_config.keys():
+            scf_kwds['username'] = scf_user_config['user']
         #-- use identityfile if in ssh configuration file
-        if 'identityfile' in user_config.keys():
-            IDENTITYFILE = user_config['identityfile']
+        if 'identityfile' in scf_user_config.keys():
+            scf_kwds['key_filename'] = scf_user_config['identityfile']
 
     #-- open HOST ssh client for USER
     client = paramiko.SSHClient()
     client.load_system_host_keys()
-    client.connect(HOST, username=USER, key_filename=IDENTITYFILE)
+    client.connect(**scf_kwds)
 
     #-- open secure FTP client
     client_ftp = client.open_sftp()
     #-- verbosity settings
-    if VERBOSE or LIST:
+    if args.verbose or args.list:
         logging.getLogger("paramiko").setLevel(logging.WARNING)
-        print('{0}@{1}:\n'.format(USER, HOST))
+        print('{0}@{1}:\n'.format(scf_kwds['username'],scf_kwds['hostname']))
 
-    #-- run program
-    copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
-        PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=CLOBBER,
-        VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
+    #-- run SCF copy program
+    copy_scf_files(client, client_ftp, args.directory, args.scf_incoming,
+        args.scf_outgoing, args.product, args.release, args.version,
+        args.granule, args.cycle, args.track, CLOBBER=args.clobber,
+        VERBOSE=args.verbose, LIST=args.list, MODE=args.mode)
 
     #-- close the secure FTP server
     client_ftp.close()

@@ -26,7 +26,7 @@ mpiexec -np <processes> python3 MPI_DEM_ICESat2_ATL06.py <path_to_ATL06_file>
 1. `ATL06_file`: full path to ATL06 file  
 
 #### Command Line Options
-- `-D X`, `--directory=X`: Working data directory for elevation models
-- `--model=X`: Set the digital elevation model (REMA, ArcticDEM, GIMP) to run
+- `-D X`, `--directory X`: Working data directory for elevation models
+- `--model X`: Set the digital elevation model (REMA, ArcticDEM, GIMP) to run
 - `-V`, `--verbose`: output module information for process  
-- `-M X`, `--mode=X`: permissions mode of output HDF5 datasets  
+- `-M X`, `--mode X`: permissions mode of output HDF5 datasets  

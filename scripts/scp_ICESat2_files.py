@@ -1,34 +1,34 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (05/2020)
+Written by Tyler Sutterley (10/2020)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
     PULL from remote: s.get(remote_file,local_path=local_file)
 
 CALLING SEQUENCE:
-    python scp_ICESat2_files.py --host=<host> --user=<username> \
-        --product=ATL06 --release=205 --granule=10,11,12 --cycle=1,2 \
-        --remote=<path_to_remote> --verbose --mode=0o775
+    python scp_ICESat2_files.py --host <host> --user <username> \
+        --product ATL06 --release 003 --granule 10 11 12 --cycle 1 2 \
+        --remote <path_to_remote> --verbose --mode 0o775
 
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
-    --host=X: Remote server host
-    --user=X: Remote server username
-    -D X, --directory=X: Local working directory
-    --remote=X: Remote working directory
-    --product=X: ICESat-2 data product to copy
-    --release=X: ICESat-2 data release to copy
-    --version=X: ICESat-2 data version to copy
-    --granule=X: ICESat-2 granule regions to copy
-    --cycle=X: ICESat-2 cycle to copy
-    --track=X: ICESat-2 tracks to copy
+    --host X: Remote server host
+    --user X: Remote server username
+    -D X, --directory X: Local working directory
+    --remote X: Remote working directory
+    --product X: ICESat-2 data product to copy
+    --release X: ICESat-2 data release to copy
+    --version X: ICESat-2 data version to copy
+    --granule X: ICESat-2 granule regions to copy
+    --cycle X: ICESat-2 cycle to copy
+    --track X: ICESat-2 tracks to copy
     -C, --clobber: overwrite existing data in transfer
     -V, --verbose: output information about each synced file
-    -M X, --mode=X: permission mode of directories and files synced
     --push: Transfer files from local computer to remote server
     -L, --list: only list files to be transferred
+    -M X, --mode X: permission mode of directories and files copied
 
 PYTHON DEPENDENCIES:
     paramiko: Native Python SSHv2 protocol library
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 09/2019: sort subdirectories.
     Updated 07/2019: using Python3 compliant division.  regex for file versions
@@ -50,96 +51,102 @@ import os
 import re
 import io
 import scp
-import getopt
 import getpass
 import logging
+import argparse
 import builtins
 import paramiko
 import posixpath
 import numpy as np
 
-#-- PURPOSE: help module to describe the optional input command-line parameters
-def usage():
-    print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
-    print(' --host=X\t\tRemote server host')
-    print(' --user=X\t\tRemote server user')
-    print(' -D X, --directory=X\tLocal working directory')
-    print(' --remote=X\t\tRemote working directory')
-    print(' --product=X\t\tICESat-2 data product to copy')
-    print(' --release=X\t\tICESat-2 data release to copy')
-    print(' --version=X\t\tICESat-2 data version to copy')
-    print(' --granule=X\t\tICESat-2 granule regions to copy')
-    print(' --cycle=X\t\tICESat-2 cycles to copy')
-    print(' --track=X\t\tICESat-2 tracks to copy')
-    print(' -C, --clobber\t\tOverwrite existing data in transfer')
-    print(' -V, --verbose\t\tOutput information about each created file')
-    print(' -M X, --mode=X\t\tPermission mode of directories and files created')
-    print(' --push\t\t\tTransfer files from local computer to remote server')
-    print(' -L, --list\t\tOnly list files to be transferred\n')
-
 #-- Main program that calls scp_ICESat2_files()
 def main():
     #-- Read the system arguments listed after the program
-    long_options = ['help','host=','user=','directory=','remote=','product=',
-        'release=','version=','granule=','cycle=','track=','verbose','clobber',
-        'mode=','push','list']
-    optlist,arglist = getopt.getopt(sys.argv[1:],'hD:VCM:L',long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Copies ICESat-2 HDF5 data from between a local host and
+            remote host
+            """
+    )
+    #-- ICESat-2 Products
+    PRODUCTS = {}
+    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
+    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
+    PRODUCTS['ATL06'] = 'Land Ice Height'
+    PRODUCTS['ATL07'] = 'Sea Ice Height'
+    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
+    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
+    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
+    PRODUCTS['ATL12'] = 'Ocean Surface Height'
+    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    HOST = ''
-    USER = None
-    IDENTITYFILE = None
+    #-- remote server credentials
+    parser.add_argument('--host','-H',
+        type=str, default='',
+        help='Hostname of the remote server')
+    parser.add_argument('--user','-U',
+        type=str, default='',
+        help='Remote server username')
     #-- working data directories
-    DIRECTORY = os.getcwd()
-    REMOTE = ''
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Local working directory')
+    parser.add_argument('--remote','-R',
+        type=str, default='',
+        help='Remote working directory')
     #-- ICESat-2 parameters
-    PRODUCT = 'ATL06'
-    RELEASE = '002'
-    VERSIONS = None
-    CYCLES = np.arange(1,6)
-    GRANULES = None
-    TRACKS = None
-    VERBOSE = False
-    CLOBBER = False
+    #-- ICESat-2 data product
+    parser.add_argument('--product','-p',
+        metavar='PRODUCTS', type=str,
+        choices=PRODUCTS.keys(), default='ATL06',
+        help='ICESat-2 data product to copy')
+    #-- ICESat-2 data release
+    parser.add_argument('--release','-r',
+        type=str, default='003',
+        help='ICESat-2 data release to copy')
+    #-- ICESat-2 data version
+    parser.add_argument('--version','-v',
+        type=int, nargs='+', default=range(1,10),
+        help='ICESat-2 data versions to copy')
+    #-- ICESat-2 granule region
+    parser.add_argument('--granule','-g',
+        metavar='REGION', type=int, nargs='+',
+        choices=range(1,15), default=range(1,15),
+        help='ICESat-2 granule regions to copy')
+    #-- ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+',
+        default=range(1,10),
+        help='ICESat-2 orbital cycles to copy')
+    #-- ICESat-2 reference ground tracks
+    parser.add_argument('--track','-t',
+        metavar='RGT', type=int, nargs='+',
+        choices=range(1,1388), default=range(1,1388),
+        help='ICESat-2 Reference Ground Tracks (RGTs) to copy')
+    #-- sync options
+    parser.add_argument('--push','-P',
+        default=False, action='store_true',
+        help='Transfer files from local computer to remote server')
+    parser.add_argument('--list','-L',
+        default=False, action='store_true',
+        help='Only print files that could be transferred')
+    #-- verbose will output information about each copied file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- clobber will overwrite the existing data
+    parser.add_argument('--clobber','-C',
+        default=False, action='store_true',
+        help='Overwrite existing data')
     #-- permissions mode of the local directories and files (number in octal)
-    MODE = 0o775
-    PUSH = False
-    LIST = False
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage()
-            sys.exit()
-        elif opt in ("--host"):
-            HOST = arg
-        elif opt in ("--user"):
-            USER = arg
-        elif opt in ("-D","--directory"):
-            DIRECTORY = os.path.expanduser(arg)
-        elif opt in ("--remote"):
-            REMOTE = arg
-        elif opt in ("--product"):
-            PRODUCT = arg
-        elif opt in ("--release"):
-            RELEASE = arg
-        elif opt in ("--version"):
-            VERSIONS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--granule"):
-            GRANULES = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--cycle"):
-            CYCLES = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--track"):
-            TRACKS = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("-V","--verbose"):
-            VERBOSE = True
-        elif opt in ("-C","--clobber"):
-            CLOBBER = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
-        elif opt in ("--push"):
-            PUSH = True
-        elif opt in ("-L","--list"):
-            LIST = True
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output directories and files')
+    args = parser.parse_args()
 
+    #-- use entered host and username
+    client_kwds = {}
+    client_kwds.setdefault('hostname',args.host)
+    client_kwds.setdefault('username',args.user)
     #-- use ssh configuration file to extract hostname, user and identityfile
     user_config_file = os.path.join(os.environ['HOME'],".ssh","config")
     if os.path.exists(user_config_file):
@@ -148,29 +155,29 @@ def main():
         with open(user_config_file) as f:
             ssh_config.parse(f)
         #-- lookup hostname from list of hosts
-        user_config = ssh_config.lookup(HOST)
-        HOST = user_config['hostname']
+        user_config = ssh_config.lookup(args.host)
+        client_kwds['hostname'] = user_config['hostname']
         #-- get username if not entered from command-line
-        if USER is None and 'username' in user_config.keys():
-            USER = user_config['username']
+        if args.user is None and 'username' in user_config.keys():
+            client_kwds['username'] = user_config['user']
         #-- use identityfile if in ssh configuration file
         if 'identityfile' in user_config.keys():
-            IDENTITYFILE = user_config['identityfile']
+            client_kwds['key_filename'] = user_config['identityfile']
 
     #-- open HOST ssh client for USER (and use password if no IDENTITYFILE)
-    client = attempt_login(HOST, USER, IDENTITYFILE=IDENTITYFILE)
-
+    client = attempt_login(**client_kwds)
     #-- open secure FTP client
     client_ftp = client.open_sftp()
     #-- verbosity settings
-    if VERBOSE or LIST:
+    if args.verbose or args.list:
         logging.getLogger("paramiko").setLevel(logging.WARNING)
-        print('{0}@{1}:\n'.format(USER, HOST))
+        print('{0}@{1}:\n'.format(client_kwds['username'],client_kwds['hostname']))
 
     #-- run program
-    scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
-        RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=CLOBBER,
-        VERBOSE=VERBOSE, PUSH=PUSH, LIST=LIST, MODE=MODE)
+    scp_ICESat2_files(client, client_ftp, args.directory, args.remote,
+        args.product, args.release, args.version, args.granule, args.cycle,
+        args.track, PUSH=args.push, LIST=args.list, CLOBBER=args.clobber,
+        VERBOSE=args.verbose, MODE=args.mode)
 
     #-- close the secure FTP server
     client_ftp.close()
@@ -178,34 +185,41 @@ def main():
     client = None
 
 #-- PURPOSE: try logging onto the server and catch authentication errors
-def attempt_login(HOST, USER, IDENTITYFILE=None):
+def attempt_login(**client_kwds):
     #-- open HOST ssh client
+    kwds = client_kwds.copy()
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     tryagain = True
+    #-- add initial attempt
     attempts = 1
     #-- use identification file
-    if IDENTITYFILE:
-        try:
-            client.connect(HOST, username=USER, key_filename=IDENTITYFILE)
-        except paramiko.ssh_exception.AuthenticationException:
-            pass
-        else:
-            return client
-        attempts += 1
+    try:
+        client.connect(**kwds)
+    except paramiko.ssh_exception.AuthenticationException:
+        pass
+    else:
+        return client
+    #-- add attempt
+    attempts += 1
+    #-- phrase for entering password
+    phrase = 'Password for {0}@{1}: '.format(kwds['username'],kwds['hostname'])
+    #-- remove key_filename from keywords
+    kwds.pop('key_filename') if 'key_filename' in kwds.keys() else None
     #-- enter password securely from command-line
     while tryagain:
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        kwds['password'] = getpass.getpass(phrase)
         try:
-            client.connect(HOST, username=USER, password=PASSWORD)
+            client.connect(*kwds)
         except paramiko.ssh_exception.AuthenticationException:
             pass
         else:
-            del PASSWORD
+            kwds.pop('password')
             return client
         #-- retry with new password
         print('Authentication Failed (Attempt {0:d})'.format(attempts))
         tryagain = builtins.input('Try Different Password? (Y/N): ') in ('Y','y')
+        #-- add attempt
         attempts += 1
     #-- exit program if not trying again
     sys.exit()

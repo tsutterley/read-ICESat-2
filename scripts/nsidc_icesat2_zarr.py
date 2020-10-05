@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_zarr.py
-Written by Tyler Sutterley (09/2020)
+Written by Tyler Sutterley (10/2020)
 
 Acquires ICESat-2 datafiles from NSIDC and directly convert to zarr datafiles
 
@@ -38,23 +38,24 @@ INPUTS:
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -U X, --user=X: username for NASA Earthdata Login
-    -N X, --netrc=X: path to .netrc file for alternative authentication
-    -D X, --directory: working data directory
-    -Y X, --year=X: years to sync separated by commas
-    -S X, --subdirectory=X: subdirectories to sync separated by commas
-    --release=X: ICESat-2 data release to sync
-    --version=X: ICESat-2 data version to sync
-    --track=X: ICESat-2 reference ground tracks to sync
-    --granule=X: ICESat-2 granule regions to sync
-    --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
-    -I X, --index=X: Input index of ICESat-2 files to sync
+    -U X, --user X: username for NASA Earthdata Login
+    -N X, --netrc X: path to .netrc file for alternative authentication
+    -D X, --directory X: working data directory
+    -Y X, --year X: years to sync separated by commas
+    -S X, --subdirectory X: subdirectories to sync separated by commas
+    -r X, --release X: ICESat-2 data release to sync
+    -v X, --version X: ICESat-2 data version to sync
+    -t X, --track X: ICESat-2 reference ground tracks to sync
+    -g X, --granule X: ICESat-2 granule regions to sync
+    --chunks X: Rechunk zarr files to size
+    -a X, --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
+    -I X, --index X: Input index of ICESat-2 files to sync
     -F, --flatten: Do not create subdirectories
-    -P X, --np=X: Number of processes to use in file downloads
-    -M X, --mode=X: Local permissions mode of the directories and files synced
+    -P X, --np X: Number of processes to use in file downloads
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
+    -M X, --mode X: Local permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -74,6 +75,8 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2020: using argparse to set parameters
+        added chunks keyword to rechunk output zarr files
     Updated 09/2020: use urllib imported in utilities
     Updated 08/2020: moved urllib opener to utilities. add credential check
         moved urllib directory listing to utilities
@@ -90,9 +93,9 @@ import io
 import zarr
 import h5py
 import netrc
-import getopt
 import shutil
 import getpass
+import argparse
 import builtins
 import posixpath
 import traceback
@@ -104,19 +107,19 @@ import multiprocessing as mp
 import icesat2_toolkit.utilities
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC and convert to zarr
-def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
-    YEARS=None, SUBDIRECTORY=None, AUXILIARY=False, INDEX=None, FLATTEN=False,
-    LOG=False, LIST=False, PROCESSES=0, MODE=None, CLOBBER=False):
+def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
+    YEARS=None, SUBDIRECTORY=None, CHUNKS=None, AUXILIARY=False, INDEX=None,
+    FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, CLOBBER=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
-    os.makedirs(ddir,MODE) if not os.path.exists(ddir) else None
+    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
 
     #-- output of synchronized files
     if LOG:
         #-- format: NSIDC_IceBridge_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
-        fid = open(os.path.join(ddir,LOGFILE),'w')
+        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
         print('ICESat-2 Data Sync Log ({0})'.format(today), file=fid)
     else:
         #-- standard output (terminal output)
@@ -171,9 +174,9 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
             #-- local directory for product and subdirectory
             if FLATTEN:
-                local_dir = os.path.expanduser(ddir)
+                local_dir = os.path.expanduser(DIRECTORY)
             else:
-                local_dir = os.path.join(ddir,product_directory,sd)
+                local_dir = os.path.join(DIRECTORY,product_directory,sd)
             #-- check if data directory exists and recursively create if not
             os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
             #-- find ICESat-2 data file to get last modified time
@@ -206,9 +209,9 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             for sd in remote_sub:
                 #-- local directory for product and subdirectory
                 if FLATTEN:
-                    local_dir = os.path.expanduser(ddir)
+                    local_dir = os.path.expanduser(DIRECTORY)
                 else:
-                    local_dir = os.path.join(ddir,product_directory,sd)
+                    local_dir = os.path.join(DIRECTORY,product_directory,sd)
                 #-- check if data directory exists and recursively create if not
                 os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
@@ -231,8 +234,8 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         #-- sync each ICESat-2 data file
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
-            output = http_pull_file(remote_file, remote_mtimes[i],
-                local_files[i], LIST, CLOBBER, MODE)
+            output = http_pull_file(remote_file, remote_mtimes[i], local_files[i],
+                CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             #-- print the output string
             print(output, file=fid)
     else:
@@ -243,9 +246,8 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
-            output.append(pool.apply_async(multiprocess_sync,
-                args=args,kwds=kwds))
+            kwds = dict(CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            output.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
         #-- start multiprocessing jobs
         #-- close the pool
         #-- prevents more tasks from being submitted to the pool
@@ -259,14 +261,14 @@ def nsidc_icesat2_zarr(ddir, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     #-- close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(ddir,LOGFILE), MODE)
+        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(remote_file, remote_mtime, local_file,
-    LIST=False, CLOBBER=False, MODE=0o775):
+    CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
     try:
         output = http_pull_file(remote_file,remote_mtime,local_file,
-            LIST,CLOBBER,MODE)
+            CHUNKS=CHUNKS,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -278,7 +280,8 @@ def multiprocess_sync(remote_file, remote_mtime, local_file,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
+def http_pull_file(remote_file, remote_mtime, local_file,
+    CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
     #-- split extension from input local file
     fileBasename, fileExtension = os.path.splitext(local_file)
     #-- copy HDF5 file from server into new zarr file
@@ -324,7 +327,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
                     raise ValueError('dest must be a group, got {!r}'.format(dest))
                 #-- for each key in the root of the hdf5 file structure
                 for k in source.keys():
-                    copy_from_HDF5(source[k], dest, name=k)
+                    copy_from_HDF5(source[k], dest, name=k, chunks=CHUNKS)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
@@ -409,135 +412,119 @@ def attributes_encoder(attr):
     else:
         return attr
 
-#-- PURPOSE: help module to describe the optional input parameters
-def usage():
-    print('\nHelp: {0}'.format(os.path.basename(sys.argv[0])))
-    print(' -U X, --user=X\t\tUsername for NASA Earthdata Login')
-    print(' -N X, --netrc=X\tPath to .netrc file for authentication')
-    print(' -D X, --directory=X\tWorking data directory')
-    print(' -Y X, --year=X\t\tYears to sync separated by commas')
-    print(' -S X, --subdirectory=X\tSubdirectories to sync separated by commas')
-    print(' --release=X\t\tICESat-2 data release to sync')
-    print(' --version=X\t\tICESat-2 data version to sync')
-    print(' --granule=X\t\tICESat-2 granule regions to sync')
-    print(' --track=X\t\tICESat-2 reference ground tracks to sync')
-    print(' --auxiliary\t\tSync ICESat-2 auxiliary files for each HDF5 file')
-    print(' -I X, --index=X\t\tInput index of ICESat-2 files to sync')
-    print(' -F, --flatten\t\tDo not create subdirectories')
-    print(' -P X, --np=X\t\tNumber of processes to use in file downloads')
-    print(' -M X, --mode=X\t\tPermission mode of directories and files synced')
-    print(' -L, --list\t\tOnly print files that are to be transferred')
-    print(' -C, --clobber\t\tOverwrite existing data in transfer')
-    print(' -l, --log\t\tOutput log file')
-    today = time.strftime('%Y-%m-%d',time.localtime())
-    LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
-    print('    Log file format: {0}\n'.format(LOGFILE))
-
 #-- Main program that calls nsidc_icesat2_zarr()
 def main():
     #-- Read the system arguments listed after the program
-    short_options = 'hU:N:D:Y:S:I:FP:LCM:l'
-    long_options=['help','user=','netrc=','directory=','year=','subdirectory=',
-        'release=','version=','granule=','track=','auxiliary','index=',
-        'flatten','np=','list','log','mode=','clobber']
-    optlist,arglist=getopt.getopt(sys.argv[1:],short_options,long_options)
-
+    parser = argparse.ArgumentParser(
+        description="""Acquires ICESat-2 datafiles from NSIDC and directly
+            convert to zarr datafiles
+            """
+    )
+    #-- ICESat-2 Products
+    PRODUCTS = {}
+    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
+    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
+    PRODUCTS['ATL06'] = 'Land Ice Height'
+    PRODUCTS['ATL07'] = 'Sea Ice Height'
+    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
+    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
+    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
+    PRODUCTS['ATL12'] = 'Ocean Surface Height'
+    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    USER = ''
-    NETRC = None
-    #-- Working data directory
-    DIRECTORY = os.getcwd()
-    YEARS = None
-    SUBDIRECTORY = None
-    VERSIONS = np.arange(1,10)
-    RELEASE = '003'
-    GRANULES = np.arange(1,15)
-    TRACKS = np.arange(1,1388)
-    AUXILIARY = False
-    INDEX = None
-    FLATTEN = False
-    #-- sync in series if processes is 0
-    PROCESSES = 0
-    LIST = False
-    LOG = False
-    #-- permissions mode of the local directories and files (number in octal)
-    MODE = 0o775
-    CLOBBER = False
-    for opt, arg in optlist:
-        if opt in ('-h','--help'):
-            usage()
-            sys.exit()
-        elif opt in ("-Y","--year"):
-            YEARS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("-S","--subdirectory"):
-            SUBDIRECTORY = arg.split(',')
-        elif opt in ("-U","--user"):
-            USER = arg
-        elif opt in ("-N","--netrc"):
-            NETRC = os.path.expanduser(arg)
-        elif opt in ("-D","--directory"):
-            DIRECTORY = os.path.expanduser(arg)
-        elif opt in ("--release",):
-            RELEASE = '{0:03d}'.format(int(arg))
-        elif opt in ("--version",):
-            VERSIONS = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--granule",):
-            GRANULES = np.array(arg.split(','), dtype=np.int)
-        elif opt in ("--track",):
-            TRACKS = np.sort(arg.split(',')).astype(np.int)
-        elif opt in ("--auxiliary",):
-            AUXILIARY = True
-        elif opt in ("-I","--index"):
-            INDEX = os.path.expanduser(arg)
-        elif opt in ("-P","--np"):
-            PROCESSES = int(arg)
-        elif opt in ("-F","--flatten"):
-            FLATTEN = True
-        elif opt in ("-L","--list"):
-            LIST = True
-        elif opt in ("-l","--log"):
-            LOG = True
-        elif opt in ("-M","--mode"):
-            MODE = int(arg, 8)
-        elif opt in ("-C","--clobber"):
-            CLOBBER = True
-
-    #-- Pre-ICESat-2 and IceBridge Products
-    PROD = {}
-    PROD['ATL03'] = 'Global Geolocated Photon Data'
-    PROD['ATL04'] = 'Normalized Relative Backscatter'
-    PROD['ATL06'] = 'Land Ice Height'
-    PROD['ATL07'] = 'Sea Ice Height'
-    PROD['ATL08'] = 'Land and Vegetation Height'
-    PROD['ATL09'] = 'Atmospheric Layer Characteristics'
-    PROD['ATL10'] = 'Sea Ice Freeboard'
-    PROD['ATL12'] = 'Ocean Surface Height'
-    PROD['ATL13'] = 'Inland Water Surface Height'
-
-    #-- enter dataset to transfer as system argument
-    if not INDEX and not arglist:
-        for key,val in PROD.items():
-            print('{0}: {1}'.format(key, val))
-        raise Exception('No System Arguments Listed')
-
-    #-- check that each data product entered was correctly typed
-    keys = ','.join(sorted([key for key in PROD.keys()]))
-    for p in arglist:
-        if p not in PROD.keys():
-            raise IOError('Incorrect Data Product Entered ({0})'.format(keys))
+    parser.add_argument('products',
+        metavar='PRODUCTS', type=str, nargs='+',
+        choices=PRODUCTS.keys(),
+        help='ICESat-2 products to convert to zarr')
+    #-- NASA Earthdata credentials
+    parser.add_argument('--user','-U',
+        type=str, default='',
+        help='Username for NASA Earthdata Login')
+    parser.add_argument('--netrc','-N',
+        type=os.path.expanduser, default='',
+        help='Path to .netrc file for authentication')
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=os.path.expanduser, default=os.getcwd(),
+        help='Working data directory')
+    #-- years of data to run
+    parser.add_argument('--year','-Y',
+        type=int, nargs='+',
+        help='Years to run')
+    #-- subdirectories of data to run
+    parser.add_argument('--subdirectory','-S',
+        type=str, nargs='+',
+        help='subdirectories of data to run')
+    #-- ICESat-2 data release
+    parser.add_argument('--release','-r',
+        type=str, default='003',
+        help='ICESat-2 Data Release')
+    #-- ICESat-2 data version
+    parser.add_argument('--version','-v',
+        type=int, nargs='+', default=range(1,10),
+        help='ICESat-2 Data Version')
+    #-- ICESat-2 granule region
+    parser.add_argument('--granule','-g',
+        metavar='REGION', type=int, nargs='+',
+        choices=range(1,15), default=range(1,15),
+        help='ICESat-2 Granule Region')
+    #-- ICESat-2 reference ground tracks
+    parser.add_argument('--track','-t',
+        metavar='RGT', type=int, nargs='+',
+        choices=range(1,1388), default=range(1,1388),
+        help='ICESat-2 Reference Ground Tracks (RGTs)')
+    #-- rechunk output zarr data
+    parser.add_argument('--chunks',
+        type=int,
+        help='Rechunk zarr files to size')
+    #-- sync auxiliary files
+    parser.add_argument('--auxiliary','-a',
+        default=False, action='store_true',
+        help='Sync ICESat-2 auxiliary files for each HDF5 file')
+    #-- sync using files from an index
+    parser.add_argument('--index','-i',
+        type=os.path.expanduser, default='',
+        help='Input index of ICESat-2 files to sync')
+    #-- output subdirectories
+    parser.add_argument('--flatten','-f',
+        default=False, action='store_true',
+        help='Do not create subdirectories')
+    #-- run conversion in series if processes is 0
+    parser.add_argument('--np','-P',
+        metavar='PROCESSES', type=int, default=0,
+        help='Number of processes to use in file conversion')
+    #-- Output log file in form
+    #-- NSIDC_IceSat-2_sync_2002-04-01.log
+    parser.add_argument('--log','-l',
+        default=False, action='store_true',
+        help='Output log file')
+    #-- sync options
+    parser.add_argument('--list','-L',
+        default=False, action='store_true',
+        help='Only print files that could be transferred')
+    #-- clobber will overwrite the existing data
+    parser.add_argument('--clobber','-C',
+        default=False, action='store_true',
+        help='Overwrite existing data')
+    #-- permissions mode of the converted files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args = parser.parse_args()
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
-    if not USER and not NETRC:
+    if not args.user and not args.netrc:
         #-- check that NASA Earthdata credentials were entered
         USER = builtins.input('Username for {0}: '.format(HOST))
         #-- enter password securely from command-line
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
-    elif NETRC:
-        USER,LOGIN,PASSWORD = netrc.netrc(NETRC).authenticators(HOST)
+    elif args.netrc:
+        USER,LOGIN,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
+        USER = args.user
         PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
 
     #-- build a urllib opener for NSIDC
@@ -547,10 +534,12 @@ def main():
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program
     if icesat2_toolkit.utilities.check_credentials():
-        nsidc_icesat2_zarr(DIRECTORY, arglist, RELEASE, VERSIONS, GRANULES,
-            TRACKS, YEARS=YEARS, SUBDIRECTORY=SUBDIRECTORY, AUXILIARY=AUXILIARY,
-            INDEX=INDEX, FLATTEN=FLATTEN, PROCESSES=PROCESSES, LOG=LOG,
-            LIST=LIST, MODE=MODE, CLOBBER=CLOBBER)
+        nsidc_icesat2_zarr(args.directory, args.products, args.release,
+            args.version, args.granule, args.track, YEARS=args.year,
+            SUBDIRECTORY=args.subdirectory, CHUNKS=args.chunks,
+            AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
+            PROCESSES=args.np, LOG=args.log, LIST=args.list,
+            CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

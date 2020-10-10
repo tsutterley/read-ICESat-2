@@ -58,7 +58,8 @@ def main():
     #-- command line parameters
     #-- working data directory
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory for symbolic link')
     #-- ICESat-2 parameters
     #-- ICESat-2 data product

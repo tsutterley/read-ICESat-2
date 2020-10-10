@@ -222,18 +222,19 @@ def main():
     PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
     parser.add_argument('file',
-        type=os.path.expanduser, nargs='+',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='ICESat-2 products to associate')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
         help='Username for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=os.path.expanduser, default='',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- ICESat-2 parameters
     #-- ICESat-2 data product

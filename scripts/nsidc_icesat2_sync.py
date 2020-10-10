@@ -337,11 +337,12 @@ def main():
         type=str, default='',
         help='Username for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=os.path.expanduser, default='',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- years of data to sync
     parser.add_argument('--year','-Y',
@@ -375,7 +376,7 @@ def main():
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     #-- sync using files from an index
     parser.add_argument('--index','-i',
-        type=os.path.expanduser, default='',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Input index of ICESat-2 files to sync')
     #-- output subdirectories
     parser.add_argument('--flatten','-f',

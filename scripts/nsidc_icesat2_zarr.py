@@ -67,6 +67,8 @@ PYTHON DEPENDENCIES:
     zarr: Chunked, compressed, N-dimensional arrays in Python
         https://github.com/zarr-developers/zarr-python
         https://zarr.readthedocs.io/en/stable/index.html
+    pandas: Python Data Analysis Library
+        https://pandas.pydata.org/
     lxml: Pythonic XML and HTML processing library using libxml2/libxslt
         https://lxml.de/
         https://github.com/lxml/lxml
@@ -77,6 +79,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 10/2020: using argparse to set parameters
         added chunks keyword to rechunk output zarr files
+        using convert module to convert from HDF5 to zarr
     Updated 09/2020: use urllib imported in utilities
     Updated 08/2020: moved urllib opener to utilities. add credential check
         moved urllib directory listing to utilities
@@ -90,8 +93,6 @@ import sys
 import os
 import re
 import io
-import zarr
-import h5py
 import netrc
 import shutil
 import getpass
@@ -99,11 +100,11 @@ import argparse
 import builtins
 import posixpath
 import traceback
-import itertools
 import lxml.etree
 import numpy as np
 import calendar, time
 import multiprocessing as mp
+import icesat2_toolkit.convert
 import icesat2_toolkit.utilities
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC and convert to zarr
@@ -237,17 +238,17 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             output = http_pull_file(remote_file, remote_mtimes[i], local_files[i],
                 CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             #-- print the output string
-            print(output, file=fid)
+            print(output, file=fid) if output else None
     else:
         #-- sync in parallel with multiprocessing Pool
         pool = mp.Pool(processes=PROCESSES)
         #-- sync each ICESat-2 data file
-        output = []
+        out = []
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
             kwds = dict(CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
-            output.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
+            out.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
         #-- start multiprocessing jobs
         #-- close the pool
         #-- prevents more tasks from being submitted to the pool
@@ -255,8 +256,9 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         #-- exit the completed processes
         pool.join()
         #-- print the output string
-        for out in output:
-            print(out.get(), file=fid)
+        for output in out:
+            temp = output.get()
+            print(temp, file=fid) if temp else None
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -286,6 +288,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     fileBasename, fileExtension = os.path.splitext(local_file)
     #-- copy HDF5 file from server into new zarr file
     if (fileExtension == '.h5'):
+        hdf5_file = str(local_file)
         local_file = '{0}.zarr'.format(fileBasename)
     #-- if file exists in file system: check if remote file is newer
     TEST = False
@@ -319,15 +322,11 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             shutil.copyfileobj(response, fid, CHUNK)
             #-- rewind retrieved binary to start of file
             fid.seek(0)
+            #-- copy local HDF5 filename to BytesIO object attribute
+            fid.filename = hdf5_file
             #-- copy everything from the HDF5 file to the zarr file
-            with h5py.File(fid,'r') as source:
-                dest = zarr.open_group(local_file,mode='w')
-                #-- value checks on output zarr
-                if not hasattr(dest, 'create_dataset'):
-                    raise ValueError('dest must be a group, got {!r}'.format(dest))
-                #-- for each key in the root of the hdf5 file structure
-                for k in source.keys():
-                    copy_from_HDF5(source[k], dest, name=k, chunks=CHUNKS)
+            conv = icesat2_toolkit.convert(filename=fid,reformat='zarr')
+            conv.file_converter(chunks=CHUNKS)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
@@ -347,70 +346,6 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             os.chmod(local_file, MODE)
         #-- return the output string
         return output
-
-#-- PURPOSE: Copy a named variable from the HDF5 file to the zarr file
-def copy_from_HDF5(source, dest, name, **create_kws):
-    """Copy a named variable from the `source` HDF5 into the `dest` zarr"""
-    if hasattr(source, 'shape'):
-        #-- copy a dataset/array
-        if dest is not None and name in dest:
-            raise Exception('an object {!r} already exists in destination '
-                '{!r}'.format(name, dest.name))
-        #-- setup creation keyword arguments
-        kws = create_kws.copy()
-        #-- setup chunks option, preserve by default
-        kws.setdefault('chunks', source.chunks)
-        #-- setup compression options
-        #-- from h5py to zarr: use zarr default compression options
-        kws.setdefault('fill_value', source.fillvalue)
-        #-- create new dataset in destination
-        ds=dest.create_dataset(name,shape=source.shape,dtype=source.dtype,**kws)
-        #-- copy data going chunk by chunk to avoid loading in entirety
-        shape = ds.shape
-        chunks = ds.chunks
-        chunk_offsets = [range(0, s, c) for s, c in zip(shape, chunks)]
-        for offset in itertools.product(*chunk_offsets):
-            sel = tuple(slice(o, min(s, o + c)) for o, s, c in
-                zip(offset, shape, chunks))
-            ds[sel] = source[sel]
-        #-- copy attributes
-        attrs = {key:attributes_encoder(source.attrs[key]) for key in
-            source.attrs.keys() if attributes_encoder(source.attrs[key])}
-        ds.attrs.update(attrs)
-    else:
-        #-- copy a group
-        if (dest is not None and name in dest and hasattr(dest[name], 'shape')):
-            raise Exception('an array {!r} already exists in destination '
-                '{!r}'.format(name, dest.name))
-        #-- require group in destination
-        grp = dest.require_group(name)
-        #-- copy attributes
-        attrs = {key:attributes_encoder(source.attrs[key]) for key in
-            source.attrs.keys() if attributes_encoder(source.attrs[key])}
-        grp.attrs.update(attrs)
-        #-- recursively copy from source
-        for k in source.keys():
-            copy_from_HDF5(source[k], grp, name=k)
-
-#-- PURPOSE: encoder for copying the file attributes
-def attributes_encoder(attr):
-    """Custom encoder for copying file attributes in Python 3"""
-    if isinstance(attr, (bytes, bytearray)):
-        return attr.decode('utf-8')
-    if isinstance(attr, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32,
-        np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
-        return int(attr)
-    elif isinstance(attr, (np.float_, np.float16, np.float32, np.float64)):
-        return float(attr)
-    elif isinstance(attr, (np.ndarray)):
-        if not isinstance(attr[0], (object)):
-            return attr.tolist()
-    elif isinstance(attr, (np.bool_)):
-        return bool(attr)
-    elif isinstance(attr, (np.void)):
-        return None
-    else:
-        return attr
 
 #-- Main program that calls nsidc_icesat2_zarr()
 def main():
@@ -441,11 +376,12 @@ def main():
         type=str, default='',
         help='Username for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=os.path.expanduser, default='',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- years of data to run
     parser.add_argument('--year','-Y',
@@ -483,7 +419,7 @@ def main():
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     #-- sync using files from an index
     parser.add_argument('--index','-i',
-        type=os.path.expanduser, default='',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Input index of ICESat-2 files to sync')
     #-- output subdirectories
     parser.add_argument('--flatten','-f',

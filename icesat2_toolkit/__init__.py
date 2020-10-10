@@ -16,6 +16,7 @@ Documentation is available at https://read-icesat-2.readthedocs.io
 """
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+from icesat2_toolkit.convert import convert
 from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_calendar_decimal import convert_calendar_decimal
 from icesat2_toolkit.convert_delta_time import convert_delta_time

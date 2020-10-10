@@ -525,14 +525,14 @@ def main():
     #-- first file listed contains the ATL03 file
     #-- second file listed is the associated ATL09 file
     parser.add_argument('ATL03',
-        type=os.path.expanduser, nargs='?',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
         help='ICESat-2 ATL03 file to run')
     parser.add_argument('ATL09',
-        type=os.path.expanduser, nargs='?',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
         help='ICESat-2 ATL09 file to run')
     #-- use default output file name
     parser.add_argument('--output','-O',
-        type=os.path.expanduser,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Name and path of output file')
     #-- verbosity settings
     #-- verbose will output information about each output file

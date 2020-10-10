@@ -166,11 +166,12 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('file',
-        type=os.path.expanduser,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='ICESat-2 ATL06 file to run')
     #-- working data directory for location of RGI files
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- region of Randolph Glacier Inventory to run
     parser.add_argument('--region','-r',
@@ -250,16 +251,14 @@ def main():
 
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl06_beams):
-        #-- output data dictionaries for beam
-        IS2_atl06_mask[gtx] = dict(land_ice_segments={})
-        IS2_atl06_fill[gtx] = dict(land_ice_segments={})
-        IS2_atl06_mask_attrs[gtx] = dict(land_ice_segments={})
-
         #-- number of segments
         segment_id = fileID[gtx]['land_ice_segments']['segment_id'][:]
         n_seg, = fileID[gtx]['land_ice_segments']['segment_id'].shape
         #-- invalid value for beam
         fv = fileID[gtx]['land_ice_segments']['h_li'].fillvalue
+        #-- check if there are less segments than processes
+        if (n_seg < comm.Get_size()):
+            continue
 
         #-- define indices to run for specific process
         ind = np.arange(comm.Get_rank(), n_seg, comm.Get_size(), dtype=np.int)
@@ -306,6 +305,11 @@ def main():
         distributed_RGIId = None
         #-- wait for all processes to finish calculation
         comm.Barrier()
+
+        #-- output data dictionaries for beam
+        IS2_atl06_mask[gtx] = dict(land_ice_segments={})
+        IS2_atl06_fill[gtx] = dict(land_ice_segments={})
+        IS2_atl06_mask_attrs[gtx] = dict(land_ice_segments={})
 
         #-- group attributes for beam
         IS2_atl06_mask_attrs[gtx]['Description'] = fileID[gtx].attrs['Description']

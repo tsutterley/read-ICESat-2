@@ -80,7 +80,8 @@ def main():
         help='SCF server username')
     #-- working data directory
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- years of data to copy
     parser.add_argument('--year','-Y',

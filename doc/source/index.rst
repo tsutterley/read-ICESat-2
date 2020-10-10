@@ -19,6 +19,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     :maxdepth: 1
     :caption: User Guide:
 
+    user_guide/convert.rst
     user_guide/convert_calendar_decimal.md
     user_guide/convert_delta_time.md
     user_guide/convert_ICESat2_zarr.md

@@ -88,7 +88,8 @@ def main():
         help='Remote server username')
     #-- working data directories
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Local working directory')
     parser.add_argument('--remote','-R',
         type=str, default='',

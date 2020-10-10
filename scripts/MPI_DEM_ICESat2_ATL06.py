@@ -329,11 +329,12 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('file',
-        type=os.path.expanduser,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='ICESat-2 ATL06 file to run')
     #-- working data directory for location of DEM files
     parser.add_argument('--directory','-D',
-        type=os.path.expanduser, default=os.getcwd(),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
         help='Working data directory')
     #-- Digital elevation model (REMA, ArcticDEM, GIMP) to run
     #-- set the DEM model to run for a given granule (else set automatically)

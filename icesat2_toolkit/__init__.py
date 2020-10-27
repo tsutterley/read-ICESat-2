@@ -20,7 +20,11 @@ from icesat2_toolkit.convert import convert
 from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_calendar_decimal import convert_calendar_decimal
 from icesat2_toolkit.convert_delta_time import convert_delta_time
-from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03, read_HDF5_ATL09
-from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
-from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07
-from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12
+from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03, \
+    find_HDF5_ATL03_beams, read_HDF5_ATL09, read_HDF5_ATL03_main, read_HDF5_ATL03_beam
+from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06, \
+    find_HDF5_ATL06_beams, read_HDF5_ATL06_beam
+from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07, \
+    find_HDF5_ATL07_beams
+from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12, \
+    find_HDF5_ATL12_beams

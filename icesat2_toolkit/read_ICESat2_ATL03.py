@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (09/2020)
+read_ICESat2_ATL03.py (10/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2020: add small function to find valid beam groups
     Updated 09/2020: map ATL09 to ATL03 using delta times
     Updated 07/2020: added function docstrings
     Updated 06/2020: add additional beam check within heights groups
@@ -305,6 +306,38 @@ def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True):
     #-- Return the datasets and variables
     return (IS2_atl09_mds,IS2_atl09_attrs)
 
+#-- PURPOSE: find valid beam groups within ICESat-2 ATL03 HDF5 data files
+def find_HDF5_ATL03_beams(FILENAME):
+    """
+    Find valid beam groups within ICESat-2 ATL03 Global Geolocated Photons
+    data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL03 file
+
+    Returns
+    -------
+    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    """
+    #-- output list of beams
+    IS2_atl03_beams = []
+    #-- Open the HDF5 file for reading
+    with h5py.File(os.path.expanduser(FILENAME), 'r') as fileID:
+        #-- read each input beam within the file
+        for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+            #-- check if subsetted beam contains data
+            #-- check in both the geolocation and heights groups
+            try:
+                fileID[gtx]['geolocation']['segment_id']
+                fileID[gtx]['heights']['delta_time']
+            except KeyError:
+                pass
+            else:
+                IS2_atl03_beams.append(gtx)
+    #-- return the list of beams
+    return IS2_atl03_beams
+
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files for main level variables
 def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     """
@@ -339,7 +372,18 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     IS2_atl03_attrs = {}
 
     #-- read each input beam within the file
-    IS2_atl03_beams=[k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]
+    IS2_atl03_beams = []
+    for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+        #-- check if subsetted beam contains data
+        #-- check in both the geolocation and heights groups
+        try:
+            fileID[gtx]['geolocation']['segment_id']
+            fileID[gtx]['heights']['delta_time']
+        except KeyError:
+            pass
+        else:
+            IS2_atl03_beams.append(gtx)
+
     #-- ICESat-2 spacecraft orientation at time
     IS2_atl03_mds['orbit_info'] = {}
     IS2_atl03_attrs['orbit_info'] = {}

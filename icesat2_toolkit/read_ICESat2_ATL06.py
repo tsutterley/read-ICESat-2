@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL06.py (11/2019)
+read_ICESat2_ATL06.py (10/2020)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2020: add small function to find valid beam groups
     Updated 07/2020: added function docstrings
     Updated 11/2019: create attribute dictionaries but don't fill if False
         add function for reading only beam level variables
@@ -228,6 +229,36 @@ def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False, QUALITY=False,
     fileID.close()
     #-- Return the datasets and variables
     return (IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams)
+
+#-- PURPOSE: find valid beam groups within ICESat-2 ATL06 HDF5 data files
+def find_HDF5_ATL06_beams(FILENAME):
+    """
+    Find valid beam groups within ICESat-2 ATL06 (Land Ice Along-Track
+    Height Product) data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL06 file
+
+    Returns
+    -------
+    IS2_atl06_beams: list with valid ICESat-2 beams within ATL06 file
+    """
+    #-- output list of beams
+    IS2_atl06_beams = []
+    #-- Open the HDF5 file for reading
+    with h5py.File(os.path.expanduser(FILENAME), 'r') as fileID:
+        #-- read each input beam within the file
+        for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+            #-- check if subsetted beam contains land ice data
+            try:
+                fileID[gtx]['land_ice_segments']['segment_id']
+            except KeyError:
+                pass
+            else:
+                IS2_atl06_beams.append(gtx)
+    #-- return the list of beams
+    return IS2_atl06_beams
 
 #-- PURPOSE: read ICESat-2 ATL06 HDF5 data files for beam variables
 def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):

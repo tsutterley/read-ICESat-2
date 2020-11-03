@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_zarr.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (11/2020)
 
 Acquires ICESat-2 datafiles from NSIDC and directly convert to zarr datafiles
 
@@ -77,6 +77,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
         added chunks keyword to rechunk output zarr files
         using convert module to convert from HDF5 to zarr
@@ -182,13 +183,14 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
-            colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+            names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
                 build=False,timeout=120,parser=parser,pattern=f.strip())
             #-- print if file was not found
-            if not colnames:
-                print('{0} not found on {1}'.format(f,remote_dir),file=fid)
+            if not names:
+                print(error,file=fid)
+                continue
             #-- add to lists
-            for colname,remote_mtime in zip(colnames,collastmod):
+            for colname,remote_mtime in zip(names,lastmod):
                 #-- remote and local versions of the file
                 remote_files.append(posixpath.join(remote_dir,colname))
                 local_files.append(os.path.join(local_dir,colname))
@@ -206,6 +208,10 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             #-- read and parse request for subdirectories (find column names)
             remote_sub,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
                 build=False,timeout=120,parser=parser,pattern=R2,sort=True)
+            #-- print if subdirectory was not found
+            if not remote_sub:
+                print(error,file=fid)
+                continue
             #-- for each remote subdirectory
             for sd in remote_sub:
                 #-- local directory for product and subdirectory
@@ -219,10 +225,14 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
                 PATH = [HOST,'ATLAS',product_directory,sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
-                colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+                names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
                     build=False,timeout=120,parser=parser,pattern=R1,sort=True)
+                #-- print if file was not found
+                if not names:
+                    print(error,file=fid)
+                    continue
                 #-- build lists of each ICESat-2 data file
-                for colname,remote_mtime in zip(colnames,collastmod):
+                for colname,remote_mtime in zip(names,lastmod):
                     #-- remote and local versions of the file
                     remote_files.append(posixpath.join(remote_dir,colname))
                     local_files.append(os.path.join(local_dir,colname))
@@ -355,21 +365,10 @@ def main():
             convert to zarr datafiles
             """
     )
-    #-- ICESat-2 Products
-    PRODUCTS = {}
-    PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
-    PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
-    PRODUCTS['ATL06'] = 'Land Ice Height'
-    PRODUCTS['ATL07'] = 'Sea Ice Height'
-    PRODUCTS['ATL08'] = 'Land and Vegetation Height'
-    PRODUCTS['ATL09'] = 'Atmospheric Layer Characteristics'
-    PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
-    PRODUCTS['ATL12'] = 'Ocean Surface Height'
-    PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     #-- command line parameters
-    parser.add_argument('products',
-        metavar='PRODUCTS', type=str, nargs='+',
-        choices=PRODUCTS.keys(),
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('products',
+        metavar='PRODUCTS', type=str, nargs='*', default=[],
         help='ICESat-2 products to convert to zarr')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
@@ -418,7 +417,7 @@ def main():
         default=False, action='store_true',
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     #-- sync using files from an index
-    parser.add_argument('--index','-i',
+    group.add_argument('--index','-i',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Input index of ICESat-2 files to sync')
     #-- output subdirectories

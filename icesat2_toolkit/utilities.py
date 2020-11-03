@@ -1,12 +1,13 @@
 """
 utilities.py
-Written by Tyler Sutterley (09/2020)
+Written by Tyler Sutterley (11/2020)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
     lxml: processing XML and HTML in Python (https://pypi.python.org/pypi/lxml)
 
 UPDATE HISTORY:
+    Updated 11/2020: nsidc_list and from_nsidc will output error strings
     Updated 09/2020: copy from http and https to bytesIO object in chunks
         use netrc credentials if not entered from NSIDC functions
         generalize build opener function for different Earthdata instances
@@ -399,6 +400,7 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
     -------
     colnames: list of column names in a directory
     collastmod: list of last modification times for items in the directory
+    colerror: notification for list error
     """
     #-- use netrc credentials
     if build and not (username or password):
@@ -416,7 +418,8 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
         request = urllib2.Request(posixpath.join(*HOST))
         tree = lxml.etree.parse(urllib2.urlopen(request,timeout=timeout),parser)
     except (urllib2.HTTPError, urllib2.URLError):
-        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+        colerror = 'List error from {0}'.format(posixpath.join(*HOST))
+        return (False,False,colerror)
     else:
         #-- read and parse request for files (column names and modified times)
         colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
@@ -436,7 +439,7 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
             colnames = [colnames[indice] for indice in i]
             collastmod = [collastmod[indice] for indice in i]
         #-- return the list of column names and last modified times
-        return (colnames,collastmod)
+        return (colnames,collastmod,None)
 
 #-- PURPOSE: download a file from a NSIDC https server
 def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
@@ -463,6 +466,7 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
     Returns
     -------
     remote_buffer: BytesIO representation of file
+    response_error: notification for response error
     """
     #-- use netrc credentials
     if build and not (username or password):
@@ -480,7 +484,8 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request,timeout=timeout)
     except:
-        raise Exception('Download error from {0}'.format(posixpath.join(*HOST)))
+        response_error = 'Download error from {0}'.format(posixpath.join(*HOST))
+        return (False,response_error)
     else:
         #-- copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO()
@@ -503,4 +508,4 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
             os.chmod(local,mode)
         #-- return the bytesIO object
         remote_buffer.seek(0)
-        return remote_buffer
+        return (remote_buffer,None)

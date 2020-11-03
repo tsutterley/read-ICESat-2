@@ -54,6 +54,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
         added multiprocessing option for parallel download
     Updated 08/2020: moved urllib opener to utilities. add credential check
@@ -122,11 +123,12 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
         #-- find associated ICESat-2 data file
         #-- find matching files (for granule, release, version, track)
-        colnames,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+        colnames,collastmod,colerror=icesat2_toolkit.utilities.nsidc_list(PATH,
             build=False,timeout=120,parser=parser,pattern=R1,sort=True)
         #-- print if file was not found
         if not colnames:
-            print('File not found on {0}'.format(remote_dir))
+            print(colerror)
+            continue
         #-- add to lists
         for colname,remote_mtime in zip(colnames,collastmod):
             #-- save original file to list (expands if getting auxiliary files)

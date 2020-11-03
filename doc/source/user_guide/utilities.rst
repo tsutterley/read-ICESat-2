@@ -136,6 +136,10 @@ General Methods
 
         `mode`: permissions mode of output local file
 
+    Returns:
+
+        `remote_buffer`: BytesIO representation of file
+
 
 .. method:: icesat2_toolkit.utilities.build_opener(username,password,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,urs=None)
 
@@ -197,6 +201,8 @@ General Methods
 
         `collastmod`: list of last modification times for items in the directory
 
+        `colerror`: notification for list error
+
 
 .. method:: icesat2_toolkit.utilities.from_nsidc(HOST,username=None,password=None,build=True,timeout=None,local=None,hash='',chunk=16384,verbose=False,mode=0o775)
 
@@ -225,3 +231,9 @@ General Methods
         `verbose`: print file transfer information
 
         `mode`: permissions mode of output local file
+
+    Returns:
+
+        `remote_buffer`: BytesIO representation of file
+
+        `response_error`: notification for response error

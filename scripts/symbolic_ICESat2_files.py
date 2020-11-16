@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (11/2020)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -24,6 +24,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 11/2020: add exception for FileExistsError to skip files
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Written 07/2019
@@ -138,12 +139,17 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
         #-- check if data directory exists and recursively create if not
         local_dir = os.path.join(base_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
-        #-- print original and symbolic link of file
-        if VERBOSE:
-            print('{0} -->'.format(os.path.join(scf_outgoing,f)))
-            print('\t{0}'.format(os.path.join(local_dir,f)))
-        #-- create symbolic link of file from scf_outgoing to local
-        os.symlink(os.path.join(scf_outgoing,f), os.path.join(local_dir,f))
+        #-- attempt to create the symbolic link else continue
+        try:
+            #-- create symbolic link of file from scf_outgoing to local
+            os.symlink(os.path.join(scf_outgoing,f), os.path.join(local_dir,f))
+        except FileExistsError:
+            continue
+        else:
+            #-- print original and symbolic link of file
+            if VERBOSE:
+                args = (os.path.join(scf_outgoing,f),os.path.join(local_dir,f))
+                print('{0} -->\n\t{1}'.format(*args))
 
 #-- run main program
 if __name__ == '__main__':

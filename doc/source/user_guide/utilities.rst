@@ -36,6 +36,15 @@ General Methods
         `local`: path to file
 
 
+.. method:: icesat2_toolkit.utilities.url_split(s)
+
+    Recursively split a url path into a list
+
+    Arguments:
+
+        `s`: url string
+
+
 .. method:: icesat2_toolkit.utilities.get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S')
 
     Get the Unix timestamp value for a formatted date string
@@ -91,7 +100,7 @@ General Methods
         `mtimes`: list of last modification times for items in the directory
 
 
-.. method:: icesat2_toolkit.utilities.from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,verbose=False,mode=0o775)
+.. method:: icesat2_toolkit.utilities.from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
 
     Download a file from a ftp host
 
@@ -111,10 +120,12 @@ General Methods
 
         `verbose`: print file transfer information
 
+        `fid`: open file object to print if verbose
+
         `mode`: permissions mode of output local file
 
 
-.. method:: icesat2_toolkit.utilities.from_http(HOST,timeout=None,local=None,hash='',chunk=16384,verbose=False,mode=0o775)
+.. method:: icesat2_toolkit.utilities.from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
 
     Download a file from a http host
 
@@ -126,6 +137,8 @@ General Methods
 
         `timeout`: timeout in seconds for blocking operations
 
+        `context`: SSL context for url opener object
+
         `local`: path to local file
 
         `hash`: MD5 hash of local file
@@ -133,6 +146,8 @@ General Methods
         `chunk`: chunk size for transfer encoding
 
         `verbose`: print file transfer information
+
+        `fid`: open file object to print if verbose
 
         `mode`: permissions mode of output local file
 
@@ -204,7 +219,7 @@ General Methods
         `colerror`: notification for list error
 
 
-.. method:: icesat2_toolkit.utilities.from_nsidc(HOST,username=None,password=None,build=True,timeout=None,local=None,hash='',chunk=16384,verbose=False,mode=0o775)
+.. method:: icesat2_toolkit.utilities.from_nsidc(HOST,username=None,password=None,build=True,timeout=None,local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
 
     Download a file from a NSIDC https server
 
@@ -229,6 +244,8 @@ General Methods
         `chunk`: chunk size for transfer encoding
 
         `verbose`: print file transfer information
+
+        `fid`: open file object to print if verbose
 
         `mode`: permissions mode of output local file
 

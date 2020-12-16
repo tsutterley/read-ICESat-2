@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_ice_shelves.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (12/2020)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters.  update pyproj transforms
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 10/2019: changing Y/N flags to True/False
@@ -172,7 +173,7 @@ def main():
     SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
     #-- set the hemisphere flag based on ICESat-2 granule
     HEM = set_hemisphere(GRN)
-    #-- projections for converting lat/lon to polar stereographic
+    #-- pyproj transformer for converting lat/lon to polar stereographic
     EPSG = dict(N=3413,S=3031)
     crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
     crs2 = pyproj.CRS.from_string("epsg:{0:d}".format(EPSG[HEM]))
@@ -188,6 +189,8 @@ def main():
 
     #-- Broadcast Shapely polygon objects
     poly_dict = comm.bcast(poly_dict, root=0)
+    #-- combined validity check for all beams
+    valid_check = False
 
     #-- read each input beam within the file
     IS2_atl06_beams = []
@@ -200,13 +203,10 @@ def main():
         else:
             IS2_atl06_beams.append(gtx)
 
-    #-- number of GPS seconds between the GPS epoch
-    #-- and ATLAS Standard Data Product (SDP) epoch
-    atlas_sdp_gps_epoch = fileID['ancillary_data']['atlas_sdp_gps_epoch'][:]
-
     #-- copy variables for outputting to HDF5 file
     IS2_atl06_mask = {}
     IS2_atl06_fill = {}
+    IS2_atl06_dims = {}
     IS2_atl06_mask_attrs = {}
     #-- number of GPS seconds between the GPS epoch (1980-01-06T00:00:00Z UTC)
     #-- and ATLAS Standard Data Product (SDP) epoch (2018-01-01T00:00:00Z UTC)
@@ -223,6 +223,12 @@ def main():
 
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl06_beams):
+        #-- output data dictionaries for beam
+        IS2_atl06_mask[gtx] = dict(land_ice_segments={})
+        IS2_atl06_fill[gtx] = dict(land_ice_segments={})
+        IS2_atl06_dims[gtx] = dict(land_ice_segments={})
+        IS2_atl06_mask_attrs[gtx] = dict(land_ice_segments={})
+
         #-- number of segments
         segment_id = fileID[gtx]['land_ice_segments']['segment_id'][:]
         n_seg, = fileID[gtx]['land_ice_segments']['segment_id'].shape
@@ -274,11 +280,6 @@ def main():
         #-- wait for all processes to finish calculation
         comm.Barrier()
 
-        #-- output data dictionaries for beam
-        IS2_atl06_mask[gtx] = dict(land_ice_segments={})
-        IS2_atl06_fill[gtx] = dict(land_ice_segments={})
-        IS2_atl06_mask_attrs[gtx] = dict(land_ice_segments={})
-
         #-- group attributes for beam
         IS2_atl06_mask_attrs[gtx]['Description'] = fileID[gtx].attrs['Description']
         IS2_atl06_mask_attrs[gtx]['atlas_pce'] = fileID[gtx].attrs['atlas_pce']
@@ -301,6 +302,7 @@ def main():
         #-- delta time
         IS2_atl06_mask[gtx]['land_ice_segments']['delta_time'] = delta_time
         IS2_atl06_fill[gtx]['land_ice_segments']['delta_time'] = delta_time.fill_value
+        IS2_atl06_dims[gtx]['land_ice_segments']['delta_time'] = ['segment_id']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['units'] = "seconds since 2018-01-01"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['long_name'] = "Elapsed GPS seconds"
@@ -317,6 +319,7 @@ def main():
         #-- latitude
         IS2_atl06_mask[gtx]['land_ice_segments']['latitude'] = latitude
         IS2_atl06_fill[gtx]['land_ice_segments']['latitude'] = latitude.fill_value
+        IS2_atl06_dims[gtx]['land_ice_segments']['latitude'] = ['segment_id']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['units'] = "degrees_north"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['contentType'] = "physicalMeasurement"
@@ -331,6 +334,7 @@ def main():
         #-- longitude
         IS2_atl06_mask[gtx]['land_ice_segments']['longitude'] = longitude
         IS2_atl06_fill[gtx]['land_ice_segments']['longitude'] = longitude.fill_value
+        IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['segment_id']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['units'] = "degrees_east"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['contentType'] = "physicalMeasurement"
@@ -344,6 +348,8 @@ def main():
             "segment_id delta_time latitude"
         #-- segment ID
         IS2_atl06_mask[gtx]['land_ice_segments']['segment_id'] = segment_id
+        IS2_atl06_fill[gtx]['land_ice_segments']['segment_id'] = None
+        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = None
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['units'] = "1"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['contentType'] = "referenceInformation"
@@ -365,12 +371,15 @@ def main():
 
         #-- for each valid ice shelf
         combined_map = np.zeros((n_seg),dtype=np.bool)
-        valid_keys=[k for k,v in associated_map.items() if v.any()]
+        valid_keys = [k for k,v in associated_map.items() if v.any()]
+        valid_check |= np.any(valid_keys)
         for key in valid_keys:
             #-- add to combined map for output of total ice shelf mask
             combined_map += associated_map[key]
             #-- output mask for ice shelf to HDF5
             IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][key] = associated_map[key]
+            IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'][key] = None
+            IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][key] = ['segment_id']
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key] = {}
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = "referenceInformation"
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
@@ -383,6 +392,8 @@ def main():
 
         #-- combined ice shelf mask
         IS2_atl06_mask[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = combined_map
+        IS2_atl06_fill[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = None
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = ['segment_id']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['contentType'] = "referenceInformation"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['long_name'] = 'Ice Shelf Mask'
@@ -397,7 +408,7 @@ def main():
         comm.Barrier()
 
     #-- parallel h5py I/O does not support compression filters at this time
-    if (comm.rank == 0) and valid_keys:
+    if (comm.rank == 0) and valid_check:
         #-- output HDF5 files with ice shelf masks
         arg = (PRD,'ICE_SHELF_MASK',YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format='{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
@@ -415,7 +426,7 @@ def main():
 
 #-- PURPOSE: outputting the masks for ICESat-2 data to HDF5
 def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
-    FILENAME='', FILL_VALUE=None, CLOBBER=True):
+    FILENAME='', FILL_VALUE=None, DIMENSIONS=None, CLOBBER=True):
     #-- setting HDF5 clobber attribute
     if CLOBBER:
         clobber = 'w'
@@ -456,34 +467,30 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
             att_val = IS2_atl06_attrs[gtx]['land_ice_segments'][att_name]
             fileID[gtx]['land_ice_segments'].attrs[att_name] = att_val
 
-        #-- segment_id
-        v = IS2_atl06_mask[gtx]['land_ice_segments']['segment_id']
-        attrs = IS2_atl06_attrs[gtx]['land_ice_segments']['segment_id']
-        #-- Defining the HDF5 dataset variables
-        val = '{0}/{1}/{2}'.format(gtx,'land_ice_segments','segment_id')
-        h5[gtx]['land_ice_segments']['segment_id'] = fileID.create_dataset(val,
-            np.shape(v), data=v, dtype=v.dtype, compression='gzip')
-        #-- add HDF5 variable attributes
-        for att_name,att_val in attrs.items():
-            h5[gtx]['land_ice_segments']['segment_id'].attrs[att_name] = att_val
-
-        #-- geolocation, time and height variables
-        for k in ['latitude','longitude','delta_time']:
+        #-- segment_id, geolocation, time and height variables
+        for k in ['segment_id','latitude','longitude','delta_time']:
             #-- values and attributes
             v = IS2_atl06_mask[gtx]['land_ice_segments'][k]
             attrs = IS2_atl06_attrs[gtx]['land_ice_segments'][k]
             fillvalue = FILL_VALUE[gtx]['land_ice_segments'][k]
             #-- Defining the HDF5 dataset variables
             val = '{0}/{1}/{2}'.format(gtx,'land_ice_segments',k)
-            h5[gtx]['land_ice_segments'][k] = fileID.create_dataset(val,
-                np.shape(v), data=v, dtype=v.dtype, fillvalue=fillvalue,
-                compression='gzip')
-            #-- attach dimensions
-            for dim in ['segment_id']:
-                h5[gtx]['land_ice_segments'][k].dims.create_scale(
-                    h5[gtx]['land_ice_segments'][dim], dim)
-                h5[gtx]['land_ice_segments'][k].dims[0].attach_scale(
-                    h5[gtx]['land_ice_segments'][dim])
+            if fillvalue:
+                h5[gtx]['land_ice_segments'][k] = fileID.create_dataset(val,
+                    np.shape(v), data=v, dtype=v.dtype, fillvalue=fillvalue,
+                    compression='gzip')
+            else:
+                h5[gtx]['land_ice_segments'][k] = fileID.create_dataset(val,
+                    np.shape(v), data=v, dtype=v.dtype, compression='gzip')
+            #-- create or attach dimensions for HDF5 variable
+            if DIMENSIONS[gtx]['land_ice_segments'][k]:
+                #-- attach dimensions
+                for i,dim in enumerate(DIMENSIONS[gtx]['land_ice_segments'][k]):
+                    h5[gtx]['land_ice_segments'][k].dims[i].attach_scale(
+                        h5[gtx]['land_ice_segments'][dim])
+            else:
+                #-- make dimension
+                h5[gtx]['land_ice_segments'][k].make_scale(k)
             #-- add HDF5 variable attributes
             for att_name,att_val in attrs.items():
                 h5[gtx]['land_ice_segments'][k].attrs[att_name] = att_val
@@ -498,16 +505,20 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
         for k,v in IS2_atl06_mask[gtx]['land_ice_segments'][key].items():
             #-- attributes
             attrs = IS2_atl06_attrs[gtx]['land_ice_segments'][key][k]
+            fillvalue = FILL_VALUE[gtx]['land_ice_segments'][key][k]
             #-- Defining the HDF5 dataset variables
             val = '{0}/{1}/{2}/{3}'.format(gtx,'land_ice_segments',key,k)
-            h5[gtx]['land_ice_segments'][key][k] = \
-                fileID.create_dataset(val, np.shape(v), data=v,
-                dtype=v.dtype, compression='gzip')
+            if fillvalue:
+                h5[gtx]['land_ice_segments'][key][k] = \
+                    fileID.create_dataset(val, np.shape(v), data=v,
+                    dtype=v.dtype, fillvalue=fillvalue, compression='gzip')
+            else:
+                h5[gtx]['land_ice_segments'][key][k] = \
+                    fileID.create_dataset(val, np.shape(v), data=v,
+                    dtype=v.dtype, compression='gzip')
             #-- attach dimensions
-            for dim in ['segment_id']:
-                h5[gtx]['land_ice_segments'][key][k].dims.create_scale(
-                    h5[gtx]['land_ice_segments'][dim], dim)
-                h5[gtx]['land_ice_segments'][key][k].dims[0].attach_scale(
+            for i,dim in enumerate(DIMENSIONS[gtx]['land_ice_segments'][key][k]):
+                h5[gtx]['land_ice_segments'][key][k].dims[i].attach_scale(
                     h5[gtx]['land_ice_segments'][dim])
             #-- add HDF5 variable attributes
             for att_name,att_val in attrs.items():
@@ -531,7 +542,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     instrument = 'ATLAS > Advanced Topographic Laser Altimeter System'
     fileID.attrs['instrument'] = instrument
     fileID.attrs['source'] = 'Spacecraft'
-    fileID.attrs['references'] = 'http://nsidc.org/data/icesat2/data.html'
+    fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     #-- add attributes for input ATL06 files
     fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])

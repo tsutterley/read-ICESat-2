@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03.py (10/2020)
+MPI_ICESat2_ATL03.py (12/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters
     Updated 09/2020: using reference photon delta time to interpolate ATL09
     Updated 08/2020: using convert delta time function to convert to Julian days
@@ -2539,6 +2540,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
             np.shape(v), data=v, dtype=v.dtype, compression='gzip')
         # with h5[gtx]['land_ice_segments']['segment_ID'].collective:
         #     h5[gtx]['land_ice_segments']['segment_id'][pind] = v[pind]
+        #-- make dimension
+        h5[gtx]['land_ice_segments']['segment_id'].make_scale('segment_id')
         #-- add HDF5 variable attributes
         for att_name,att_val in attrs.items():
             h5[gtx]['land_ice_segments']['segment_id'].attrs[att_name] = att_val
@@ -2558,10 +2561,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
             # with h5[gtx]['land_ice_segments'][k].collective:
             #     h5[gtx]['land_ice_segments'][k][pind] = v[pind]
             #-- attach dimensions
-            for dim in ['segment_id']:
-                h5[gtx]['land_ice_segments'][k].dims.create_scale(
-                    h5[gtx]['land_ice_segments'][dim], dim)
-                h5[gtx]['land_ice_segments'][k].dims[0].attach_scale(
+            for i,dim in enumerate(['segment_id']):
+                h5[gtx]['land_ice_segments'][k].dims[i].attach_scale(
                     h5[gtx]['land_ice_segments'][dim])
             #-- add HDF5 variable attributes
             for att_name,att_val in attrs.items():
@@ -2591,10 +2592,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
                 # with h5[gtx]['land_ice_segments'][key][k].collective:
                 #     h5[gtx]['land_ice_segments'][key][k][pind] = v[pind]
                 #-- attach dimensions
-                for dim in ['segment_id']:
-                    h5[gtx]['land_ice_segments'][key][k].dims.create_scale(
-                        h5[gtx]['land_ice_segments'][dim], dim)
-                    h5[gtx]['land_ice_segments'][key][k].dims[0].attach_scale(
+                for i,dim in enumerate(['segment_id']):
+                    h5[gtx]['land_ice_segments'][key][k].dims[i].attach_scale(
                         h5[gtx]['land_ice_segments'][dim])
                 #-- add HDF5 variable attributes
                 for att_name,att_val in attrs.items():
@@ -2620,7 +2619,7 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     instrument = 'ATLAS > Advanced Topographic Laser Altimeter System'
     fileID.attrs['instrument'] = instrument
     fileID.attrs['source'] = 'Spacecraft'
-    fileID.attrs['references'] = 'http://nsidc.org/data/icesat2/data.html'
+    fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     #-- add attributes for input ATL03 and ATL09 files
     fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])

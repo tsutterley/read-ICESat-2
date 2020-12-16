@@ -27,12 +27,16 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/copy_scf_ICESat2_files.md
     user_guide/MPI_DEM_ICESat2_ATL03.md
     user_guide/MPI_DEM_ICESat2_ATL06.md
+    user_guide/MPI_DEM_ICESat2_ATL11.md
     user_guide/MPI_ICESat2_ATL03.md
     user_guide/MPI_ICESat2_ATL03_histogram.md
     user_guide/MPI_reduce_ICESat2_ATL03_RGI.md
     user_guide/MPI_reduce_ICESat2_ATL06_drainages.md
     user_guide/MPI_reduce_ICESat2_ATL06_ice_shelves.md
     user_guide/MPI_reduce_ICESat2_ATL06_RGI.md
+    user_guide/MPI_reduce_ICESat2_ATL11_drainages.md
+    user_guide/MPI_reduce_ICESat2_ATL11_ice_shelves.md
+    user_guide/MPI_reduce_ICESat2_ATL11_RGI.md
     user_guide/nsidc_icesat2_associated.md
     user_guide/nsidc_icesat2_sync.md
     user_guide/nsidc_icesat2_zarr.md

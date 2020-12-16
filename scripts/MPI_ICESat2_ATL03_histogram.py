@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (10/2020)
+MPI_ICESat2_ATL03_histogram.py (12/2020)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -12,6 +12,11 @@ CALLING SEQUENCE:
 
 COMMAND LINE OPTIONS:
     -O X, --output X: Name and path of output file
+    -F X, --fit X: Histogram decomposition functional fit
+        gaussian: summation of gaussian functions with parameters
+            amplitude, range and width
+        general: summation of generalized gaussian functions with parameters
+            amplitude, range, width and shape
     -V, --verbose: Verbose output to track progress
     -M X, --mode X: Permission mode of files created
 
@@ -70,6 +75,9 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 12/2020: H5py deprecation warning change to use make_scale
+        add option to define histogram decomposition function
+    Updated 11/2020: use number of binned background photons in fits
     Updated 10/2020: using argparse to set parameters
     Updated 09/2020: using reference photon delta time to interpolate ATL09
     Updated 08/2020: using convert delta time function to convert to Julian days
@@ -214,9 +222,6 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
         peak_index = peak_index[sorted_peaks][:n_peaks]
         #-- amplitude of the maximum peak
         max_amp = hist[peak_index][0]
-        #-- estimated mean and standard deviation of peaks
-        hist_mean = np.sum(hist)/nz
-        hist_stdev = np.sqrt(np.sum((hist-hist_mean)**2)/nz)
         #-- cumulative probability distribution function of initial histogram
         hist_cpdf = np.cumsum(hist/np.sum(hist))
         #-- IQR: first and third quartiles (25th and 75th percentiles)
@@ -234,11 +239,11 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
                 #-- w*: width as 0.75*IQR
                 priors.append([hist[p],z_full[p],0.75*(Q3-Q1)])
                 #-- bounds of each parameter
-                #-- amplitude: 0 to histogram max+3std
+                #-- amplitude: 0 to histogram max+5.5xbackground rate
                 #-- range: zmin to zmax
                 #-- width: sz to half width of z
                 lower_bound.extend([0,zmin,dz])
-                upper_bound.extend([max_amp+3*hist_stdev,zmax,(zmax-zmin)/2.0])
+                upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0])
             elif (FIT_TYPE == 'general'):
                 #-- Fit Generalized Gaussian functions to photon event histogram
                 #-- a*: amplitude of waveform
@@ -247,12 +252,12 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
                 #-- p*: shape parameter = gaussian sqrt(2)
                 priors.append([hist[p],z_full[p],0.75*(Q3-Q1),np.sqrt(2)])
                 #-- bounds of each parameter
-                #-- amplitude: 0 to histogram max+3std
+                #-- amplitude: 0 to histogram max+5.5xbackground rate
                 #-- range: zmin to zmax
                 #-- width: sz to half width of z
                 #-- shape: positive
                 lower_bound.extend([0,zmin,dz,0])
-                upper_bound.extend([max_amp+3*hist_stdev,zmax,(zmax-zmin)/2.0,np.inf])
+                upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0,np.inf])
         #-- run optimized curve fit with Levenberg-Marquardt algorithm
         fit = fit_histogram(z_full,hist,priors,lower_bound,upper_bound,
             FIT_TYPE=FIT_TYPE)
@@ -336,9 +341,6 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
             peak_index = peak_index[sorted_peaks][:n_peaks]
             #-- amplitude of the maximum peak
             max_amp = hist[peak_index][0]
-            #-- estimated mean and standard deviation of peaks
-            hist_mean = np.sum(hist)/nz
-            hist_stdev = np.sqrt(np.sum((hist-hist_mean)**2)/nz)
             #-- cumulative probability distribution function of initial histogram
             hist_cpdf = np.cumsum(hist/np.sum(hist))
             #-- IQR: first and third quartiles (25th and 75th percentiles)
@@ -356,11 +358,11 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
                     #-- w*: width as 0.75*IQR
                     priors.append([hist[p],z_full[p],0.75*(Q3-Q1)])
                     #-- bounds of each parameter
-                    #-- amplitude: 0 to histogram max+3std
+                    #-- amplitude: 0 to histogram max+5.5xbackground rate
                     #-- range: zmin to zmax
                     #-- width: sz to half width of z
                     lower_bound.extend([0,zmin,dz])
-                    upper_bound.extend([max_amp+3*hist_stdev,zmax,(zmax-zmin)/2.0])
+                    upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0])
                 elif (FIT_TYPE == 'general'):
                     #-- Fit Generalized Gaussian functions to photon event histogram
                     #-- a*: amplitude of waveform
@@ -369,12 +371,12 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
                     #-- p*: shape parameter = gaussian sqrt(2)
                     priors.append([hist[p],z_full[p],0.75*(Q3-Q1),np.sqrt(2)])
                     #-- bounds of each parameter
-                    #-- amplitude: 0 to histogram max+3std
+                    #-- amplitude: 0 to histogram max+5.5xbackground rate
                     #-- range: zmin to zmax
                     #-- width: sz to half width of z
                     #-- shape: positive
                     lower_bound.extend([0,zmin,dz,0])
-                    upper_bound.extend([max_amp+3*hist_stdev,zmax,(zmax-zmin)/2.0,np.inf])
+                    upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0,np.inf])
             #-- run optimized curve fit with Levenberg-Marquardt algorithm
             fit = fit_histogram(z_full,hist,priors,lower_bound,upper_bound,
                 FIT_TYPE=FIT_TYPE)
@@ -426,9 +428,8 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
     #-- return reduced model fit
     FLAG3 = (set(filt) == set(filt_p1))
     if FLAG1 & FLAG3 & (window <= H_win_max) & (n_peaks > 0):
-        #-- calculate time with respect to height of maximum amplitude
-        iamp = np.argmax(amplitude)
-        t_full = -2*(z_full-height[iamp])/c
+        #-- calculate time with respect to mean of fit heights
+        t_full = -2*(z_full-np.mean(height))/c
         #-- return values
         return {'height':height, 'error':height_errors, 'amplitude':amplitude,
             'MSE':MSE, 'NRMSE':NRMSE, 'residuals':resid, 'time': t_full,
@@ -448,17 +449,17 @@ def fit_histogram(z, hist, priors, lower_bound, upper_bound, FIT_TYPE=None):
     #-- function formatting string and parameter list for each fit type
     if (FIT_TYPE == 'gaussian'):
         #-- summation of gaussian functions with:
-        #-- pulse amplitudes a*
-        #-- pulse ranges r* (mean)
-        #-- pulse widths w* (standard deviation)
+        #-- peak amplitudes a*
+        #-- peak ranges r* (mean)
+        #-- peak widths w* (standard deviation)
         #-- Gaussian function formatting string and parameters
         function = 'a{0:d}*np.exp(-(x-r{0:d})**2.0/(2*w{0:d}**2))'
         parameters = 'a{0:d}, r{0:d}, w{0:d}'
     elif (FIT_TYPE == 'general'):
         #-- summation of generalized gaussian functions with:
-        #-- pulse amplitudes a*
-        #-- pulse ranges r* (mean)
-        #-- pulse widths w* (standard deviation)
+        #-- peak amplitudes a*
+        #-- peak ranges r* (mean)
+        #-- peak widths w* (standard deviation)
         #-- shape parameter p* (gaussian=sqrt(2))
         #-- Generalized Gaussian function formatting string and parameters
         function = 'a{0:d}*np.exp(-np.abs(x-r{0:d})**(p{0:d}**2.0)/(2*w{0:d}**2))'
@@ -568,14 +569,15 @@ def calc_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
         N_PE = np.sum(N_PEcorr)
         N_sigma = np.sqrt(n_pulses*n_pixels*N0_full)/G_est_full
         #-- calculate mean corrected estimate
-        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE
+        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE - hist_centroid
         FPB_mean_sigma = np.sqrt(np.sum((N_sigma*(t_full-FPB_mean_corr)/N_PE)**2))
         #-- calculate median corrected estimate
         PEcorr_cpdf = np.cumsum(N_PEcorr/N_PE)
         sigma_cpdf = np.sqrt(np.cumsum(N_sigma**2))/N_PE
         #-- calculate median first photon bias correction
         #-- linearly interpolate to 40th, 50th and 60th percentiles
-        PE40,FPB_median_corr,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
+        PE40,PE50,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
+        FPB_median_corr = PE50 - hist_median
         FPB_median_sigma = (PE60-PE40)*np.interp(0.5,PEcorr_cpdf,sigma_cpdf)/0.2
     elif (METHOD == 'logarithmic') and np.count_nonzero(P_dead > 0.01):
         #-- find indices above threshold for computing correction
@@ -610,14 +612,15 @@ def calc_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
         N_sigma = np.sqrt(n_pulses*n_pixels*N0_full)/G_est_full
 
         #-- calculate mean corrected estimate
-        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE
+        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE - hist_centroid
         FPB_mean_sigma = np.sqrt(np.sum((N_sigma*(t_full-FPB_mean_corr)/N_PE)**2))
         #-- calculate median corrected estimate
         PEcorr_cpdf = np.cumsum(N_PEcorr/N_PE)
         sigma_cpdf = np.sqrt(np.cumsum(N_sigma**2))/N_PE
         #-- calculate median first photon bias correction
         #-- linearly interpolate to 40th, 50th and 60th percentiles
-        PE40,FPB_median_corr,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
+        PE40,PE50,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
+        FPB_median_corr = PE50 - hist_median
         FPB_median_sigma = (PE60-PE40)*np.interp(0.5,PEcorr_cpdf,sigma_cpdf)/0.2
     else:
         #-- possible that no first photon bias correction is necessary
@@ -770,12 +773,18 @@ def main():
     parser.add_argument('--output','-O',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Name and path of output file')
+    #-- histogram decomposition fit type
+    #-- gaussian: summation of gaussian functions
+    #-- general: summation of generalized gaussian functions
+    parser.add_argument('--fit','-F',
+        type=str, default='gaussian', choices=('gaussian','general'),
+        help='Histogram decomposition functional fit')
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
         help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
+    #-- permissions mode of the output files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
@@ -1118,13 +1127,14 @@ def main():
                 #-- check if segment has photon events classified for land ice
                 #-- that are at or above low-confidence threshold
                 #-- and that the spread of photons is greater than 20m
+                print(iteration,ice_sig_low_count,along_X_spread)
                 if (ice_sig_low_count > 10) & (along_X_spread > 20):
                     #-- perform a histogram fit procedure
                     Segment_X = Segment_Distance[gtx][j] + Segment_Length[gtx][j]
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
                     valid,fit,centroid = try_histogram_fit(distance_along_X,
                         distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20,
+                        Segment_X, 5e-11, FIT_TYPE=args.fit, ITERATE=20,
                         BACKGROUND=background_density, CONFIDENCE=[2,1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
@@ -1203,7 +1213,8 @@ def main():
                         #-- estimate first photon bias corrections
                         #-- step-size for histograms (50 ps ~ 7.5mm height)
                         FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
-                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,ITERATE=20)
+                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,
+                            METHOD='direct',ITERATE=20)
                         Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
                         Distributed_FPB_mean_corr.mask[j] = False
                         Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
@@ -1296,7 +1307,7 @@ def main():
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
                     valid,fit,centroid = try_histogram_fit(distance_along_X,
                         distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE='gaussian', ITERATE=20,
+                        Segment_X, 5e-11, FIT_TYPE=args.fit, ITERATE=20,
                         BACKGROUND=background_density, CONFIDENCE=[1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
@@ -1373,7 +1384,8 @@ def main():
                         #-- estimate first photon bias corrections
                         #-- step-size for histograms (50 ps ~ 7.5mm height)
                         FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
-                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,ITERATE=20)
+                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,
+                            METHOD='direct',ITERATE=20)
                         Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
                         Distributed_FPB_mean_corr.mask[j] = False
                         Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
@@ -2997,6 +3009,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
             np.shape(v), data=v, dtype=v.dtype, compression='gzip')
         # with h5[gtx]['land_ice_segments']['segment_ID'].collective:
         #     h5[gtx]['land_ice_segments']['segment_id'][pind] = v[pind]
+        #-- make dimension
+        h5[gtx]['land_ice_segments']['segment_id'].make_scale('segment_id')
         #-- add HDF5 variable attributes
         for att_name,att_val in attrs.items():
             h5[gtx]['land_ice_segments']['segment_id'].attrs[att_name] = att_val
@@ -3016,10 +3030,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
             # with h5[gtx]['land_ice_segments'][k].collective:
             #     h5[gtx]['land_ice_segments'][k][pind] = v[pind]
             #-- attach dimensions
-            for dim in ['segment_id']:
-                h5[gtx]['land_ice_segments'][k].dims.create_scale(
-                    h5[gtx]['land_ice_segments'][dim], dim)
-                h5[gtx]['land_ice_segments'][k].dims[0].attach_scale(
+            for i,dim in enumerate(['segment_id']):
+                h5[gtx]['land_ice_segments'][k].dims[i].attach_scale(
                     h5[gtx]['land_ice_segments'][dim])
             #-- add HDF5 variable attributes
             for att_name,att_val in attrs.items():
@@ -3049,10 +3061,8 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
                 # with h5[gtx]['land_ice_segments'][key][k].collective:
                 #     h5[gtx]['land_ice_segments'][key][k][pind] = v[pind]
                 #-- attach dimensions
-                for dim in ['segment_id']:
-                    h5[gtx]['land_ice_segments'][key][k].dims.create_scale(
-                        h5[gtx]['land_ice_segments'][dim], dim)
-                    h5[gtx]['land_ice_segments'][key][k].dims[0].attach_scale(
+                for i,dim in enumerate(['segment_id']):
+                    h5[gtx]['land_ice_segments'][key][k].dims[i].attach_scale(
                         h5[gtx]['land_ice_segments'][dim])
                 #-- add HDF5 variable attributes
                 for att_name,att_val in attrs.items():
@@ -3078,7 +3088,7 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     instrument = 'ATLAS > Advanced Topographic Laser Altimeter System'
     fileID.attrs['instrument'] = instrument
     fileID.attrs['source'] = 'Spacecraft'
-    fileID.attrs['references'] = 'http://nsidc.org/data/icesat2/data.html'
+    fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     #-- add attributes for input ATL03 and ATL09 files
     fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])

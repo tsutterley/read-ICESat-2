@@ -8,6 +8,15 @@ the NASA Postdoctoral Program at NASA Goddard Space Flight Center, administered
 by Universities Space Research Association under contract with NASA. This work
 is developed in conjunction with other ICESat-2 projects.
 
+#### Contributors
+- [Tyler Sutterley (University of Washington)](http://psc.apl.uw.edu/people/investigators/tyler-sutterley/)
+
+#### Development
+This is an open source project.  We welcome any help in maintaining and developing the software and documentation.  Anyone at any career stage and with any level of coding experience can contribute.
+
+#### Problem Reports
+If you have found a problem in these programs, or you would like to suggest an improvement or modification, please submit a [GitHub issue](https://github.com/tsutterley/read-ICESat-2/issues) and we will get back to you.
+
 #### Dependencies
 This software is also dependent on other commonly used Python packages:
 - [numpy: Scientific Computing Tools For Python](https://numpy.org)  
@@ -23,3 +32,7 @@ This software is also dependent on other commonly used Python packages:
 - [lxml: processing XML and HTML in Python](https://pypi.python.org/pypi/lxml)  
 - [paramiko: Native Python SSHv2 protocol library](http://www.paramiko.org)  
 - [scp: scp module for paramiko](https://github.com/jbardin/scp.py)  
+
+#### Disclaimer  
+This package includes software developed at NASA Goddard Space Flight Center (GSFC) and the University of Washington Applied Physics Laboratory (UW-APL).
+It is not sponsored or maintained by the Universities Space Research Association (USRA) or NASA.

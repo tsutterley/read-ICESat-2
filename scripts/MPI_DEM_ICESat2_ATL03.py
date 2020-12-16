@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL03.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (12/2020)
 Determines which digital elevation model tiles to read for a given ATL03 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to ICESat-2 ATL03 photon event locations
@@ -62,6 +62,9 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 12/2020: H5py deprecation warning change to use make_scale
+        using conversion protocols following pyproj-2 updates
+        https://pyproj4.github.io/pyproj/stable/gotchas.html
     Updated 10/2020: using argparse to set parameters
     Updated 08/2020: using convert delta time function to convert to Julian days
     Updated 06/2020: add additional beam check within heights groups
@@ -391,6 +394,13 @@ def main():
     tile_dict = comm.bcast(tile_dict, root=0)
     tile_attrs = comm.bcast(tile_attrs, root=0)
     tile_epsg = comm.bcast(tile_epsg, root=0)
+    valid_tiles = False
+
+    #-- pyproj transformer for converting from latitude/longitude
+    #-- into DEM tile coordinates
+    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs2 = pyproj.CRS.from_string(tile_epsg)
+    transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
 
     #-- read each input beam within the file
     IS2_atl03_beams = []
@@ -408,6 +418,7 @@ def main():
     #-- copy variables for outputting to HDF5 file
     IS2_atl03_dem = {}
     IS2_atl03_fill = {}
+    IS2_atl03_dims = {}
     IS2_atl03_dem_attrs = {}
     #-- number of GPS seconds between the GPS epoch (1980-01-06T00:00:00Z UTC)
     #-- and ATLAS Standard Data Product (SDP) epoch (2018-01-01T00:00:00Z UTC)
@@ -427,6 +438,7 @@ def main():
         #-- output data dictionaries for beam
         IS2_atl03_dem[gtx] = dict(heights={},subsetting={})
         IS2_atl03_fill[gtx] = dict(heights={},subsetting={})
+        IS2_atl03_dims[gtx] = dict(heights={},subsetting={})
         IS2_atl03_dem_attrs[gtx] = dict(heights={},subsetting={})
 
         #-- number of photon events
@@ -446,10 +458,8 @@ def main():
         distributed_dem.mask = np.ones((n_pe),dtype=np.bool)
         dem_h = np.ma.zeros((n_pe),fill_value=fv,dtype=np.float32)
         dem_h.mask = np.ones((n_pe),dtype=np.bool)
-        #-- convert tile projection from latitude longitude to tile EPSG
-        proj1 = pyproj.Proj("+init=EPSG:{0:d}".format(4326))
-        proj2 = pyproj.Proj("+init={0}".format(tile_epsg))
-        X,Y = pyproj.transform(proj1, proj2, longitude, latitude)
+        #-- convert projection from latitude/longitude to tile EPSG
+        X,Y = transformer.transform(longitude, latitude)
 
         #-- convert reduced x and y to shapely multipoint object
         xy_point = MultiPoint(list(zip(X[ind], Y[ind])))
@@ -496,10 +506,11 @@ def main():
         IS2_atl03_dem_attrs[gtx]['heights']['data_rate'] = ("Data are stored at the "
             "photon detection rate.")
 
-        #-- geolocation, time and segment ID
+        #-- geolocation and time
         #-- delta time
         IS2_atl03_dem[gtx]['heights']['delta_time'] = delta_time
         IS2_atl03_fill[gtx]['heights']['delta_time'] = None
+        IS2_atl03_dims[gtx]['heights']['delta_time'] = None
         IS2_atl03_dem_attrs[gtx]['heights']['delta_time'] = {}
         IS2_atl03_dem_attrs[gtx]['heights']['delta_time']['units'] = "seconds since 2018-01-01"
         IS2_atl03_dem_attrs[gtx]['heights']['delta_time']['long_name'] = "Elapsed GPS seconds"
@@ -516,6 +527,7 @@ def main():
         #-- latitude
         IS2_atl03_dem[gtx]['heights']['latitude'] = latitude
         IS2_atl03_fill[gtx]['heights']['latitude'] = None
+        IS2_atl03_dims[gtx]['heights']['latitude'] = ['delta_time']
         IS2_atl03_dem_attrs[gtx]['heights']['latitude'] = {}
         IS2_atl03_dem_attrs[gtx]['heights']['latitude']['units'] = "degrees_north"
         IS2_atl03_dem_attrs[gtx]['heights']['latitude']['contentType'] = "physicalMeasurement"
@@ -530,6 +542,7 @@ def main():
         #-- longitude
         IS2_atl03_dem[gtx]['heights']['longitude'] = longitude
         IS2_atl03_fill[gtx]['heights']['longitude'] = None
+        IS2_atl03_dims[gtx]['heights']['longitude'] = ['delta_time']
         IS2_atl03_dem_attrs[gtx]['heights']['longitude'] = {}
         IS2_atl03_dem_attrs[gtx]['heights']['longitude']['units'] = "degrees_east"
         IS2_atl03_dem_attrs[gtx]['heights']['longitude']['contentType'] = "physicalMeasurement"
@@ -553,6 +566,7 @@ def main():
             #-- output mask to HDF5
             IS2_atl03_dem[gtx]['subsetting'][key] = associated_map[key]
             IS2_atl03_fill[gtx]['subsetting'][key] = None
+            IS2_atl03_dims[gtx]['subsetting'][key] = ['delta_time']
             IS2_atl03_dem_attrs[gtx]['subsetting'][key] = {}
             IS2_atl03_dem_attrs[gtx]['subsetting'][key]['contentType'] = "referenceInformation"
             IS2_atl03_dem_attrs[gtx]['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
@@ -719,6 +733,7 @@ def main():
         dem_h.data[dem_h.mask] = dem_h.fill_value
         IS2_atl03_dem[gtx]['heights']['dem_h'] = dem_h
         IS2_atl03_fill[gtx]['heights']['dem_h'] = dem_h.fill_value
+        IS2_atl03_dims[gtx]['heights']['dem_h'] = ['delta_time']
         IS2_atl03_dem_attrs[gtx]['heights']['dem_h'] = {}
         IS2_atl03_dem_attrs[gtx]['heights']['dem_h']['units'] = "meters"
         IS2_atl03_dem_attrs[gtx]['heights']['dem_h']['contentType'] = "referenceInformation"
@@ -739,8 +754,9 @@ def main():
         if args.verbose:
             print('\t{0}'.format(file_format.format(*arg)))
         #-- write to output HDF5 file
-        HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_dem_attrs, CLOBBER=True,
-            INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl03_fill,
+        HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_dem_attrs,
+            CLOBBER=True, INPUT=os.path.basename(args.file),
+            FILL_VALUE=IS2_atl03_fill, DIMENSIONS=IS2_atl03_dims,
             FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
         #-- change the permissions mode
         os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
@@ -749,7 +765,7 @@ def main():
 
 #-- PURPOSE: outputting the interpolated DEM data for ICESat-2 data to HDF5
 def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
-    FILENAME='', FILL_VALUE=None, CLOBBER=True):
+    FILENAME='', FILL_VALUE=None, DIMENSIONS=None, CLOBBER=True):
     #-- setting HDF5 clobber attribute
     if CLOBBER:
         clobber = 'w'
@@ -778,76 +794,51 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
     beams = [k for k in IS2_atl03_dem.keys() if bool(re.match(r'gt\d[lr]',k))]
     for gtx in beams:
         fileID.create_group(gtx)
+        h5[gtx] = {}
         #-- add HDF5 group attributes for beam
         for att_name in ['Description','atlas_pce','atlas_beam_type',
             'groundtrack_id','atmosphere_profile','atlas_spot_number',
             'sc_orientation']:
             fileID[gtx].attrs[att_name] = IS2_atl03_attrs[gtx][att_name]
-        #-- create heights group
-        fileID[gtx].create_group('heights')
-        h5[gtx] = dict(heights={})
-        for att_name in ['Description','data_rate']:
-            att_val = IS2_atl03_attrs[gtx]['heights'][att_name]
-            fileID[gtx]['heights'].attrs[att_name] = att_val
 
-        #-- delta_time
-        v = IS2_atl03_dem[gtx]['heights']['delta_time']
-        attrs = IS2_atl03_attrs[gtx]['heights']['delta_time']
-        #-- Defining the HDF5 dataset variables
-        val = '{0}/{1}/{2}'.format(gtx,'heights','delta_time')
-        h5[gtx]['heights']['delta_time'] = fileID.create_dataset(val,
-            np.shape(v), data=v, dtype=v.dtype, compression='gzip')
-        #-- add HDF5 variable attributes
-        for att_name,att_val in attrs.items():
-            h5[gtx]['heights']['delta_time'].attrs[att_name] = att_val
+        #-- for each output data group
+        for key in ['heights','subsetting']:
+            #-- create group
+            fileID[gtx].create_group(key)
+            h5[gtx][key] = {}
+            for att_name in ['Description','data_rate']:
+                att_val = IS2_atl03_attrs[gtx][key][att_name]
+                fileID[gtx][key].attrs[att_name] = att_val
 
-        #-- geolocation and height variables
-        for k in ['latitude','longitude','dem_h']:
-            #-- values and attributes
-            v = IS2_atl03_dem[gtx]['heights'][k]
-            attrs = IS2_atl03_attrs[gtx]['heights'][k]
-            fillvalue = FILL_VALUE[gtx]['heights'][k]
-            #-- Defining the HDF5 dataset variables
-            val = '{0}/{1}/{2}'.format(gtx,'heights',k)
-            if fillvalue:
-                h5[gtx]['heights'][k] = fileID.create_dataset(val, np.shape(v),
-                    data=v,dtype=v.dtype,fillvalue=fillvalue,compression='gzip')
-            else:
-                h5[gtx]['heights'][k] = fileID.create_dataset(val, np.shape(v),
-                    data=v, dtype=v.dtype, compression='gzip')
-            #-- attach dimensions
-            for dim in ['delta_time']:
-                h5[gtx]['heights'][k].dims.create_scale(
-                    h5[gtx]['heights'][dim], dim)
-                h5[gtx]['heights'][k].dims[0].attach_scale(
-                    h5[gtx]['heights'][dim])
-            #-- add HDF5 variable attributes
-            for att_name,att_val in attrs.items():
-                h5[gtx]['heights'][k].attrs[att_name] = att_val
-
-        #-- create subsetting group
-        fileID[gtx].create_group('subsetting')
-        h5[gtx]['subsetting'] = {}
-        for att_name in ['Description','data_rate']:
-            att_val = IS2_atl03_attrs[gtx]['subsetting'][att_name]
-            fileID[gtx]['subsetting'].attrs[att_name] = att_val
-        #-- add to subsetting variables
-        for k,v in IS2_atl03_dem[gtx]['subsetting'].items():
-            #-- attributes
-            attrs = IS2_atl03_attrs[gtx]['subsetting'][k]
-            #-- Defining the HDF5 dataset variables
-            val = '{0}/{1}/{2}'.format(gtx,'subsetting',k)
-            h5[gtx]['subsetting'][k] = fileID.create_dataset(val, np.shape(v),
-                data=v, dtype=v.dtype, compression='gzip')
-            #-- attach dimensions
-            for dim in ['delta_time']:
-                h5[gtx]['subsetting'][k].dims.create_scale(
-                    h5[gtx]['heights'][dim], dim)
-                h5[gtx]['subsetting'][k].dims[0].attach_scale(
-                    h5[gtx]['heights'][dim])
-            #-- add HDF5 variable attributes
-            for att_name,att_val in attrs.items():
-                h5[gtx]['subsetting'][k].attrs[att_name] = att_val
+            #-- all variables for group
+            groupkeys=set(IS2_atl03_dem[gtx][key].keys())-set(['delta_time'])
+            for k in ['delta_time',*sorted(groupkeys)]:
+                #-- values and attributes
+                v = IS2_atl03_dem[gtx][key][k]
+                attrs = IS2_atl03_attrs[gtx][key][k]
+                fillvalue = FILL_VALUE[gtx][key][k]
+                #-- Defining the HDF5 dataset variables
+                val = '{0}/{1}/{2}'.format(gtx,key,k)
+                if fillvalue:
+                    h5[gtx][key][k] = fileID.create_dataset(val,
+                        np.shape(v), data=v, dtype=v.dtype,
+                        fillvalue=fillvalue, compression='gzip')
+                else:
+                    h5[gtx][key][k] = fileID.create_dataset(val,
+                        np.shape(v), data=v, dtype=v.dtype,
+                        compression='gzip')
+                #-- create or attach dimensions for HDF5 variable
+                if DIMENSIONS[gtx][key][k]:
+                    #-- attach dimensions
+                    for i,dim in enumerate(DIMENSIONS[gtx][key][k]):
+                        h5[gtx][key][k].dims[i].attach_scale(
+                            h5[gtx][key][dim])
+                else:
+                    #-- make dimension
+                    h5[gtx][key][k].make_scale(k)
+                #-- add HDF5 variable attributes
+                for att_name,att_val in attrs.items():
+                    h5[gtx][key][k].attrs[att_name] = att_val
 
     #-- HDF5 file title
     fileID.attrs['featureType'] = 'trajectory'
@@ -868,7 +859,7 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
     instrument = 'ATLAS > Advanced Topographic Laser Altimeter System'
     fileID.attrs['instrument'] = instrument
     fileID.attrs['source'] = 'Spacecraft'
-    fileID.attrs['references'] = 'http://nsidc.org/data/icesat2/data.html'
+    fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     #-- add attributes for input ATL03 and ATL09 files
     fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])

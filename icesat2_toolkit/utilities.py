@@ -1,12 +1,14 @@
 """
 utilities.py
-Written by Tyler Sutterley (11/2020)
+Written by Tyler Sutterley (12/2020)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
     lxml: processing XML and HTML in Python (https://pypi.python.org/pypi/lxml)
 
 UPDATE HISTORY:
+    Updated 12/2020: added file object keyword for downloads if verbose
+        add url split function for creating url location lists
     Updated 11/2020: nsidc_list and from_nsidc will output error strings
         normalize source and destination paths in copy
     Updated 09/2020: copy from http and https to bytesIO object in chunks
@@ -34,9 +36,11 @@ import lxml.etree
 import calendar,time
 if sys.version_info[0] == 2:
     from cookielib import CookieJar
+    from urllib import urlencode
     import urllib2
 else:
     from http.cookiejar import CookieJar
+    from urllib.parse import urlencode
     import urllib.request as urllib2
 
 def get_data_path(relpath):
@@ -73,6 +77,20 @@ def get_hash(local):
             return hashlib.md5(local_buffer.read()).hexdigest()
     else:
         return ''
+
+#-- PURPOSE: recursively split a url path
+def url_split(s):
+    """
+    Recursively split a url path into a list
+
+    Arguments
+    ---------
+    s: url string
+    """
+    head, tail = posixpath.split(s)
+    if head in ('', posixpath.sep):
+        return tail,
+    return url_split(head) + (tail,)
 
 #-- PURPOSE: returns the Unix timestamp value for a formatted date string
 def get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S'):
@@ -182,7 +200,7 @@ def ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False):
 
 #-- PURPOSE: download a file from a ftp host
 def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
-    verbose=False,mode=0o775):
+    verbose=False,fid=sys.stdout,mode=0o775):
     """
     Download a file from a ftp host
 
@@ -197,6 +215,7 @@ def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
     hash: MD5 hash of local file
     chunk: chunk size for transfer encoding
     verbose: print file transfer information
+    fid: open file object to print if verbose
     mode: permissions mode of output local file
 
     Returns
@@ -225,7 +244,8 @@ def from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,
         if local and (hash != remote_hash):
             #-- print file information
             if verbose:
-                print('{0} -->\n\t{1}'.format(posixpath.join(*HOST),local))
+                args = (posixpath.join(*HOST),local)
+                print('{0} -->\n\t{1}'.format(*args), file=fid)
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:
@@ -256,8 +276,8 @@ def check_connection(HOST):
         return True
 
 #-- PURPOSE: download a file from a http host
-def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
-    verbose=False,mode=0o775):
+def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
+    chunk=16384,verbose=False,fid=sys.stdout,mode=0o775):
     """
     Download a file from a http host
 
@@ -268,10 +288,12 @@ def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
     Keyword arguments
     -----------------
     timeout: timeout in seconds for blocking operations
+    context: SSL context for url opener object
     local: path to local file
     hash: MD5 hash of local file
     chunk: chunk size for transfer encoding
     verbose: print file transfer information
+    fid: open file object to print if verbose
     mode: permissions mode of output local file
 
     Returns
@@ -282,7 +304,7 @@ def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
     try:
         #-- Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
-        response = urllib2.urlopen(request,timeout=timeout,context=ssl.SSLContext())
+        response = urllib2.urlopen(request,timeout=timeout,context=context)
     except:
         raise Exception('Download error from {0}'.format(posixpath.join(*HOST)))
     else:
@@ -298,7 +320,8 @@ def from_http(HOST,timeout=None,local=None,hash='',chunk=16384,
         if local and (hash != remote_hash):
             #-- print file information
             if verbose:
-                print('{0} -->\n\t{1}'.format(posixpath.join(*HOST),local))
+                args = (posixpath.join(*HOST),local)
+                print('{0} -->\n\t{1}'.format(*args), file=fid)
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:
@@ -446,7 +469,7 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
 
 #-- PURPOSE: download a file from a NSIDC https server
 def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
-    local=None,hash='',chunk=16384,verbose=False,mode=0o775):
+    local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775):
     """
     Download a file from a NSIDC https server
 
@@ -464,6 +487,7 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
     hash: MD5 hash of local file
     chunk: chunk size for transfer encoding
     verbose: print file transfer information
+    fid: open file object to print if verbose
     mode: permissions mode of output local file
 
     Returns
@@ -502,7 +526,8 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         if local and (hash != remote_hash):
             #-- print file information
             if verbose:
-                print('{0} -->\n\t{1}'.format(posixpath.join(*HOST),local))
+                args = (posixpath.join(*HOST),local)
+                print('{0} -->\n\t{1}'.format(*args), file=fid)
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:

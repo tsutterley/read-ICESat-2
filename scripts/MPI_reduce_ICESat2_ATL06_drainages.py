@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_drainages.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 
 Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
 
@@ -33,13 +33,12 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
-    convert_julian.py: returns the calendar date and time given a Julian date
     convert_delta_time.py: converts from delta time into Julian and year-decimal
-    convert_calendar_decimal.py: converts from calendar date to decimal year
     time.py: Utilities for calculating time operations
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters.  update pyproj transforms
     Updated 08/2020: using convert delta time function to convert to Julian days
@@ -63,8 +62,8 @@ import shapefile
 import numpy as np
 from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
-from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_delta_time import convert_delta_time
+import icesat2_toolkit.time
 
 #-- IMBIE-2 Drainage basins
 IMBIE_basin_file = {}
@@ -576,8 +575,9 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     #-- convert start and end time from ATLAS SDP seconds into UTC time
     time_utc = convert_delta_time(np.array([tmn,tmx]))
-    #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
+    #-- convert to calendar date
+    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+        FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

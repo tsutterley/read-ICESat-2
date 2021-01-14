@@ -29,11 +29,11 @@ General Methods
 
 .. method:: icesat2_toolkit.utilities.get_hash(local)
 
-    Get the MD5 hash value from a local file
+    Get the MD5 hash value from a local file or BytesIO object
 
     Arguments:
 
-        `local`: path to file
+        `local`: BytesIO object or path to file
 
 
 .. method:: icesat2_toolkit.utilities.url_split(s)
@@ -58,6 +58,15 @@ General Methods
         `format`: format for input time string
 
 
+.. method:: icesat2_toolkit.utilities.even(value)
+
+    Rounds a number to an even number less than or equal to original
+
+    Arguments:
+
+        `value`: number to be rounded
+
+
 .. method:: icesat2_toolkit.utilities.copy(source, destination, verbose=False, move=False)
 
     Copy or move a file with all system information
@@ -75,7 +84,22 @@ General Methods
         `move`: remove the source file
 
 
-.. method:: icesat2_toolkit.utilities.ftp_list(HOST,timeout=None,basename=False,pattern=None,sort=False)
+.. method:: icesat2_toolkit.utilities.check_ftp_connection(HOST,username=None,password=None)
+
+    Check internet connection with ftp host
+
+    Arguments{
+
+        `HOST`: remote ftp host
+
+    Keyword arguments:
+
+        `username`: ftp username
+
+        `password`: ftp password
+
+
+.. method:: icesat2_toolkit.utilities.ftp_list(HOST,username=None,password=None,timeout=None,basename=False,pattern=None,sort=False)
 
     List a directory on a ftp host
 
@@ -84,6 +108,10 @@ General Methods
         `HOST`: remote ftp host path split as list
 
     Keyword arguments:
+
+        `username`: ftp username
+
+        `password`: ftp password
 
         `timeout`: timeout in seconds for blocking operations
 
@@ -100,7 +128,7 @@ General Methods
         `mtimes`: list of last modification times for items in the directory
 
 
-.. method:: icesat2_toolkit.utilities.from_ftp(HOST,timeout=None,local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
+.. method:: icesat2_toolkit.utilities.from_ftp(HOST,username=None,password=None,timeout=None,local=None,hash='',chunk=8192,verbose=False,fid=sys.stdout,mode=0o775)
 
     Download a file from a ftp host
 
@@ -109,6 +137,10 @@ General Methods
         `HOST`: remote ftp host path split as list
 
     Keyword arguments:
+
+        `username`: ftp username
+
+        `password`: ftp password
 
         `timeout`: timeout in seconds for blocking operations
 
@@ -123,6 +155,19 @@ General Methods
         `fid`: open file object to print if verbose
 
         `mode`: permissions mode of output local file
+
+    Returns:
+
+        `remote_buffer`: BytesIO representation of file
+
+
+.. method:: icesat2_toolkit.utilities.check_connection(HOST)
+
+    Check internet connection with an http host
+
+    Arguments:
+
+        `HOST`: remote http host
 
 
 .. method:: icesat2_toolkit.utilities.from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)

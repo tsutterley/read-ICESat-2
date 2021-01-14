@@ -7,8 +7,6 @@ import pytest
 import warnings
 import numpy as np
 import icesat2_toolkit.time
-from icesat2_toolkit.convert_julian import convert_julian
-from icesat2_toolkit.convert_calendar_decimal import convert_calendar_decimal
 
 #-- parameterize calendar dates
 @pytest.mark.parametrize("YEAR", np.random.randint(1992,2020,size=2))
@@ -29,7 +27,9 @@ def test_julian(YEAR,MONTH):
         hour=HOUR, minute=MINUTE, second=SECOND,
         epoch=(1858,11,17,0,0,0))
     #-- convert MJD to calendar date
-    YY,MM,DD,HH,MN,SS = convert_julian(MJD+2400000.5, FORMAT='tuple')
+    JD = np.squeeze(MJD) + 2400000.5
+    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(JD,
+        FORMAT='tuple', ASTYPE=np.float)
     #-- assert dates
     eps = np.finfo(np.float16).eps
     assert (YY == YEAR)
@@ -55,8 +55,8 @@ def test_decimal_dates(YEAR,MONTH):
     MINUTE = np.random.randint(0,59+1)
     SECOND = 60.0*np.random.random_sample(1)
     #-- calculate year-decimal time
-    tdec = convert_calendar_decimal(YEAR, MONTH, DAY=DAY,
-        HOUR=HOUR, MINUTE=MINUTE, SECOND=SECOND)
+    tdec = icesat2_toolkit.time.convert_calendar_decimal(YEAR, MONTH,
+        day=DAY, hour=HOUR, minute=MINUTE, second=SECOND)
     #-- day of the year 1 = Jan 1, 365 = Dec 31 (std)
     day_temp = np.mod(tdec, 1)*np.sum(DPM)
     DofY = np.floor(day_temp) + 1

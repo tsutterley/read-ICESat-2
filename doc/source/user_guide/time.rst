@@ -43,6 +43,18 @@ Convert a calendar date into Modified Julian Days
 General Methods
 ===============
 
+.. method:: icesat2_toolkit.time.calendar_days(year)
+
+    Calculates the number of days per month for a given year
+
+    Arguments:
+
+        `year`: calendar year
+
+    Returns:
+
+        `dpm`: number of days for each month
+
 
 .. method:: icesat2_toolkit.time.convert_delta_time(delta_time, epoch1=None, epoch2=None, scale=1.0)
 
@@ -61,9 +73,9 @@ General Methods
         `scale`: scaling factor for converting time to output units
 
 
-.. method:: icesat2_toolkit.time.convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0, epoch=None)
+.. method:: icesat2_toolkit.time.convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0, epoch=None, scale=1.0)
 
-    Calculate the time in days since epoch from calendar dates
+    Calculate the time in time units since epoch from calendar dates
 
     Arguments:
 
@@ -82,6 +94,70 @@ General Methods
         `second`: second of the minute
 
         `epoch`: epoch for output delta_time
+
+        `scale`: scaling factor for converting time to output units
+
+
+.. method:: icesat2_toolkit.time.convert_calendar_decimal(year, month, day=None, hour=None, minute=None, second=None, DofY=None)
+
+    Converts from calendar date into decimal years taking into account leap years
+
+    Arguments:
+
+        `year`: calendar year
+
+        `month`: calendar month
+
+    Keyword arguments:
+
+        `day`: Number of day of the month
+
+        `hour`: hour of the day
+
+        `minute`: minute of the hour
+
+        `second`: second (and fractions of a second) of the minute
+
+        `DofY`: day of the year
+
+    Returns:
+
+        `t_date` date in decimal-year format
+
+
+.. method:: icesat2_toolkit.time.convert_julian(JD, ASTYPE=None, FORMAT=None)
+
+    Converts from Julian day to calendar date and time
+
+    Arguments:
+
+        `JD`: Julian Day (days since 01-01-4713 BCE at 12:00:00)
+
+    Keyword arguments:
+
+        `ASTYPE`: convert output to variable type
+
+        `FORMAT`: format of output variables
+
+            'dict': dictionary with variable keys
+
+            'tuple': tuple with variable order year,month,day,hour,minute,second
+
+            'zip': aggregated variable sets
+
+    Returns:
+
+        `year`: Calendar year
+
+        `month`: Calendar month
+
+        `day`: Calendar day of the month
+
+        `hour`: hour of the day
+
+        `minute`: minute of the hour
+
+        `second`: second (and fractions of a second) of the minute
 
 
 .. method:: icesat2_toolkit.time.count_leap_seconds(GPS_Time)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL11.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Determines which digital elevation model tiles to read for a given ATL11 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL11 segments
@@ -50,9 +50,6 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
-    convert_julian.py: returns the calendar date and time given a Julian date
-    convert_delta_time.py: converts from delta time into Julian and year-decimal
-    convert_calendar_decimal.py: converts from calendar date to decimal year
     time.py: Utilities for calculating time operations
     utilities: download and management utilities for syncing files
 
@@ -62,6 +59,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 01/2021: time utilities for converting times from JD and to decimal
     Written 12/2020
 """
 from __future__ import print_function
@@ -81,8 +79,8 @@ import numpy as np
 from mpi4py import MPI
 import scipy.interpolate
 from shapely.geometry import MultiPoint, Polygon
-from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_delta_time import convert_delta_time
+import icesat2_toolkit.time
 
 #-- digital elevation models
 elevation_dir = {}
@@ -911,8 +909,9 @@ def HDF5_ATL11_dem_write(IS2_atl11_dem, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     #-- convert start and end time from ATLAS SDP seconds into UTC time
     time_utc = convert_delta_time(np.array([tmn,tmx]))
-    #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
+    #-- convert to calendar date
+    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+        FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

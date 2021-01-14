@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (12/2020)
+MPI_ICESat2_ATL03_histogram.py (01/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -42,9 +42,7 @@ PYTHON DEPENDENCIES:
         https://github.com/scikit-learn/scikit-learn
 
 PROGRAM DEPENDENCIES:
-    convert_julian.py: returns the calendar date and time given a Julian date
     convert_delta_time.py: converts from delta time into Julian and year-decimal
-    convert_calendar_decimal.py: converts from calendar date to decimal year
     time.py: Utilities for calculating time operations
     utilities: download and management utilities for syncing files
 
@@ -75,6 +73,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
         add option to define histogram decomposition function
     Updated 11/2020: use number of binned background photons in fits
@@ -113,8 +112,8 @@ import scipy.optimize
 import scipy.interpolate
 import sklearn.neighbors
 from mpi4py import MPI
-from icesat2_toolkit.convert_julian import convert_julian
 from icesat2_toolkit.convert_delta_time import convert_delta_time
+import icesat2_toolkit.time
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -3117,8 +3116,9 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     #-- convert start and end time from ATLAS SDP seconds into UTC time
     time_utc = convert_delta_time(np.array([tmn,tmx]))
-    #-- convert to calendar date with convert_julian.py
-    YY,MM,DD,HH,MN,SS = convert_julian(time_utc['julian'],FORMAT='tuple')
+    #-- convert to calendar date
+    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+        FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
         np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))

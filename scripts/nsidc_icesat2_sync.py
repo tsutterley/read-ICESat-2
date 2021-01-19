@@ -379,7 +379,7 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Input index of ICESat-2 files to sync')
     #-- output subdirectories
-    parser.add_argument('--flatten','-f',
+    parser.add_argument('--flatten','-F',
         default=False, action='store_true',
         help='Do not create subdirectories')
     #-- run sync in series if processes is 0

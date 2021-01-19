@@ -21,7 +21,7 @@ General Methods
 
     .. attribute:: object.reformat
 
-        output format (`'zarr'`, `'JPL'`, `'csv'`, `'txt'`, `'dataframe'`)
+        output format (`'zarr'`, `'HDF'`, `'JPL'`, `'csv'`, `'txt'`, `'dataframe'`)
 
 
     .. method:: object.file_converter(**kwds)
@@ -34,9 +34,14 @@ General Methods
         Convert a HDF5 file to zarr copying all file data
 
 
+    .. method:: object.HDF5_to_HDF5(**kwds)
+
+        Rechunk a HDF5 file copying all file data
+
+
     .. method:: object.copy_from_HDF5(source, dest, name=None, **kwds)
 
-        Copy a named variable from the `source` HDF5 into the `dest` zarr
+        Copy a named variable from the `source` HDF5 into the `dest` file
 
 
     .. method:: object.HDF5_to_ascii(**kwds)

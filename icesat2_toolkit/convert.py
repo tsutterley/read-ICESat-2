@@ -49,6 +49,9 @@ class convert():
         if (self.reformat == 'zarr'):
             # output zarr file
             self.HDF5_to_zarr(**kwds)
+        elif (self.reformat == 'HDF5'):
+            # output zarr file
+            self.HDF5_to_HDF5(**kwds)
         # elif (reformat == 'JPL'):
         #     # output JPL captoolkit formatted HDF5 files
         #     self.HDF5_to_JPL_HDF5(**kwds)
@@ -81,23 +84,59 @@ class convert():
             for k in source.keys():
                 self.copy_from_HDF5(source[k], dest, name=k, **kwds)
 
-    # PURPOSE: Copy a named variable from the HDF5 file to the zarr file
+    # PURPOSE: rechunk the HDF5 file copying all file data
+    def HDF5_to_HDF5(self, **kwds):
+        """
+        rechunk a HDF5 file copying all file data
+        """
+        # split extension from HDF5 file
+        if isinstance(self.filename, str):
+            fileBasename,fileExtension=os.path.splitext(self.filename)
+        else:
+            fileBasename,fileExtension=os.path.splitext(self.filename.filename)
+        # output HDF5 file
+        hdf5_file = os.path.expanduser('{0}.h5'.format(fileBasename))
+        # copy everything from the HDF5 file
+        with h5py.File(self.filename,mode='r') as source:
+            dest = h5py.File(hdf5_file,mode='w')
+            # value checks on output HDF5
+            if not hasattr(dest, 'create_dataset'):
+                raise ValueError('dest must be a group, got {!r}'.format(dest))
+            # for each key in the root of the hdf5 file structure
+            for k in source.keys():
+                self.copy_from_HDF5(source[k], dest, name=k, **kwds)
+
+    # PURPOSE: Copy a named variable from the HDF5 file to the destination file
     def copy_from_HDF5(self, source, dest, name=None, **kwds):
         """
-        Copy a named variable from the `source` HDF5 into the `dest` zarr
+        Copy a named variable from the `source` HDF5 into the `dest` file
         """
-        if hasattr(source, 'shape'):
+        if hasattr(source, 'shape') and bool(source.chunks):
+            # if data can be chunked
             # copy a dataset/array
             if dest is not None and name in dest:
-                raise zarr.CopyError('an object {!r} already exists in '
+                raise RuntimeError('an object {!r} already exists in '
                     'destination {!r}'.format(name, dest.name))
             # setup creation keyword arguments
-            create_kwds = kwds.copy()
-            # setup chunks option, preserve by default
-            create_kwds.setdefault('chunks', source.chunks)
+            create_kwds = {k:v for k,v in kwds.items() if v}
+            if 'chunks' in create_kwds.keys():
+                # setup chunks option to limit by dimensions
+                chunks = ()
+                for d in range(source.ndim):
+                    chunks += (min([create_kwds.get('chunks'),source.shape[d]]),)
+                create_kwds['chunks'] = chunks
+            else:
+                # setup chunks option, preserve by default
+                chunks = ()
+                for d in range(source.ndim):
+                    chunks += (min([source.chunks[d],source.shape[d]]),)
+                create_kwds.setdefault('chunks', chunks)
             # setup compression options
             # from h5py to zarr: use zarr default compression options
-            create_kwds.setdefault('fill_value', source.fillvalue)
+            if (self.reformat == 'zarr') and source.fillvalue:
+                create_kwds.setdefault('fill_value', source.fillvalue)
+            elif (self.reformat == 'HDF5') and source.fillvalue:
+                create_kwds.setdefault('fillvalue', source.fillvalue)
             # create new dataset in destination
             ds = dest.create_dataset(name, shape=source.shape,
                 dtype=source.dtype, **create_kwds)
@@ -112,11 +151,35 @@ class convert():
             # copy attributes
             attrs = {key:self.attributes_encoder(source.attrs[key]) for key in
                 source.attrs.keys() if self.attributes_encoder(source.attrs[key])}
+            # update chunks attribute
+            attrs['_ChunkSizes'] = self.attributes_encoder(create_kwds['chunks'])
+            ds.attrs.update(attrs)
+        elif hasattr(source, 'shape'):
+            # if data cannot be chunked
+            # copy a dataset/array
+            if dest is not None and name in dest:
+                raise RuntimeError('an object {!r} already exists in '
+                    'destination {!r}'.format(name, dest.name))
+            # setup creation keyword arguments
+            create_kwds = {}
+            # setup compression options
+            # from h5py to zarr: use zarr default compression options
+            if (self.reformat == 'zarr') and source.fillvalue:
+                create_kwds.setdefault('fill_value', source.fillvalue)
+            elif (self.reformat == 'HDF5') and source.fillvalue:
+                create_kwds.setdefault('fillvalue', source.fillvalue)
+            # create new dataset in destination
+            ds = dest.create_dataset(name, shape=source.shape,
+                dtype=source.dtype, **create_kwds)
+            ds[:] = source[:]
+            # copy attributes
+            attrs = {key:self.attributes_encoder(source.attrs[key]) for key in
+                source.attrs.keys() if self.attributes_encoder(source.attrs[key])}
             ds.attrs.update(attrs)
         else:
             # copy a group
             if (dest is not None and name in dest and hasattr(dest[name], 'shape')):
-                raise zarr.CopyError('an array {!r} already exists in '
+                raise RuntimeError('an array {!r} already exists in '
                     'destination {!r}'.format(name, dest.name))
             # require group in destination
             grp = dest.require_group(name)

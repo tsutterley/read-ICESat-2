@@ -249,7 +249,7 @@ def main():
         default=False, action='store_true',
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     #-- output subdirectories
-    parser.add_argument('--flatten','-f',
+    parser.add_argument('--flatten','-F',
         default=False, action='store_true',
         help='Do not create subdirectories')
     #-- run download in series if processes is 0

@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 u"""
-convert_ICESat2_zarr.py
+convert_ICESat2_format.py
 Written by Tyler Sutterley (10/2020)
 
-Converts ICESat-2 HDF5 datafiles to zarr datafiles
+Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
 zarr files make large datasets easily accessible to distributed computing on
     both local filesystems and cloud-based object stores
     - arrays are divided into chunks and compressed
     - metadata are stored in lightweight .json files
 
+rechunked HDF5 files can be more optimized for cloud-based object stores
+
 CALLING SEQUENCE:
-    python convert_ICESat2_zarr.py --release=001 ATL06
+    python convert_ICESat2_format.py --release=003 ATL06
 
 INPUTS:
     ATL03: Global Geolocated Photon Data
@@ -33,9 +35,10 @@ COMMAND LINE OPTIONS:
     -v X, --version X: ICESat-2 data version to run
     -t X, --track X: ICESat-2 reference ground tracks to run
     -g X, --granule X: ICESat-2 granule regions to run
-    --chunks X: Rechunk zarr files to size
+    -f X, --format X: output file format (zarr, HDF5)
+    -c X, --chunks X: Rechunk output files to size
     -P X, --np X: Number of processes to use in file conversion
-    -C, --clobber: Overwrite existing zarr files
+    -C, --clobber: Overwrite existing files
     -V, --verbose: Verbose output of processing run
     -M X, --mode X: Local permissions mode of the converted files
 
@@ -53,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 10/2020: using argparse to set parameters. added verbose keyword
         added chunks keyword to rechunk output zarr files
         using convert module to convert from HDF5 to zarr
@@ -64,16 +68,15 @@ import sys
 import os
 import re
 import argparse
-import posixpath
 import traceback
-import calendar, time
 import multiprocessing as mp
 import icesat2_toolkit.convert
 
 #-- PURPOSE: convert the ICESat-2 elevation data from HDF5 to zarr
-def convert_ICESat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
-    TRACKS, YEARS=None, SUBDIRECTORY=None, CHUNKS=None, PROCESSES=0,
-    CLOBBER=False, VERBOSE=False, MODE=0o775):
+#-- or rechunked HDF5 formats
+def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
+    TRACKS, YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None,
+    PROCESSES=0, CLOBBER=False, VERBOSE=False, MODE=0o775):
 
     #-- regular expression operator for finding files of a particular granule
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
@@ -117,8 +120,9 @@ def convert_ICESat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     if (PROCESSES == 0):
         #-- convert each ICESat-2 data file
         for f in hdf5_file_list:
-            #-- convert ICESat-2 file to zarr
-            output = HDF5_to_zarr(f,CHUNKS=CHUNKS,CLOBBER=CLOBBER,MODE=MODE)
+            #-- convert ICESat-2 file to output format
+            output = convert_HDF5(f,FORMAT=FORMAT,CHUNKS=CHUNKS,
+                CLOBBER=CLOBBER,MODE=MODE)
             #-- print the output string
             print(output) if VERBOSE else None
     else:
@@ -127,8 +131,9 @@ def convert_ICESat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         #-- convert each ICESat-2 data file
         output = []
         for hdf5_file in hdf5_file_list:
-            #-- convert ICESat-2 file to zarr
-            kwds = dict(CHUNKS=CHUNKS, CLOBBER=CLOBBER, MODE=MODE)
+            #-- convert ICESat-2 file to output format
+            kwds = dict(FORMAT=FORMAT, CHUNKS=CHUNKS, CLOBBER=CLOBBER,
+                MODE=MODE)
             output.append(pool.apply_async(multiprocess_convert,
                 args=(hdf5_file,),kwds=kwds))
         #-- start multiprocessing jobs
@@ -142,9 +147,11 @@ def convert_ICESat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             print(out.get()) if VERBOSE else None
 
 #-- PURPOSE: wrapper for running conversion program in multiprocessing mode
-def multiprocess_convert(hdf5_file, CHUNKS=None, CLOBBER=False, MODE=0o775):
+def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
+    MODE=0o775):
     try:
-        output = HDF5_to_zarr(hdf5_file,CHUNKS=CHUNKS,CLOBBER=CLOBBER,MODE=MODE)
+        output = convert_HDF5(hdf5_file,FORMAT=FORMAT,CHUNKS=CHUNKS,
+            CLOBBER=CLOBBER,MODE=MODE)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -154,22 +161,25 @@ def multiprocess_convert(hdf5_file, CHUNKS=None, CLOBBER=False, MODE=0o775):
     else:
         return output
 
-#-- PURPOSE: convert the HDF5 file to zarr and change permissions
-def HDF5_to_zarr(hdf5_file,CHUNKS=None,CLOBBER=False,MODE=0o775):
+#-- PURPOSE: convert the HDF5 file and change permissions
+def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
     #-- split extension from input HDF5 file
     fileBasename,fileExtension = os.path.splitext(hdf5_file)
-    #-- convert HDF5 file into zarr file
-    zarr_file = '{0}.zarr'.format(fileBasename)
-    #-- if zarr file exists in file system: check if HDF5 file is newer
+    #-- convert HDF5 file into output format
+    if (FORMAT == 'zarr'):
+        output_file = '{0}.zarr'.format(fileBasename)
+    elif (FORMAT == 'HDF5'):
+        output_file = '{0}.h5'.format(fileBasename)
+    #-- if output file exists in file system: check if HDF5 file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
     #-- last modification time of HDF5 file
     hdf5_mtime = os.stat(hdf5_file).st_mtime
     #-- check if local version of file exists
-    if os.access(zarr_file, os.F_OK):
-        #-- check last modification time of zarr file
-        zarr_mtime = os.stat(zarr_file).st_mtime
-        #-- if HDF5 file is newer: overwrite the zarr file
+    if os.access(output_file, os.F_OK):
+        #-- check last modification time of output file
+        zarr_mtime = os.stat(output_file).st_mtime
+        #-- if HDF5 file is newer: overwrite the output file
         if (hdf5_mtime > zarr_mtime):
             TEST = True
             OVERWRITE = ' (overwrite)'
@@ -177,24 +187,25 @@ def HDF5_to_zarr(hdf5_file,CHUNKS=None,CLOBBER=False,MODE=0o775):
         TEST = True
         OVERWRITE = ' (new)'
 
-    #-- if zarr file does not exist, is to be overwritten, or CLOBBER is set
+    #-- if file does not exist, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- output string for printing files transferred
-        output = '{0} -->\n\t{1}{2}\n'.format(hdf5_file,zarr_file,OVERWRITE)
-        #-- copy everything from the HDF5 file to the zarr file
-        conv = icesat2_toolkit.convert(filename=hdf5_file,reformat='zarr')
+        output='{0} -->\n\t{1}{2}\n'.format(hdf5_file,output_file,OVERWRITE)
+        #-- copy everything from the HDF5 file to the output file
+        conv = icesat2_toolkit.convert(filename=hdf5_file,reformat=FORMAT)
         conv.file_converter(chunks=CHUNKS)
         #-- keep remote modification time of file and local access time
-        os.utime(zarr_file, (os.stat(zarr_file).st_atime, hdf5_mtime))
-        os.chmod(zarr_file, MODE)
+        os.utime(output_file, (os.stat(output_file).st_atime, hdf5_mtime))
+        os.chmod(output_file, MODE)
         #-- return the output string
         return output
 
-#-- Main program that calls convert_ICESat2_zarr()
+#-- Main program that calls convert_ICESat2_format()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Converts ICESat-2 HDF5 datafiles to zarr datafiles
+        description="""Converts ICESat-2 HDF5 datafiles to zarr or
+            rechunked HDF5 datafiles
             """
     )
     #-- ICESat-2 Products
@@ -212,7 +223,7 @@ def main():
     parser.add_argument('products',
         metavar='PRODUCTS', type=str, nargs='+',
         choices=PRODUCTS.keys(),
-        help='ICESat-2 products to convert to zarr')
+        help='ICESat-2 products to convert')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -244,10 +255,14 @@ def main():
         metavar='RGT', type=int, nargs='+',
         choices=range(1,1388), default=range(1,1388),
         help='ICESat-2 Reference Ground Tracks (RGTs)')
-    #-- rechunk output zarr data
-    parser.add_argument('--chunks',
+    #-- output file format
+    parser.add_argument('--format','-f',
+        type=str, choices=('zarr','HDF5'), default='zarr',
+        help='Output file format')
+    #-- rechunk output data
+    parser.add_argument('--chunks','-c',
         type=int,
-        help='Rechunk zarr files to size')
+        help='Rechunk output files to size')
     #-- run conversion in series if processes is 0
     parser.add_argument('--np','-P',
         metavar='PROCESSES', type=int, default=0,
@@ -266,11 +281,12 @@ def main():
         help='permissions mode of output files')
     args = parser.parse_args()
 
-    #-- convert HDF5 files to zarr files for each data product
-    convert_ICESat2_zarr(args.directory, args.products, args.release,
+    #-- convert HDF5 files for each data product
+    convert_ICESat2_format(args.directory, args.products, args.release,
         args.version, args.granule, args.track, YEARS=args.year,
-        SUBDIRECTORY=args.subdirectory, CHUNKS=args.chunks, PROCESSES=args.np,
-        CLOBBER=args.clobber, VERBOSE=args.verbose, MODE=args.mode)
+        SUBDIRECTORY=args.subdirectory, FORMAT=args.format,
+        CHUNKS=args.chunks, PROCESSES=args.np, CLOBBER=args.clobber,
+        VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

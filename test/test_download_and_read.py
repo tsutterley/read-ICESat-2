@@ -12,6 +12,7 @@ import icesat2_toolkit.utilities
 from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03
 from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
 from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07
+from icesat2_toolkit.read_ICESat2_ATL11 import read_HDF5_ATL11
 from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12
 
 #-- PURPOSE: Download an ATL03 file from NSIDC and check that read program runs
@@ -55,6 +56,20 @@ def test_ATL07_download_and_read(username,password):
     IS2_ATL07_mds,IS2_ATL07_attrs,IS2_ATL07_beams = read_HDF5_ATL07(HOST[-1],
         ATTRIBUTES=False, VERBOSE=True)
     assert all(gtx in IS2_ATL07_mds.keys() for gtx in IS2_ATL07_beams)
+
+#-- PURPOSE: Download an ATL11 file from NSIDC and check that read program runs
+def test_ATL12_download_and_read(username,password):
+    HOST = ['https://n5eil01u.ecs.nsidc.org','ATLAS','ATL11.002','2019.03.29',
+        'ATL11_000103_0308_002_01.h5']
+    buffer,error=icesat2_toolkit.utilities.from_nsidc(HOST,username=username,
+        password=password,local=HOST[-1],verbose=True)
+    #-- raise exception if download error
+    if not buffer:
+        raise Exception(error)
+    #-- read ATL12 data from downloaded HDF5 file
+    IS2_ATL11_mds,IS2_ATL11_attrs,IS2_ATL11_pairs = read_HDF5_ATL11(HOST[-1],
+        ATTRIBUTES=False, CROSSOVERS=True, REFERENCE=True, VERBOSE=True)
+    assert all(ptx in IS2_ATL11_mds.keys() for ptx in IS2_ATL11_pairs)
 
 #-- PURPOSE: Download an ATL12 file from NSIDC and check that read program runs
 def test_ATL12_download_and_read(username,password):

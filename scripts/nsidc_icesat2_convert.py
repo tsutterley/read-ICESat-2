@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 u"""
-nsidc_icesat2_zarr.py
+nsidc_icesat2_convert.py
 Written by Tyler Sutterley (11/2020)
 
-Acquires ICESat-2 datafiles from NSIDC and directly convert to zarr datafiles
+Acquires ICESat-2 datafiles from NSIDC and directly converts to
+    zarr datafiles or rechunked HDF5 files
 
 zarr files make large datasets easily accessible to distributed computing on
     both local filesystems and cloud-based object stores
     - arrays are divided into chunks and compressed
     - metadata are stored in lightweight .json files
+
+rechunked HDF5 files can be more optimized for cloud-based object stores
 
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-
@@ -22,7 +25,7 @@ Add NSIDC_DATAPOOL_OPS to NASA Earthdata Applications
 https://urs.earthdata.nasa.gov/oauth/authorize?client_id=_JLuwMHxb2xX6NwYTb4dRA
 
 CALLING SEQUENCE:
-    python nsidc_icesat2_zarr.py --user=<username> --release=001 ATL06
+    python nsidc_icesat2_convert.py --user=<username> --release=003 ATL06
     where <username> is your NASA Earthdata username
 
 INPUTS:
@@ -47,7 +50,8 @@ COMMAND LINE OPTIONS:
     -v X, --version X: ICESat-2 data version to sync
     -t X, --track X: ICESat-2 reference ground tracks to sync
     -g X, --granule X: ICESat-2 granule regions to sync
-    --chunks X: Rechunk zarr files to size
+    -f X, --format X: output file format (zarr, HDF5)
+    -c X, --chunks X: Rechunk output files to size
     -a X, --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
     -I X, --index X: Input index of ICESat-2 files to sync
     -F, --flatten: Do not create subdirectories
@@ -77,6 +81,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
         added chunks keyword to rechunk output zarr files
@@ -108,10 +113,12 @@ import multiprocessing as mp
 import icesat2_toolkit.convert
 import icesat2_toolkit.utilities
 
-#-- PURPOSE: sync the ICESat-2 elevation data from NSIDC and convert to zarr
-def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
-    YEARS=None, SUBDIRECTORY=None, CHUNKS=None, AUXILIARY=False, INDEX=None,
-    FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, CLOBBER=False, MODE=None):
+#-- PURPOSE: sync the ICESat-2 elevation data from NSIDC and convert to
+#-- either zarr or rechunked HDF5
+def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
+    YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None, AUXILIARY=False,
+    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, CLOBBER=False,
+    MODE=None):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -206,7 +213,7 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             args=(p,regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
             R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
             #-- read and parse request for subdirectories (find column names)
-            remote_sub,collastmod = icesat2_toolkit.utilities.nsidc_list(PATH,
+            remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
                 build=False,timeout=120,parser=parser,pattern=R2,sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
@@ -246,7 +253,8 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             output = http_pull_file(remote_file, remote_mtimes[i], local_files[i],
-                CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+                FORMAT=FORMAT, CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER,
+                MODE=MODE)
             #-- print the output string
             print(output, file=fid) if output else None
     else:
@@ -257,7 +265,8 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            kwds = dict(FORMAT=FORMAT, CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER,
+                MODE=MODE)
             out.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
         #-- start multiprocessing jobs
         #-- close the pool
@@ -277,10 +286,10 @@ def nsidc_icesat2_zarr(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(remote_file, remote_mtime, local_file,
-    CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+    FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
     try:
         output = http_pull_file(remote_file,remote_mtime,local_file,
-            CHUNKS=CHUNKS,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
+            FORMAT=FORMAT,CHUNKS=CHUNKS,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -293,13 +302,16 @@ def multiprocess_sync(remote_file, remote_mtime, local_file,
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
 def http_pull_file(remote_file, remote_mtime, local_file,
-    CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+    FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
     #-- split extension from input local file
     fileBasename, fileExtension = os.path.splitext(local_file)
-    #-- copy HDF5 file from server into new zarr file
-    if (fileExtension == '.h5'):
+    #-- copy HDF5 file from server into new file
+    if (fileExtension == '.h5') and (FORMAT == 'zarr'):
         hdf5_file = str(local_file)
         local_file = '{0}.zarr'.format(fileBasename)
+    elif (fileExtension == '.h5') and (FORMAT == 'HDF5'):
+        hdf5_file = str(local_file)
+        local_file = '{0}.h5'.format(fileBasename)
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -334,8 +346,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             fid.seek(0)
             #-- copy local HDF5 filename to BytesIO object attribute
             fid.filename = hdf5_file
-            #-- copy everything from the HDF5 file to the zarr file
-            conv = icesat2_toolkit.convert(filename=fid,reformat='zarr')
+            #-- copy everything from the HDF5 file to the output file
+            conv = icesat2_toolkit.convert(filename=fid,reformat=FORMAT)
             conv.file_converter(chunks=CHUNKS)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
@@ -357,19 +369,19 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         #-- return the output string
         return output
 
-#-- Main program that calls nsidc_icesat2_zarr()
+#-- Main program that calls nsidc_icesat2_convert()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Acquires ICESat-2 datafiles from NSIDC and directly
-            convert to zarr datafiles
+            converts to zarr datafiles or rechunked HDF5 files
             """
     )
     #-- command line parameters
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('products',
         metavar='PRODUCTS', type=str, nargs='*', default=[],
-        help='ICESat-2 products to convert to zarr')
+        help='ICESat-2 products to convert')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
@@ -408,10 +420,14 @@ def main():
         metavar='RGT', type=int, nargs='+',
         choices=range(1,1388), default=range(1,1388),
         help='ICESat-2 Reference Ground Tracks (RGTs)')
-    #-- rechunk output zarr data
-    parser.add_argument('--chunks',
+    #-- output file format
+    parser.add_argument('--format','-f',
+        type=str, choices=('zarr','HDF5'), default='zarr',
+        help='Output file format')
+    #-- rechunk output data
+    parser.add_argument('--chunks','-c',
         type=int,
-        help='Rechunk zarr files to size')
+        help='Rechunk output files to size')
     #-- sync auxiliary files
     parser.add_argument('--auxiliary','-a',
         default=False, action='store_true',
@@ -421,7 +437,7 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Input index of ICESat-2 files to sync')
     #-- output subdirectories
-    parser.add_argument('--flatten','-f',
+    parser.add_argument('--flatten','-F',
         default=False, action='store_true',
         help='Do not create subdirectories')
     #-- run conversion in series if processes is 0
@@ -469,12 +485,12 @@ def main():
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program
     if icesat2_toolkit.utilities.check_credentials():
-        nsidc_icesat2_zarr(args.directory, args.products, args.release,
+        nsidc_icesat2_convert(args.directory, args.products, args.release,
             args.version, args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, CHUNKS=args.chunks,
-            AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
-            PROCESSES=args.np, LOG=args.log, LIST=args.list,
-            CLOBBER=args.clobber, MODE=args.mode)
+            SUBDIRECTORY=args.subdirectory, FORMAT=args.format,
+            CHUNKS=args.chunks, AUXILIARY=args.auxiliary, INDEX=args.index,
+            FLATTEN=args.flatten, PROCESSES=args.np, LOG=args.log,
+            LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

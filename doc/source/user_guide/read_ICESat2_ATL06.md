@@ -1,22 +1,22 @@
 read_ICESat2_ATL06.py
 =====================
 
- - Reads ICESat-2 ATL06 Land Ice Elevation data files  
+ - Reads ICESat-2 ATL06 Land Ice Elevation data files
 
 #### Calling Sequence
 ```python
 from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
 IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = read_HDF5_ATL06(FILENAME)
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/read_ICESat2_ATL06.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/read_ICESat2_ATL06.py)
 
 #### Inputs
  1. `FILENAME`: full path to ATL06 file
 
 #### Options
  - `ATTRIBUTES`: read file, group and variable attributes
- - `HISTOGRAM`: read variables from ATL06 residual_histogram group
- - `QUALITY`: read variables from ATL06 segment_quality group
+ - `HISTOGRAM`: read variables from ATL06 `residual_histogram` group
+ - `QUALITY`: read variables from ATL06 `segment_quality` group
  - `VERBOSE`: output information about top-level HDF5 groups
 
 #### Outputs

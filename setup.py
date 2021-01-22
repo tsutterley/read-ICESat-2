@@ -9,12 +9,16 @@ with open("README.md", "r") as fh:
 with open('requirements.txt') as fh:
     install_requires = [line.split().pop(0) for line in fh.read().splitlines()]
 
+# get version
+with open('version.txt') as fh:
+    version = fh.read()
+
 # list of all scripts to be included with package
 scripts=[os.path.join('scripts',f) for f in os.listdir('scripts') if f.endswith('.py')]
 
 setup(
     name='read-ICESat-2',
-    version='1.0.0.18',
+    version=version,
     description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
     long_description=long_description,
     long_description_content_type="text/markdown",

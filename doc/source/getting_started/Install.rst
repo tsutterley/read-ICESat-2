@@ -1,6 +1,22 @@
-============
+======================
+Setup and Installation
+======================
+
+Dependencies
+############
+This software is dependent on open source programs that can be installed using OS-specific package management systems,
+`conda <https://anaconda.org/conda-forge/repo>`_ or from source:
+
+- `MPI <https://www.open-mpi.org/>`_
+- `GDAL <https://gdal.org/index.html>`_
+- `GEOS <https://trac.osgeo.org/geos>`_
+- `PROJ <https://proj.org/>`_
+- `HDF5 <https://www.hdfgroup.org>`_
+- `libxml2 <http://xmlsoft.org/>`_
+- `libxslt <http://xmlsoft.org/XSLT/>`_
+
 Installation
-============
+############
 
 Presently read-ICESat-2 is only available for use as a
 `GitHub repository <https://github.com/tsutterley/read-ICESat-2>`_.

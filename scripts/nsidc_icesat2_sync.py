@@ -410,19 +410,18 @@ def main():
     #-- get authentication
     if not args.user and not args.netrc:
         #-- check that NASA Earthdata credentials were entered
-        USER = builtins.input('Username for {0}: '.format(HOST))
+        args.user=builtins.input('Username for {0}: '.format(HOST))
         #-- enter password securely from command-line
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
     elif args.netrc:
-        USER,LOGIN,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
+        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
-        USER = args.user
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
 
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
-    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
+    icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
 
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program

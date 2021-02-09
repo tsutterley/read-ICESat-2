@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL07.py (10/2020)
+read_ICESat2_ATL07.py (02/2021)
 Read ICESat-2 ATL07 (Sea Ice Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
     Updated 07/2020: added function docstrings
     Updated 11/2019: create attribute dictionaries but don't fill if False
@@ -19,6 +20,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
+import io
 import re
 import h5py
 import numpy as np
@@ -44,7 +46,10 @@ def read_HDF5_ATL07(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     IS2_atl07_beams: list with valid ICESat-2 beams within ATL07 file
     """
     #-- Open the HDF5 file for reading
-    fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+    if isinstance(FILENAME, io.IOBase):
+        fileID = h5py.File(FILENAME, 'r')
+    else:
+        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
     if VERBOSE:
@@ -191,18 +196,23 @@ def find_HDF5_ATL07_beams(FILENAME):
     -------
     IS2_atl07_beams: list with valid ICESat-2 beams within ATL07 file
     """
+    #-- Open the HDF5 file for reading
+    if isinstance(FILENAME, io.IOBase):
+        fileID = h5py.File(FILENAME, 'r')
+    else:
+        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
     #-- output list of beams
     IS2_atl07_beams = []
-    #-- Open the HDF5 file for reading
-    with h5py.File(os.path.expanduser(FILENAME), 'r') as fileID:
-        #-- read each input beam within the file
-        for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
-            #-- check if subsetted beam contains sea ice data
-            try:
-                fileID[gtx]['sea_ice_segments']['height_segment_id']
-            except KeyError:
-                pass
-            else:
-                IS2_atl07_beams.append(gtx)
+    #-- read each input beam within the file
+    for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
+        #-- check if subsetted beam contains sea ice data
+        try:
+            fileID[gtx]['sea_ice_segments']['height_segment_id']
+        except KeyError:
+            pass
+        else:
+            IS2_atl07_beams.append(gtx)
+    #-- Closing the HDF5 file
+    fileID.close()
     #-- return the list of beams
     return IS2_atl07_beams

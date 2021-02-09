@@ -13,7 +13,7 @@ dependencies:
   - cartopy
   - mpi4py
   - gdal
-  - h5py>=2.9=mpi
+  - h5py>=2.9=mpi*
   - zarr
   - future
   - lxml

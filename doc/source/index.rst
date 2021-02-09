@@ -11,7 +11,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     getting_started/Getting-Started.md
     getting_started/Examples.rst
     getting_started/NASA-Earthdata.rst
-    getting_started/ICESat-2-Data-Products.md
+    getting_started/ICESat-2-Data-Products.rst
     getting_started/Parallel-HDF5.md
     getting_started/Resources.rst
     getting_started/Citations.rst
@@ -38,8 +38,9 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/MPI_reduce_ICESat2_ATL11_ice_shelves.md
     user_guide/MPI_reduce_ICESat2_ATL11_RGI.md
     user_guide/nsidc_icesat2_associated.md
-    user_guide/nsidc_icesat2_sync.md
     user_guide/nsidc_icesat2_convert.md
+    user_guide/nsidc_icesat2_dragann.md
+    user_guide/nsidc_icesat2_sync.md
     user_guide/read_ICESat2_ATL03.md
     user_guide/read_ICESat2_ATL06.md
     user_guide/read_ICESat2_ATL07.md

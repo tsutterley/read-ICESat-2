@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL11.py (01/2021)
+read_ICESat2_ATL11.py (02/2021)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -17,11 +17,14 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 02/2021: add check if input streaming from bytes
+        add small function to find valid beam pair groups
     Written 01/2021
 """
 from __future__ import print_function
 
 import os
+import io
 import re
 import h5py
 import numpy as np
@@ -50,7 +53,10 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
     IS2_atl11_pairs: list with valid ICESat-2 beam pairs within ATL11 file
     """
     #-- Open the HDF5 file for reading
-    fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+    if isinstance(FILENAME, io.IOBase):
+        fileID = h5py.File(FILENAME, 'r')
+    else:
+        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
     if VERBOSE:
@@ -183,3 +189,37 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
     fileID.close()
     #-- Return the datasets and variables
     return (IS2_atl11_mds,IS2_atl11_attrs,IS2_atl11_pairs)
+
+#-- PURPOSE: find valid beam pair groups within ICESat-2 ATL11 HDF5 data files
+def find_HDF5_ATL11_pairs(FILENAME):
+    """
+    Find valid beam pair groups within ICESat-2 ATL11 (Annual Land Ice Height)
+    data files
+
+    Arguments
+    ---------
+    FILENAME: full path to ATL11 file
+
+    Returns
+    -------
+    IS2_atl11_pairs: list with valid ICESat-2 beam pairs within ATL11 file
+    """
+    #-- Open the HDF5 file for reading
+    if isinstance(FILENAME, io.IOBase):
+        fileID = h5py.File(FILENAME, 'r')
+    else:
+        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+    #-- read each input beam pair within the file
+    IS2_atl11_pairs = []
+    for ptx in [k for k in fileID.keys() if bool(re.match(r'pt\d',k))]:
+        #-- check if subsetted beam contains reference points
+        try:
+            fileID[ptx]['ref_pt']
+        except KeyError:
+            pass
+        else:
+            IS2_atl11_pairs.append(ptx)
+    #-- Closing the HDF5 file
+    fileID.close()
+    #-- return the list of beam pairs
+    return IS2_atl11_pairs

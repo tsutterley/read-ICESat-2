@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: use size of array to add to any valid check
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Written 12/2020
 """
@@ -224,8 +225,6 @@ def main():
         #-- number of average segments and number of included cycles
         delta_time = fileID[ptx]['delta_time'][:].copy()
         n_points,n_cycles = np.shape(delta_time)
-        #-- invalid value for beam
-        fv = fileID[ptx]['h_li'].fillvalue
         #-- check if there are less segments than processes
         if (n_points < comm.Get_size()):
             continue
@@ -360,8 +359,8 @@ def main():
 
         #-- for each valid ice shelf
         combined_map = np.zeros((n_points),dtype=np.bool)
-        valid_keys=[k for k,v in associated_map.items() if v.any()]
-        valid_check |= np.any(valid_keys)
+        valid_keys = np.array([k for k,v in associated_map.items() if v.any()])
+        valid_check |= (np.size(valid_keys) > 0)
         for key in valid_keys:
             #-- add to combined map for output of total ice shelf mask
             combined_map += associated_map[key]
@@ -445,6 +444,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     pairs = [k for k in IS2_atl11_mask.keys() if bool(re.match(r'pt\d',k))]
     for ptx in pairs:
         fileID.create_group(ptx)
+        h5[ptx] = {}
         #-- add HDF5 group attributes for beam pair
         for att_name in ['description','beam_pair','ReferenceGroundTrack',
             'first_cycle','last_cycle','equatorial_radius','polar_radius']:

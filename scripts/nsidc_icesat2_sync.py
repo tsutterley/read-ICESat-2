@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (11/2020)
+Written by Tyler Sutterley (02/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: added regular expression patterns for ATL11/14/15
     Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
     Updated 09/2020: use urllib imported in utilities
@@ -98,9 +99,10 @@ import multiprocessing as mp
 import icesat2_toolkit.utilities
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
-def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
-    YEARS=None, SUBDIRECTORY=None, AUXILIARY=False, INDEX=None, FLATTEN=False,
-    LOG=False, LIST=False, PROCESSES=0, MODE=None, CLOBBER=False):
+def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
+    TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
+    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0,
+    CLOBBER=False, MODE=0o775):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -126,9 +128,11 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
-    regex_suffix = '(.*?)' if AUXILIARY else '(h5)'
-    remote_regex_pattern=(r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
+    regex_suffix = '(.*?)' if AUXILIARY else '(h5|nc)'
+    default_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
+    ATL11_pattern = r'({0})_({1})({2})_(\d{{2}})(\d{{2}})_({3})_({4})(.*?).{5}$'
+    ATL1415_pattern = r'({0})_({1})_(\d{{2}})(\d{{2}})_({3})_({4})(.*?).{5}$'
 
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:
@@ -192,8 +196,16 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
             product_directory = '{0}.{1}'.format(p,RELEASE)
             PATH = [HOST,'ATLAS',product_directory]
             #-- compile regular expression operator
-            args=(p,regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
-            R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
+            if p in ('ATL11',):
+                R1 = re.compile(ATL11_pattern.format(p,regex_track,
+                    regex_granule,RELEASE,regex_version,regex_suffix))
+            elif p in ('ATL14','ATL15'):
+                regex_region = '|'.join(REGION)
+                R1 = re.compile(ATL1415_pattern.format(p,regex_region,
+                    RELEASE,regex_version,regex_suffix))
+            else:
+                R1 = re.compile(default_pattern.format(p,regex_track,
+                    regex_granule,RELEASE,regex_version,regex_suffix))
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
                 build=False,timeout=120,parser=parser,pattern=R2,sort=True)
@@ -226,8 +238,6 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
                     remote_files.append(posixpath.join(remote_dir,colname))
                     local_files.append(os.path.join(local_dir,colname))
                     remote_mtimes.append(remote_mtime)
-            #-- close request
-            req = None
 
     #-- sync in series if PROCESSES = 0
     if (PROCESSES == 0):
@@ -361,10 +371,17 @@ def main():
         type=int, nargs='+', default=range(1,10),
         help='ICESat-2 Data Version')
     #-- ICESat-2 granule region
-    parser.add_argument('--granule','-g',
-        metavar='REGION', type=int, nargs='+',
+    region = parser.add_mutually_exclusive_group(required=False)
+    region.add_argument('--granule','-g',
+        metavar='GRANULE', type=int, nargs='+',
         choices=range(1,15), default=range(1,15),
         help='ICESat-2 Granule Region')
+    #-- ICESat-2 ATL14 and 15 named regions
+    ATL1415_regions = ['AA','AK','CN','CS','GL','IC','SV','RU']
+    region.add_argument('--region','-R',
+        metavar='REGION', type=str, nargs='+',
+        choices=ATL1415_regions, default=['AA','GL'],
+        help='ICESat-2 Named Region (ATL14/ATL15)')
     #-- ICESat-2 reference ground tracks
     parser.add_argument('--track','-t',
         metavar='RGT', type=int, nargs='+',
@@ -428,9 +445,10 @@ def main():
     if icesat2_toolkit.utilities.check_credentials():
         nsidc_icesat2_sync(args.directory, args.products, args.release,
             args.version, args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, AUXILIARY=args.auxiliary,
-            INDEX=args.index, FLATTEN=args.flatten, PROCESSES=args.np,
-            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+            SUBDIRECTORY=args.subdirectory, REGION=args.region,
+            AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
+            PROCESSES=args.np, LOG=args.log, LIST=args.list,
+            CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

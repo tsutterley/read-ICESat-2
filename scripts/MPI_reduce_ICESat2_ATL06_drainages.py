@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_drainages.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
 
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: use size of array to add to any valid check
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters.  update pyproj transforms
@@ -390,8 +391,8 @@ def main():
             "are stored at the land_ice_segments segment rate.")
 
         #-- for each valid drainage
-        valid_keys = [k for k,v in associated_map.items() if v.any()]
-        valid_check |= np.any(valid_keys)
+        valid_keys = np.array([k for k,v in associated_map.items() if v.any()])
+        valid_check |= (np.size(valid_keys) > 0)
         for key in valid_keys:
             #-- output mask to HDF5
             IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][key] = associated_map[key]

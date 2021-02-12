@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_ice_shelves.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: use size of array to add to any valid check
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters.  update pyproj transforms
@@ -370,8 +371,8 @@ def main():
 
         #-- for each valid ice shelf
         combined_map = np.zeros((n_seg),dtype=np.bool)
-        valid_keys = [k for k,v in associated_map.items() if v.any()]
-        valid_check |= np.any(valid_keys)
+        valid_keys = np.array([k for k,v in associated_map.items() if v.any()])
+        valid_check |= (np.size(valid_keys) > 0)
         for key in valid_keys:
             #-- add to combined map for output of total ice shelf mask
             combined_map += associated_map[key]

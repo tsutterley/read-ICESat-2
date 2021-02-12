@@ -1,32 +1,33 @@
 nsidc_icesat2_sync.py
 =====================
 
- - Syncs all available ICESat-2 data for a specified data product, release, granule and track.  
- - The first time we run the script, it will copy the necessary dataset in the selected local directory.  
- - If we already have all the data, and we run the script again: only files added or modified on the remote server will downloaded.  
+ - Syncs all available ICESat-2 data for a specified data product, release, granule and track.
+ - The first time we run the script, it will copy the necessary dataset in the selected local directory.
+ - If we already have all the data, and we run the script again: only files added or modified on the remote server will downloaded.
 
 #### Calling Sequence
 ```bash
 python nsidc_icesat2_sync.py --user <username> --directory <outgoing> \
 	--release 003 --granule 10 11 12 --mode 0o775 ATL06
 ```
-[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_sync.py)  
+[Source code](https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_sync.py)
 
 #### Command Line Options
- - `-U X`, `--user X`: username for NASA Earthdata Login  
- - `-N X`, `--netrc X`: path to .netrc file for alternative authentication  
- - `-D X`, `--directory`: local working directory for receiving data  
+ - `-U X`, `--user X`: username for NASA Earthdata Login
+ - `-N X`, `--netrc X`: path to .netrc file for alternative authentication
+ - `-D X`, `--directory`: local working directory for receiving data
  - `-r X`, `--release X`: ICESat-2 data release to sync
  - `-v X`, `--version X:` ICESat-2 data version to sync
  - `-t X`, `--track X`: ICESat-2 reference ground tracks to sync
  - `-g X`, `--granule X`: ICESat-2 granule regions to sync
- - `-a`, `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file  
- - `-I X, --index X`: Input index of ICESat-2 files to sync  
- - `-F`, `--flatten`: Do not create subdirectories  
- - `-P X`, `--np X`: Number of processes to use in file downloads  
- - `-M X`, `--mode X`: Local permissions mode of the directories and files synced  
- - `--log`: output log of files downloaded  
- - `--list`: print files to be transferred, but do not execute transfer  
- - `-C`, `--clobber`: Overwrite existing data in transfer  
+ - `-R X`, `--region X`: ICESat-2 Named Region to sync for ATL14/ATL15
+ - `-a`, `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file
+ - `-I X, --index X`: Input index of ICESat-2 files to sync
+ - `-F`, `--flatten`: Do not create subdirectories
+ - `-P X`, `--np X`: Number of processes to use in file downloads
+ - `-M X`, `--mode X`: Local permissions mode of the directories and files synced
+ - `--log`: output log of files downloaded
+ - `--list`: print files to be transferred, but do not execute transfer
+ - `-C`, `--clobber`: Overwrite existing data in transfer
 
-Also look into using the [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter)  
+Also look into using the [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter)

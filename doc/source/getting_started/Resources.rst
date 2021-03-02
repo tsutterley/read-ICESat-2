@@ -10,8 +10,9 @@ Resources
 Software
 ########
 
- - `pointCollection <https://github.com/SmithB/pointCollection>`_: UW-APL Utilities for organizing and manipulating point data
- - `captoolkit <https://github.com/fspaolo/captoolkit>`_: NASA's Cryosphere Altimetry Processing Toolkit
+ - `pointCollection <https://github.com/SmithB/pointCollection>`_: UW-APL utilities for organizing and manipulating point data
+ - `surfaceChange <https://github.com/SmithB/surfaceChange>`_: UW-APL scripts for creating tiled dh/dt products from altimetry data
+ - `captoolkit <https://github.com/fspaolo/captoolkit>`_: NASA JPL Cryosphere Altimetry Processing Toolkit
  - `icepyx <https://github.com/icesat2py/icepyx>`_: Python tools for obtaining and working with ICESat-2 data
  - `icesat2-viz <https://github.com/abarciauskas-bgse/icesat2-viz>`_: Icesat-2 Visualization Sandbox
  - `pyTMD <https://github.com/tsutterley/pyTMD>`_: Python-based tidal prediction software for ICESat-2 and Operation IceBridge

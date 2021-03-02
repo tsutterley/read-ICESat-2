@@ -41,6 +41,7 @@ This software is also dependent on other commonly used Python packages:
 - `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_
 - `pandas: Python Data Analysis Library <https://pandas.pydata.org/>`_
 - `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_
+- `dateutil: powerful extensions to datetime <https://dateutil.readthedocs.io/en/stable/>`_
 - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
 - `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_
 - `future: Compatibility layer between Python 2 and Python 3 <http://python-future.org/>`_

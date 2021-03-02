@@ -7,6 +7,7 @@ gdal
 pandas
 pyproj
 scikit-learn
+python-dateutil
 matplotlib
 cartopy
 shapely

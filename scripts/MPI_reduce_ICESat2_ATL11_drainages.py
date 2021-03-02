@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: use size of array to add to any valid check
+        replaced numpy bool to prevent deprecation warning
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Written 12/2020
 """
@@ -263,9 +264,9 @@ def main():
         associated_map = {}
         for key,poly_obj in BASIN.items():
             #-- create distributed intersection map for calculation
-            distributed_map = np.zeros((n_points),dtype=np.bool)
+            distributed_map = np.zeros((n_points),dtype=bool)
             #-- create empty intersection map array for receiving
-            associated_map[key] = np.zeros((n_points),dtype=np.bool)
+            associated_map[key] = np.zeros((n_points),dtype=bool)
             #-- finds if points are encapsulated (within basin)
             int_test = poly_obj.intersects(xy_point)
             if int_test:

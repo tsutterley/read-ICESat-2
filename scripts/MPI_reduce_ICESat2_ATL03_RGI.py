@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL03_RGI.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters
@@ -278,10 +279,10 @@ def main():
         xy_point = MultiPoint(list(zip(longitude[ind],latitude[ind])))
 
         #-- create distributed intersection map for calculation
-        distributed_map = np.zeros((n_pe),dtype=np.bool)
+        distributed_map = np.zeros((n_pe),dtype=bool)
         distributed_RGIId = np.zeros((n_pe),dtype='|S14')
         #-- create empty intersection map array for receiving
-        associated_map = np.zeros((n_pe),dtype=np.bool)
+        associated_map = np.zeros((n_pe),dtype=bool)
         associated_RGIId = np.zeros((n_pe),dtype='|S14')
         for key,poly_obj in poly_dict.items():
             #-- finds if points are encapsulated (within RGI polygon)

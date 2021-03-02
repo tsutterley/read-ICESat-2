@@ -43,6 +43,39 @@ Convert a calendar date into Modified Julian Days
 General Methods
 ===============
 
+.. method:: icesat2_toolkit.time.parse_date_string(date_string)
+
+    Parse a date string of the form time-units since yyyy-mm-dd hh:mm:ss
+
+    Arguments:
+
+        `date_string`: time-units since yyyy-mm-dd hh:mm:ss
+
+    Returns:
+
+        `epoch`: epoch of delta time
+
+        `scale`: multiplication factor to convert to seconds
+
+
+.. method:: icesat2_toolkit.time.split_date_string(date_string)
+
+    Split a date string into units and epoch
+
+    Arguments:
+
+        `date_string`: time-units since yyyy-mm-dd hh:mm:ss
+
+
+.. method:: icesat2_toolkit.time.datetime_to_list(date)
+
+    Convert a datetime object into a list
+
+    Arguments:
+
+        `date`: datetime object
+
+
 .. method:: icesat2_toolkit.time.calendar_days(year)
 
     Calculates the number of days per month for a given year

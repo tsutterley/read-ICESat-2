@@ -25,6 +25,10 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/convert_delta_time.md
     user_guide/convert_ICESat2_format.md
     user_guide/copy_scf_ICESat2_files.md
+    user_guide/interp_IB_response_ICESat2_ATL06.md
+    user_guide/interp_IB_response_ICESat2_ATL11.md
+    user_guide/interp_sea_level_ICESat2_ATL06.md
+    user_guide/interp_sea_level_ICESat2_ATL11.md
     user_guide/MPI_DEM_ICESat2_ATL03.md
     user_guide/MPI_DEM_ICESat2_ATL06.md
     user_guide/MPI_DEM_ICESat2_ATL11.md

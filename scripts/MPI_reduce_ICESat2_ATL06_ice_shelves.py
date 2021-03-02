@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: use size of array to add to any valid check
+        replaced numpy bool to prevent deprecation warning
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters.  update pyproj transforms
@@ -261,9 +262,9 @@ def main():
         associated_map = {}
         for key,poly_obj in poly_dict.items():
             #-- create distributed intersection map for calculation
-            distributed_map = np.zeros((n_seg),dtype=np.bool)
+            distributed_map = np.zeros((n_seg),dtype=bool)
             #-- create empty intersection map array for receiving
-            associated_map[key] = np.zeros((n_seg),dtype=np.bool)
+            associated_map[key] = np.zeros((n_seg),dtype=bool)
             #-- finds if points are encapsulated (within ice shelf)
             int_test = poly_obj.intersects(xy_point)
             if int_test:
@@ -370,7 +371,7 @@ def main():
             "are stored at the land_ice_segments segment rate.")
 
         #-- for each valid ice shelf
-        combined_map = np.zeros((n_seg),dtype=np.bool)
+        combined_map = np.zeros((n_seg),dtype=bool)
         valid_keys = np.array([k for k,v in associated_map.items() if v.any()])
         valid_check |= (np.size(valid_keys) > 0)
         for key in valid_keys:

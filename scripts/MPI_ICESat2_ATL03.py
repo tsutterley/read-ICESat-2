@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03.py (01/2021)
+MPI_ICESat2_ATL03.py (02/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters
@@ -716,85 +717,85 @@ def main():
         fill_value = fileID[gtx]['geolocation']['sigma_h'].attrs['_FillValue']
         #-- delta time of fit photons
         Distributed_delta_time = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_delta_time.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_delta_time.mask = np.ones((n_seg),dtype=bool)
         #-- segment fit heights
         Distributed_Height = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Height.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Height.mask = np.ones((n_seg),dtype=bool)
         #-- land ice height corrected for first photon bias and transmit-pulse shape
         Distributed_Land_Ice = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Land_Ice.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Land_Ice.mask = np.ones((n_seg),dtype=bool)
         #-- segment fit along-track slopes
         Distributed_dH_along = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_dH_along.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_dH_along.mask = np.ones((n_seg),dtype=bool)
         #-- segment fit height errors
         Distributed_Height_Error = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Height_Error.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Height_Error.mask = np.ones((n_seg),dtype=bool)
         #-- land ice height errors (max of fit or first photon bias uncertainties)
         Distributed_Land_Ice_Error = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Land_Ice_Error.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Land_Ice_Error.mask = np.ones((n_seg),dtype=bool)
         #-- segment fit along-track slope errors
         Distributed_dH_along_Error = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_dH_along_Error.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_dH_along_Error.mask = np.ones((n_seg),dtype=bool)
         #-- difference between the mean and median of the residuals from fit height
         Distributed_Mean_Median = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Mean_Median.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Mean_Median.mask = np.ones((n_seg),dtype=bool)
         #-- along-track X coordinates of segment fit
         Distributed_X_atc = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_X_atc.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_X_atc.mask = np.ones((n_seg),dtype=bool)
         #-- along-track X coordinate spread of points used in segment fit
         Distributed_X_spread = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_X_spread.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_X_spread.mask = np.ones((n_seg),dtype=bool)
         #-- along-track Y coordinates of segment fit
         Distributed_Y_atc = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Y_atc.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Y_atc.mask = np.ones((n_seg),dtype=bool)
         #-- longitude of fit photons
         Distributed_Longitude = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Longitude.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Longitude.mask = np.ones((n_seg),dtype=bool)
         #-- latitude of fit photons
         Distributed_Latitude = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Latitude.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Latitude.mask = np.ones((n_seg),dtype=bool)
         #-- number of photons in fit
         Distributed_N_Fit = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Distributed_N_Fit.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_N_Fit.mask = np.ones((n_seg),dtype=bool)
         #-- size of the window used in the fit
         Distributed_Window = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_Window.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Window.mask = np.ones((n_seg),dtype=bool)
         #-- robust dispersion estimator
         Distributed_RDE = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_RDE.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_RDE.mask = np.ones((n_seg),dtype=bool)
         #-- signal-to-noise ratio
         Distributed_SNR = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_SNR.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_SNR.mask = np.ones((n_seg),dtype=bool)
         #-- segment quality summary
         Distributed_Summary = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Distributed_Summary.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Summary.mask = np.ones((n_seg),dtype=bool)
         #-- number of iterations for fit
         Distributed_Iterations = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Distributed_Iterations.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Iterations.mask = np.ones((n_seg),dtype=bool)
         #-- signal source selection
         Distributed_Source = np.ma.zeros((n_seg),fill_value=4,dtype=np.int)
-        Distributed_Source.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Source.mask = np.ones((n_seg),dtype=bool)
         #-- number of pulses in segment
         Distributed_Pulses = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Distributed_Pulses.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_Pulses.mask = np.ones((n_seg),dtype=bool)
         #-- first photon bias estimates
         Distributed_FPB_mean_corr = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_FPB_mean_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_mean_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_mean_sigma = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_FPB_mean_sigma.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_mean_sigma.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_median_corr = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_FPB_median_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_median_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_median_sigma = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_FPB_median_sigma.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_median_sigma.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_n_corr = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Distributed_FPB_n_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_n_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_cal_corr = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_FPB_cal_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_FPB_cal_corr.mask = np.ones((n_seg),dtype=bool)
         #-- transmit pulse shape bias estimates
         Distributed_TPS_mean_corr = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_TPS_mean_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_TPS_mean_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_TPS_median_corr = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_TPS_median_corr.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_TPS_median_corr.mask = np.ones((n_seg),dtype=bool)
 
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
@@ -1125,7 +1126,7 @@ def main():
 
         #-- delta time of fit photons
         Segment_delta_time[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_delta_time[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_delta_time[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_delta_time.data, MPI.DOUBLE], \
             recvbuf=[Segment_delta_time[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_delta_time.mask, MPI.BOOL], \
@@ -1133,7 +1134,7 @@ def main():
         Distributed_delta_time = None
         #-- segment fit heights
         Segment_Height[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Height[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Height[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Height.data, MPI.DOUBLE], \
             recvbuf=[Segment_Height[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Height.mask, MPI.BOOL], \
@@ -1141,7 +1142,7 @@ def main():
         Distributed_Height = None
         #-- land ice height corrected for first photon bias and transmit-pulse shape
         Segment_Land_Ice[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Land_Ice[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Land_Ice[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Land_Ice.data, MPI.DOUBLE], \
             recvbuf=[Segment_Land_Ice[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Land_Ice.mask, MPI.BOOL], \
@@ -1149,7 +1150,7 @@ def main():
         Distributed_Land_Ice = None
         #-- segment fit along-track slopes
         Segment_dH_along[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_dH_along[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_dH_along[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_dH_along.data, MPI.DOUBLE], \
             recvbuf=[Segment_dH_along[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_dH_along.mask, MPI.BOOL], \
@@ -1157,7 +1158,7 @@ def main():
         Distributed_dH_along = None
         #-- segment fit height errors
         Segment_Height_Error[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Height_Error[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Height_Error[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Height_Error.data, MPI.DOUBLE], \
             recvbuf=[Segment_Height_Error[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Height_Error.mask, MPI.BOOL], \
@@ -1165,7 +1166,7 @@ def main():
         Distributed_Height_Error = None
         #-- land ice height errors (max of fit or first photon bias uncertainties)
         Segment_Land_Ice_Error[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Land_Ice_Error[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Land_Ice_Error[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Land_Ice_Error.data, MPI.DOUBLE], \
             recvbuf=[Segment_Land_Ice_Error[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Land_Ice_Error.mask, MPI.BOOL], \
@@ -1173,7 +1174,7 @@ def main():
         Distributed_Land_Ice_Error = None
         #-- segment fit along-track slope errors
         Segment_dH_along_Error[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_dH_along_Error[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_dH_along_Error[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_dH_along_Error.data, MPI.DOUBLE], \
             recvbuf=[Segment_dH_along_Error[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_dH_along_Error.mask, MPI.BOOL], \
@@ -1181,7 +1182,7 @@ def main():
         Distributed_dH_along_Error = None
         #-- difference between the mean and median of the residuals from fit height
         Segment_Mean_Median[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Mean_Median[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Mean_Median[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Mean_Median.data, MPI.DOUBLE], \
             recvbuf=[Segment_Mean_Median[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Mean_Median.mask, MPI.BOOL], \
@@ -1189,7 +1190,7 @@ def main():
         Distributed_Mean_Median = None
         #-- along-track X coordinates of segment fit
         Segment_X_atc[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_X_atc[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_X_atc[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_X_atc.data, MPI.DOUBLE], \
             recvbuf=[Segment_X_atc[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_X_atc.mask, MPI.BOOL], \
@@ -1197,7 +1198,7 @@ def main():
         Distributed_X_atc = None
         #-- along-track X coordinate spread of points used in segment fit
         Segment_X_spread[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_X_spread[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_X_spread[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_X_spread.data, MPI.DOUBLE], \
             recvbuf=[Segment_X_spread[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_X_spread.mask, MPI.BOOL], \
@@ -1205,7 +1206,7 @@ def main():
         Distributed_X_spread = None
         #-- along-track Y coordinates of segment fit
         Segment_Y_atc[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Y_atc[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Y_atc[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Y_atc.data, MPI.DOUBLE], \
             recvbuf=[Segment_Y_atc[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Y_atc.mask, MPI.BOOL], \
@@ -1213,7 +1214,7 @@ def main():
         Distributed_Y_atc = None
         #-- longitude of fit photons
         Segment_Longitude[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Longitude[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Longitude[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Longitude.data, MPI.DOUBLE], \
             recvbuf=[Segment_Longitude[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Longitude.mask, MPI.BOOL], \
@@ -1221,7 +1222,7 @@ def main():
         Distributed_Longitude = None
         #-- latitude of fit photons
         Segment_Latitude[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Latitude[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Latitude[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Latitude.data, MPI.DOUBLE], \
             recvbuf=[Segment_Latitude[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Latitude.mask, MPI.BOOL], \
@@ -1229,7 +1230,7 @@ def main():
         Distributed_Latitude = None
         #-- number of photons in fit
         Segment_N_Fit[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Segment_N_Fit[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_N_Fit[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_N_Fit.data, MPI.INT], \
             recvbuf=[Segment_N_Fit[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_N_Fit.mask, MPI.BOOL], \
@@ -1237,7 +1238,7 @@ def main():
         Distributed_N_Fit = None
         #-- size of the window used in the fit
         Segment_Window[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_Window[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Window[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Window.data, MPI.DOUBLE], \
             recvbuf=[Segment_Window[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Window.mask, MPI.BOOL], \
@@ -1245,7 +1246,7 @@ def main():
         Distributed_Window = None
         #-- robust dispersion estimator
         Segment_RDE[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_RDE[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_RDE[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_RDE.data, MPI.DOUBLE], \
             recvbuf=[Segment_RDE[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_RDE.mask, MPI.BOOL], \
@@ -1253,7 +1254,7 @@ def main():
         Distributed_RDE = None
         #-- signal-to-noise ratio
         Segment_SNR[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_SNR[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_SNR[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_SNR.data, MPI.DOUBLE], \
             recvbuf=[Segment_SNR[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_SNR.mask, MPI.BOOL], \
@@ -1261,7 +1262,7 @@ def main():
         Distributed_SNR = None
         #-- segment quality summary
         Segment_Summary[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Segment_Summary[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Summary[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Summary.data, MPI.INT], \
             recvbuf=[Segment_Summary[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Summary.mask, MPI.BOOL], \
@@ -1269,7 +1270,7 @@ def main():
         Distributed_Summary = None
         #-- number of iterations for fit
         Segment_Iterations[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Segment_Iterations[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Iterations[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Iterations.data, MPI.INT], \
             recvbuf=[Segment_Iterations[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Iterations.mask, MPI.BOOL], \
@@ -1277,7 +1278,7 @@ def main():
         Distributed_Iterations = None
         #-- signal source selection
         Segment_Source[gtx] = np.ma.zeros((n_seg),fill_value=4,dtype=np.int)
-        Segment_Source[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Source[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Source.data, MPI.INT], \
             recvbuf=[Segment_Source[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Source.mask, MPI.BOOL], \
@@ -1285,7 +1286,7 @@ def main():
         Distributed_Source = None
         #-- number of pulses in segment
         Segment_Pulses[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        Segment_Pulses[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_Pulses[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Pulses.data, MPI.INT], \
             recvbuf=[Segment_Pulses[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_Pulses.mask, MPI.BOOL], \
@@ -1293,42 +1294,42 @@ def main():
         Distributed_Pulses = None
         #-- first photon bias estimates
         FPB_mean_corr[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        FPB_mean_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_mean_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_mean_corr.data, MPI.DOUBLE], \
             recvbuf=[FPB_mean_corr[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_mean_corr.mask, MPI.BOOL], \
             recvbuf=[FPB_mean_corr[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_mean_corr = None
         FPB_mean_sigma[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        FPB_mean_sigma[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_mean_sigma[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_mean_sigma.data, MPI.DOUBLE], \
             recvbuf=[FPB_mean_sigma[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_mean_sigma.mask, MPI.BOOL], \
             recvbuf=[FPB_mean_sigma[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_mean_sigma = None
         FPB_median_corr[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        FPB_median_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_median_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_median_corr.data, MPI.DOUBLE], \
             recvbuf=[FPB_median_corr[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_median_corr.mask, MPI.BOOL], \
             recvbuf=[FPB_median_corr[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_median_corr = None
         FPB_median_sigma[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        FPB_median_sigma[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_median_sigma[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_median_sigma.data, MPI.DOUBLE], \
             recvbuf=[FPB_median_sigma[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_median_sigma.mask, MPI.BOOL], \
             recvbuf=[FPB_median_sigma[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_median_sigma = None
         FPB_n_corr[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
-        FPB_n_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_n_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_n_corr.data, MPI.INT], \
             recvbuf=[FPB_n_corr[gtx].data, MPI.INT], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_n_corr.mask, MPI.BOOL], \
             recvbuf=[FPB_n_corr[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_n_corr = None
         FPB_cal_corr[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        FPB_cal_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        FPB_cal_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_cal_corr.data, MPI.DOUBLE], \
             recvbuf=[FPB_cal_corr[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_FPB_cal_corr.mask, MPI.BOOL], \
@@ -1336,14 +1337,14 @@ def main():
         Distributed_FPB_cal_corr = None
         #-- transmit pulse shape bias estimates
         TPS_mean_corr[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        TPS_mean_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        TPS_mean_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_TPS_mean_corr.data, MPI.DOUBLE], \
             recvbuf=[TPS_mean_corr[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_TPS_mean_corr.mask, MPI.BOOL], \
             recvbuf=[TPS_mean_corr[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_TPS_mean_corr = None
         TPS_median_corr[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        TPS_median_corr[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        TPS_median_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_TPS_median_corr.data, MPI.DOUBLE], \
             recvbuf=[TPS_median_corr[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_TPS_median_corr.mask, MPI.BOOL], \
@@ -1404,13 +1405,13 @@ def main():
 
         #-- segment fit across-track slopes
         Distributed_dH_across = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_dH_across.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_dH_across.mask = np.ones((n_seg),dtype=bool)
         #-- segment fit across-track slope errors
         Distributed_dH_across_Error = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_dH_across_Error.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_dH_across_Error.mask = np.ones((n_seg),dtype=bool)
         #-- contribution of geolocation uncertainty to height error
         Distributed_sigma_geo = np.ma.zeros((n_seg),fill_value=fill_value)
-        Distributed_sigma_geo.mask = np.ones((n_seg),dtype=np.bool)
+        Distributed_sigma_geo.mask = np.ones((n_seg),dtype=bool)
 
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
@@ -1447,7 +1448,7 @@ def main():
 
         #-- segment fit across-track slopes
         Segment_dH_across[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_dH_across[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_dH_across[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_dH_across.data, MPI.DOUBLE], \
             recvbuf=[Segment_dH_across[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_dH_across.mask, MPI.BOOL], \
@@ -1455,7 +1456,7 @@ def main():
         Distributed_dH_across = None
         #-- segment fit across-track slope errors
         Segment_dH_across_Error[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_dH_across_Error[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_dH_across_Error[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_dH_across_Error.data, MPI.DOUBLE], \
             recvbuf=[Segment_dH_across_Error[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_dH_across_Error.mask, MPI.BOOL], \
@@ -1463,7 +1464,7 @@ def main():
         Distributed_dH_across_Error = None
         #-- contribution of geolocation uncertainty to height errors
         Segment_sigma_geo[gtx] = np.ma.zeros((n_seg),fill_value=fill_value)
-        Segment_sigma_geo[gtx].mask = np.ones((n_seg),dtype=np.bool)
+        Segment_sigma_geo[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_sigma_geo.data, MPI.DOUBLE], \
             recvbuf=[Segment_sigma_geo[gtx].data, MPI.DOUBLE], op=MPI.SUM)
         comm.Allreduce(sendbuf=[Distributed_sigma_geo.mask, MPI.BOOL], \

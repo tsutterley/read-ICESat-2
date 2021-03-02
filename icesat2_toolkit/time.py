@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 u"""
 time.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 Utilities for calculating time operations
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
         https://numpy.org
+    dateutil: powerful extensions to datetime
+        https://dateutil.readthedocs.io/en/stable/
     lxml: processing XML and HTML in Python
         https://pypi.python.org/pypi/lxml
 
@@ -14,17 +16,83 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: parse date strings "time-units since yyyy-mm-dd hh:mm:ss"
     Updated 01/2021: added ftp connection checks
         merged with convert_julian and convert_calendar_decimal
         added calendar_days routine to get number of days per month
     Updated 08/2020: added NASA Earthdata routines for downloading from NSIDC
     Written 07/2020
 """
-import os
 import re
 import datetime
 import numpy as np
+import dateutil.parser
 import icesat2_toolkit.utilities
+
+#-- PURPOSE: parse a date string into epoch and units scale
+def parse_date_string(date_string):
+    """
+    parse a date string of the form time-units since yyyy-mm-dd hh:mm:ss
+
+    Arguments
+    ---------
+    date_string: time-units since yyyy-mm-dd hh:mm:ss
+
+    Returns
+    -------
+    epoch of delta time
+    multiplication factor to convert to seconds
+    """
+    #-- try parsing the original date string as a date
+    try:
+        epoch = dateutil.parser.parse(date_string)
+    except ValueError:
+        pass
+    else:
+        #-- return the epoch (as list)
+        return (datetime_to_list(epoch),0.0)
+    #-- split the date string into units and epoch
+    units,epoch = split_date_string(date_string)
+    conversion_factors = {'microseconds': 1e-6,'microsecond': 1e-6,
+        'microsec': 1e-6,'microsecs': 1e-6,
+        'milliseconds': 1e-3,'millisecond': 1e-3,'millisec': 1e-3,
+        'millisecs': 1e-3,'msec': 1e-3,'msecs': 1e-3,'ms': 1e-3,
+        'seconds': 1.0,'second': 1.0,'sec': 1.0,'secs': 1.0,'s': 1.0,
+        'minutes': 60.0,'minute': 60.0,'min': 60.0,'mins': 60.0,
+        'hours': 3600.0,'hour': 3600.0,'hr': 3600.0,
+        'hrs': 3600.0,'h': 3600.0,
+        'day': 86400.0,'days': 86400.0,'d': 86400.0}
+    if units not in conversion_factors.keys():
+        raise ValueError('Invalid units: {0}'.format(units))
+    #-- return the epoch (as list) and the time unit conversion factors
+    return (datetime_to_list(epoch),conversion_factors[units])
+
+#-- PURPOSE: split a date string into units and epoch
+def split_date_string(date_string):
+    """
+    split a date string into units and epoch
+
+    Arguments
+    ---------
+    date_string: time-units since yyyy-mm-dd hh:mm:ss
+    """
+    try:
+        units,_,epoch = date_string.split(None,2)
+    except ValueError:
+        raise ValueError('Invalid format: {0}'.format(date_string))
+    else:
+        return (units.lower(),dateutil.parser.parse(epoch))
+
+#-- PURPOSE: convert a datetime object into a list
+def datetime_to_list(date):
+    """
+    convert a datetime object into a list [year,month,day,hour,minute,second]
+
+    Arguments
+    ---------
+    date: datetime object
+    """
+    return [date.year,date.month,date.day,date.hour,date.minute,date.second]
 
 #-- PURPOSE: gets the number of days per month for a given year
 def calendar_days(year):

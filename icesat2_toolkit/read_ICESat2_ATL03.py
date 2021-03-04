@@ -516,12 +516,12 @@ def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
     ---------
     FILENAME: full path to ATL03 file
     gtx: beam name based on ground track and position
-        GT1L
-        GT1R
-        GT2L
-        GT2R
-        GT3L
-        GT3R
+        gt1l
+        gt1r
+        gt2l
+        gt2r
+        gt3l
+        gt3r
 
     Keyword arguments
     -----------------

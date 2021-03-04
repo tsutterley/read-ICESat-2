@@ -17,6 +17,7 @@ IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_pairs = read_HDF5_ATL11(FILENAME)
  - `ATTRIBUTES`: read file, group and variable attributes
  - `REFERENCE`: read variables from ATL11 `ref_surf` group
  - `CROSSOVERS`: read variables from ATL11 `crossing_track_data` group
+ - `SUBSETTING`: read variables from ATL11 `subsetting` group
  - `VERBOSE`: output information about top-level HDF5 groups
 
 #### Outputs

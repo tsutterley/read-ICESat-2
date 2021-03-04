@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_IB_ICESat2_ATL06.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 Calculates and interpolates inverse-barometer responses to times and
     locations of ICESat-2 ATL06 land ice elevation data
     This data will be interpolated for all valid points
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     calc_delta_time.py: calculates difference between universal and dynamic time
 
 UPDATE HISTORY:
+    Updated 03/2021: simplify read pressure values routine
     Written 02/2021
 """
 from __future__ import print_function
@@ -100,13 +101,17 @@ def find_pressure_files(ddir, MODEL, MJD):
     return sorted(set(flist))
 
 #-- PURPOSE: read sea level pressure fields and calculate anomalies
-def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,MASK,AREA):
+def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,OCEAN,AREA):
     #-- shape of pressure field
     ny,nx = np.shape(MEAN)
     nfiles = len(FILENAMES)
     #-- allocate for pressure fields
     SLP = np.ma.zeros((24*nfiles,ny,nx))
     MJD = np.zeros((24*nfiles))
+    #-- calculate total area of reanalysis ocean
+    #-- ocean pressure points will be based on reanalysis mask
+    ii,jj = np.nonzero(OCEAN)
+    ocean_area = np.sum(AREA[ii,jj])
     #-- counter for filling arrays
     c = 0
     #-- for each file
@@ -124,39 +129,38 @@ def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,MASK,AREA):
                 #-- check dimensions for expver slice
                 if (fileID.variables[VARNAME].ndim == 4):
                     _,nexp,_,_ = fileID.variables[VARNAME].shape
-                    temp = fileID.variables[VARNAME][t,:,:,:].copy()
+                    #-- sea level pressure for time
+                    pressure = fileID.variables[VARNAME][t,:,:,:].copy()
+                    #-- iterate over expver slices to find valid outputs
                     for j in range(nexp):
                         #-- check if any are valid for expver
-                        if np.any(temp[j,:,:]):
-                            #-- extract pressure for time
-                            SLP[c,:,:] = temp[j,:,:].copy()
+                        if np.any(pressure[j,:,:]):
+                            #-- remove average with respect to time
+                            AveRmvd = pressure[j,:,:] - MEAN
                             break
                 else:
-                    #-- extract pressure and add to output matrix
-                    SLP[c,:,:] = fileID.variables[VARNAME][t,:,:].copy()
+                    #-- sea level pressure for time
+                    pressure = fileID.variables[VARNAME][t,:,:].copy()
+                    #-- remove average with respect to time
+                    AveRmvd = pressure - MEAN
+                #-- calculate average oceanic pressure values
+                AVERAGE = np.sum(AveRmvd[ii,jj]*AREA[ii,jj])/ocean_area
+                #-- calculate sea level pressure anomalies
+                SLP[c,:,:] = AveRmvd - AVERAGE
+                #-- clear temp variables for iteration to free up memory
+                pressure,AveRmvd = (None,None)
                 #-- add to counter
                 c += 1
-
+    #-- verify latitudes are sorted in ascending order
+    ilat = np.argsort(latitude)
+    SLP = SLP[:,ilat,:]
+    latitude = latitude[ilat]
     #-- verify time is sorted in ascending order
     itime = np.argsort(MJD)
     SLP = SLP[itime,:,:]
     MJD = MJD[itime]
-    #-- reverse pressure fields over latitudes
-    if (np.sign(latitude[1] - latitude[0]) == -1):
-        SLP = SLP[:,::-1,:]
-
-    #-- calculate total area of reanalysis ocean
-    ii,jj = np.nonzero(MASK)
-    ocean_area = np.sum(AREA[ii,jj])
-    #-- calculate sea level pressure anomalies
-    for t,_ in enumerate(MJD):
-        #-- remove average with respect to time
-        SLP[t,:,:] -= MEAN
-        #-- remove average oceanic pressure values for time
-        #-- ocean pressure points will be based on reanalysis mask
-        SLP[t,:,:] -= np.sum(SLP[t,ii,jj]*AREA[ii,jj])/ocean_area
     #-- return the sea level pressure anomalies and times
-    return (SLP,MJD)
+    return (SLP,latitude,MJD)
 
 #-- PURPOSE: read ICESat-2 land ice data (ATL06) from NSIDC
 #-- calculate and interpolate the instantaneous inverse barometer response
@@ -228,14 +232,6 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
     #-- read mean pressure field
     mean_file = os.path.join(ddir,input_mean_file.format(RANGE[0],RANGE[1]))
     mean_pressure,lon,lat=ncdf_mean_pressure(mean_file,VARNAME,LONNAME,LATNAME)
-    ny,nx = np.shape(mean_pressure)
-    #-- check if dlat is negative so that field is monotonically increasing
-    dlat = lat[1] - lat[0]
-    if (np.sign(dlat) == -1):
-        #-- reverse order of latitudes
-        lat = lat[::-1]
-        #-- reverse mean field over latitudes
-        mean_pressure = mean_pressure[::-1,:]
 
     #-- pyproj transformer for converting from input coordinates (EPSG)
     #-- to model coordinates
@@ -273,10 +269,10 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         epoch=(1858,11,17,0,0,0), scale=1.0)
     FILENAMES = find_pressure_files(ddir,MODEL,MJD)
     #-- read sea level pressure and calculate anomalies
-    islp,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,
+    islp,ilat,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,
         mean_pressure,MASK,AREA)
     #-- create an interpolator for sea level pressure anomalies
-    RGI = scipy.interpolate.RegularGridInterpolator((imjd,lat,lon), islp,
+    RGI = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon), islp,
         bounds_error=False)
 
     #-- copy variables for outputting to HDF5 file
@@ -320,19 +316,19 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         #-- calculate projected coordinates of input coordinates
         ix,iy = transformer.transform(val['longitude'], val['latitude'])
 
-        #-- colatitudes of the ATL11 measurements
+        #-- colatitudes of the ATL06 measurements
         th = (90.0 - val['latitude'])*np.pi/180.0
-        #-- gravitational acceleration at the equator and at mean sea level
+        #-- gravitational acceleration at mean sea level at the equator
         ge = 9.780356
         #-- gravitational acceleration at mean sea level over colatitudes
-        gs = ge*(1.0+5.2885e-3*np.cos(th)**2-5.9e-6*np.cos(2.0*th)**2)
+        #-- from Heiskanen and Moritz, Physical Geodesy, (1967)
+        gs = ge*(1.0 + 5.2885e-3*np.cos(th)**2 - 5.9e-6*np.cos(2.0*th)**2)
 
         #-- interpolate sea level pressure anomalies to points
         SLP = RGI.__call__(np.c_[MJD[valid],iy[valid],ix[valid]])
         #-- calculate inverse barometer response
         IB = np.ma.zeros((n_seg),fill_value=fv)
         IB.data[valid] = -SLP*(DENSITY*gs[valid])**-1
-        print(np.min(MJD[valid]),np.max(MJD[valid]),np.min(imjd),np.max(imjd))
         #-- replace any nan values with fill value
         IB.mask = (val['h_li'] == fv)
         IB.mask |= np.isnan(IB.data)

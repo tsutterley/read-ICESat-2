@@ -8,11 +8,12 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     :caption: Getting Started
 
     getting_started/Install.rst
-    getting_started/Getting-Started.md
+    getting_started/Getting-Started.rst
     getting_started/Examples.rst
     getting_started/NASA-Earthdata.rst
     getting_started/ICESat-2-Data-Products.rst
-    getting_started/Parallel-HDF5.md
+    getting_started/Parallel-HDF5.rst
+    getting_started/Contributing.rst
     getting_started/Resources.rst
     getting_started/Citations.rst
 

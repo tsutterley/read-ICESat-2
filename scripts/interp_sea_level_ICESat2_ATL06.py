@@ -37,7 +37,6 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL06.py: reads ICESat-2 land ice along-track height data files
     time.py: utilities for calculating time operations
     utilities: download and management utilities for syncing files
-    calc_delta_time.py: calculates difference between universal and dynamic time
 
 UPDATE HISTORY:
     Updated 02/2021: using argparse to set command line options
@@ -544,7 +543,7 @@ def HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['source'] = 'Spacecraft'
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
-    #-- add attributes for input ATL06 files
+    #-- add attributes for input ATL06 file
     fileID.attrs['input_files'] = os.path.basename(INPUT)
     #-- find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)

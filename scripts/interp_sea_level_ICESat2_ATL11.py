@@ -38,7 +38,6 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL11.py: reads ICESat-2 annual land ice height data files
     time.py: utilities for calculating time operations
     utilities: download and management utilities for syncing files
-    calc_delta_time.py: calculates difference between universal and dynamic time
 
 UPDATE HISTORY:
     Written 02/2021
@@ -250,7 +249,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, CROSSOVERS=False, VERBOSE=False,
 
     #-- for each input beam pair within the file
     for ptx in sorted(IS2_atl11_pairs):
-        #-- output data dictionaries for beam
+        #-- output data dictionaries for beam pair
         IS2_atl11_corr[ptx] = dict(cycle_stats=collections.OrderedDict(),
             crossing_track_data=collections.OrderedDict())
         IS2_atl11_fill[ptx] = dict(cycle_stats={},crossing_track_data={})

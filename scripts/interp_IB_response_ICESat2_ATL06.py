@@ -580,7 +580,7 @@ def HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['source'] = 'Spacecraft'
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
-    #-- add attributes for input ATL06 files
+    #-- add attributes for input ATL06 file
     fileID.attrs['input_files'] = os.path.basename(INPUT)
     #-- find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)

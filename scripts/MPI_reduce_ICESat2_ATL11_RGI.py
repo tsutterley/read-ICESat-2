@@ -75,6 +75,7 @@ import datetime
 import argparse
 import shapefile
 import numpy as np
+import collections
 from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
@@ -245,7 +246,7 @@ def main():
     #-- for each input beam pair within the file
     for ptx in sorted(IS2_atl11_pairs):
         #-- output data dictionaries for beam pair
-        IS2_atl11_mask[ptx] = dict(subsetting={})
+        IS2_atl11_mask[ptx] = dict(subsetting=collections.OrderedDict())
         IS2_atl11_fill[ptx] = dict(subsetting={})
         IS2_atl11_dims[ptx] = dict(subsetting={})
         IS2_atl11_mask_attrs[ptx] = dict(subsetting={})
@@ -306,11 +307,27 @@ def main():
         IS2_atl11_mask_attrs[ptx]['polar_radius'] = fileID[ptx].attrs['polar_radius']
 
         #-- geolocation, time and reference point
+        #-- reference point
+        IS2_atl11_mask[ptx]['ref_pt'] = fileID[ptx]['ref_pt'][:].copy()
+        IS2_atl11_fill[ptx]['ref_pt'] = None
+        IS2_atl11_dims[ptx]['ref_pt'] = None
+        IS2_atl11_mask_attrs[ptx]['ref_pt'] = collections.OrderedDict()
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['units'] = "1"
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['contentType'] = "referenceInformation"
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['long_name'] = "Reference point number"
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['source'] = "ATL06"
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['description'] = ("The reference point is the 7 "
+            "digit segment_id number corresponding to the center of the ATL06 data used for "
+            "each ATL11 point.  These are sequential, starting with 1 for the first segment "
+            "after an ascending equatorial crossing node.")
+        IS2_atl11_mask_attrs[ptx]['ref_pt']['coordinates'] = \
+            "delta_time latitude longitude"
+
         #-- cycle_number
         IS2_atl11_mask[ptx]['cycle_number'] = fileID[ptx]['cycle_number'][:].copy()
         IS2_atl11_fill[ptx]['cycle_number'] = None
         IS2_atl11_dims[ptx]['cycle_number'] = None
-        IS2_atl11_mask_attrs[ptx]['cycle_number'] = {}
+        IS2_atl11_mask_attrs[ptx]['cycle_number'] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['cycle_number']['units'] = "1"
         IS2_atl11_mask_attrs[ptx]['cycle_number']['long_name'] = "Orbital cycle number"
         IS2_atl11_mask_attrs[ptx]['cycle_number']['source'] = "ATL06"
@@ -322,7 +339,7 @@ def main():
         IS2_atl11_mask[ptx]['delta_time'] = fileID[ptx]['delta_time'][:].copy()
         IS2_atl11_fill[ptx]['delta_time'] = fileID[ptx]['delta_time'].attrs['_FillValue']
         IS2_atl11_dims[ptx]['delta_time'] = ['ref_pt','cycle_number']
-        IS2_atl11_mask_attrs[ptx]['delta_time'] = {}
+        IS2_atl11_mask_attrs[ptx]['delta_time'] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['delta_time']['units'] = "seconds since 2018-01-01"
         IS2_atl11_mask_attrs[ptx]['delta_time']['long_name'] = "Elapsed GPS seconds"
         IS2_atl11_mask_attrs[ptx]['delta_time']['standard_name'] = "time"
@@ -340,7 +357,7 @@ def main():
         IS2_atl11_mask[ptx]['latitude'] = fileID[ptx]['latitude'][:].copy()
         IS2_atl11_fill[ptx]['latitude'] = fileID[ptx]['latitude'].attrs['_FillValue']
         IS2_atl11_dims[ptx]['latitude'] = ['ref_pt']
-        IS2_atl11_mask_attrs[ptx]['latitude'] = {}
+        IS2_atl11_mask_attrs[ptx]['latitude'] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['latitude']['units'] = "degrees_north"
         IS2_atl11_mask_attrs[ptx]['latitude']['contentType'] = "physicalMeasurement"
         IS2_atl11_mask_attrs[ptx]['latitude']['long_name'] = "Latitude"
@@ -356,7 +373,7 @@ def main():
         IS2_atl11_mask[ptx]['longitude'] = fileID[ptx]['longitude'][:].copy()
         IS2_atl11_fill[ptx]['longitude'] = fileID[ptx]['longitude'].attrs['_FillValue']
         IS2_atl11_dims[ptx]['longitude'] = ['ref_pt']
-        IS2_atl11_mask_attrs[ptx]['longitude'] = {}
+        IS2_atl11_mask_attrs[ptx]['longitude'] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['longitude']['units'] = "degrees_east"
         IS2_atl11_mask_attrs[ptx]['longitude']['contentType'] = "physicalMeasurement"
         IS2_atl11_mask_attrs[ptx]['longitude']['long_name'] = "Longitude"
@@ -368,21 +385,6 @@ def main():
         IS2_atl11_mask_attrs[ptx]['longitude']['valid_max'] = 180.0
         IS2_atl11_mask_attrs[ptx]['longitude']['coordinates'] = \
             "ref_pt delta_time latitude"
-        #-- reference point
-        IS2_atl11_mask[ptx]['ref_pt'] = fileID[ptx]['ref_pt'][:].copy()
-        IS2_atl11_fill[ptx]['ref_pt'] = None
-        IS2_atl11_dims[ptx]['ref_pt'] = None
-        IS2_atl11_mask_attrs[ptx]['ref_pt'] = {}
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['units'] = "1"
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['contentType'] = "referenceInformation"
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['long_name'] = "Reference point number"
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['source'] = "ATL06"
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['description'] = ("The reference point is the 7 "
-            "digit segment_id number corresponding to the center of the ATL06 data used for "
-            "each ATL11 point.  These are sequential, starting with 1 for the first segment "
-            "after an ascending equatorial crossing node.")
-        IS2_atl11_mask_attrs[ptx]['ref_pt']['coordinates'] = \
-            "delta_time latitude longitude"
 
         #-- subsetting variables
         IS2_atl11_mask_attrs[ptx]['subsetting']['Description'] = ("The subsetting group "
@@ -396,7 +398,7 @@ def main():
         IS2_atl11_mask[ptx]['subsetting'][RGI_NAME] = associated_map
         IS2_atl11_fill[ptx]['subsetting'][RGI_NAME] = None
         IS2_atl11_dims[ptx]['subsetting'][RGI_NAME] = ['ref_pt']
-        IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME] = {}
+        IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['contentType'] = "referenceInformation"
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['long_name'] = '{0} Mask'.format(key)
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['description'] = ('Mask calculated '
@@ -412,7 +414,7 @@ def main():
         IS2_atl11_mask[ptx]['subsetting']['RGIId'] = associated_RGIId
         IS2_atl11_fill[ptx]['subsetting']['RGIId'] = None
         IS2_atl11_dims[ptx]['subsetting']['RGIId'] = ['ref_pt']
-        IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId'] = {}
+        IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId'] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['contentType'] = "referenceInformation"
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['long_name'] = "RGI Identifier"
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['description'] = ('Identification '

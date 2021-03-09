@@ -920,8 +920,8 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['source'] = 'Spacecraft'
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
-    #-- add attributes for input ATL06 files
-    fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
+    #-- add attributes for input ATL06 file
+    fileID.attrs['input_files'] = os.path.basename(INPUT)
     #-- find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for gtx in beams:

@@ -35,7 +35,7 @@ jobs:
         export CC=mpicc
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -86,7 +86,7 @@ jobs:
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/local/opt/hdf5-mpi
         pip install git+https://github.com/h5py/h5py.git
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

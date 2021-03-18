@@ -63,23 +63,36 @@ def get_data_path(relpath):
     elif isinstance(relpath,str):
         return os.path.join(filepath,relpath)
 
-#-- PURPOSE: get the MD5 hash value of a file
-def get_hash(local):
+#-- PURPOSE: get the hash value of a file
+def get_hash(local, algorithm='MD5'):
     """
-    Get the MD5 hash value from a local file or BytesIO object
+    Get the hash value from a local file or BytesIO object
 
     Arguments
     ---------
     local: BytesIO object or path to file
+
+    Keyword Arguments
+    -----------------
+    algorithm: hashing algorithm for checksum validation
+        MD5: Message Digest
+        sha1: Secure Hash Algorithm
     """
     #-- check if open file object or if local file exists
     if isinstance(local, io.IOBase):
-        return hashlib.md5(local.getvalue()).hexdigest()
+        if (algorithm == 'MD5'):
+            return hashlib.md5(local.getvalue()).hexdigest()
+        elif (algorithm == 'sha1'):
+            return hashlib.sha1(local.getvalue()).hexdigest()
     elif os.access(os.path.expanduser(local),os.F_OK):
         #-- generate checksum hash for local file
         #-- open the local_file in binary read mode
         with open(os.path.expanduser(local), 'rb') as local_buffer:
-            return hashlib.md5(local_buffer.read()).hexdigest()
+            #-- generate checksum hash for a given type
+            if (algorithm == 'MD5'):
+                return hashlib.md5(local_buffer.read()).hexdigest()
+            elif (algorithm == 'sha1'):
+                return hashlib.sha1(local_buffer.read()).hexdigest()
     else:
         return ''
 

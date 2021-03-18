@@ -49,13 +49,13 @@ General Methods
 
     Arguments:
 
-        `date_string`: time-units since yyyy-mm-dd hh:mm:ss
+        ``date_string``: time-units since yyyy-mm-dd hh:mm:ss
 
     Returns:
 
-        `epoch`: epoch of delta time
+        ``epoch``: epoch of delta time
 
-        `scale`: multiplication factor to convert to seconds
+        ``scale``: multiplication factor to convert to seconds
 
 
 .. method:: icesat2_toolkit.time.split_date_string(date_string)
@@ -64,7 +64,7 @@ General Methods
 
     Arguments:
 
-        `date_string`: time-units since yyyy-mm-dd hh:mm:ss
+        ``date_string``: time-units since yyyy-mm-dd hh:mm:ss
 
 
 .. method:: icesat2_toolkit.time.datetime_to_list(date)
@@ -73,7 +73,7 @@ General Methods
 
     Arguments:
 
-        `date`: datetime object
+        ``date``: datetime object
 
 
 .. method:: icesat2_toolkit.time.calendar_days(year)
@@ -82,11 +82,11 @@ General Methods
 
     Arguments:
 
-        `year`: calendar year
+        ``year``: calendar year
 
     Returns:
 
-        `dpm`: number of days for each month
+        ``dpm``: number of days for each month
 
 
 .. method:: icesat2_toolkit.time.convert_delta_time(delta_time, epoch1=None, epoch2=None, scale=1.0)
@@ -95,15 +95,15 @@ General Methods
 
     Arguments:
 
-        `delta_time`: seconds since epoch1
+        ``delta_time``: seconds since epoch1
 
     Keyword arguments:
 
-        `epoch1`: epoch for input delta_time
+        ``epoch1``: epoch for input delta_time
 
-        `epoch2`: epoch for output delta_time
+        ``epoch2``: epoch for output delta_time
 
-        `scale`: scaling factor for converting time to output units
+        ``scale``: scaling factor for converting time to output units
 
 
 .. method:: icesat2_toolkit.time.convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0, epoch=None, scale=1.0)
@@ -112,23 +112,23 @@ General Methods
 
     Arguments:
 
-        `year`: calendar month
+        ``year``: calendar month
 
-        `month`: month of the year
+        ``month``: month of the year
 
-        `day`: day of the month
+        ``day``: day of the month
 
     Keyword arguments:
 
-        `hour`: hour of the day
+        ``hour``: hour of the day
 
-        `minute`: minute of the hour
+        ``minute``: minute of the hour
 
-        `second`: second of the minute
+        ``second``: second of the minute
 
-        `epoch`: epoch for output delta_time
+        ``epoch``: epoch for output delta_time
 
-        `scale`: scaling factor for converting time to output units
+        ``scale``: scaling factor for converting time to output units
 
 
 .. method:: icesat2_toolkit.time.convert_calendar_decimal(year, month, day=None, hour=None, minute=None, second=None, DofY=None)
@@ -137,25 +137,25 @@ General Methods
 
     Arguments:
 
-        `year`: calendar year
+        ``year``: calendar year
 
-        `month`: calendar month
+        ``month``: calendar month
 
     Keyword arguments:
 
-        `day`: Number of day of the month
+        ``day``: Number of day of the month
 
-        `hour`: hour of the day
+        ``hour``: hour of the day
 
-        `minute`: minute of the hour
+        ``minute``: minute of the hour
 
-        `second`: second (and fractions of a second) of the minute
+        ``second``: second (and fractions of a second) of the minute
 
-        `DofY`: day of the year
+        ``DofY``: day of the year
 
     Returns:
 
-        `t_date` date in decimal-year format
+        ``t_date`` date in decimal-year format
 
 
 .. method:: icesat2_toolkit.time.convert_julian(JD, ASTYPE=None, FORMAT=None)
@@ -164,33 +164,33 @@ General Methods
 
     Arguments:
 
-        `JD`: Julian Day (days since 01-01-4713 BCE at 12:00:00)
+        ``JD``: Julian Day (days since 01-01-4713 BCE at 12:00:00)
 
     Keyword arguments:
 
-        `ASTYPE`: convert output to variable type
+        ``ASTYPE``: convert output to variable type
 
-        `FORMAT`: format of output variables
+        ``FORMAT``: format of output variables
 
-            'dict': dictionary with variable keys
+            ``'dict'``: dictionary with variable keys
 
-            'tuple': tuple with variable order year,month,day,hour,minute,second
+            ``'tuple'``: tuple with variable order year,month,day,hour,minute,second
 
-            'zip': aggregated variable sets
+            ``'zip'``: aggregated variable sets
 
     Returns:
 
-        `year`: Calendar year
+        ``year``: Calendar year
 
-        `month`: Calendar month
+        ``month``: Calendar month
 
-        `day`: Calendar day of the month
+        ``day``: Calendar day of the month
 
-        `hour`: hour of the day
+        ``hour``: hour of the day
 
-        `minute`: minute of the hour
+        ``minute``: minute of the hour
 
-        `second`: second (and fractions of a second) of the minute
+        ``second``: second (and fractions of a second) of the minute
 
 
 .. method:: icesat2_toolkit.time.count_leap_seconds(GPS_Time)
@@ -199,7 +199,7 @@ General Methods
 
     Arguments:
 
-        `GPS_Time`: seconds since January 6, 1980 at 00:00:00
+        ``GPS_Time``: seconds since January 6, 1980 at 00:00:00
 
 
 .. method:: icesat2_toolkit.time.get_leap_seconds()
@@ -215,6 +215,6 @@ General Methods
 
     Keyword arguments:
 
-        `verbose`: print file information about output file
+        ``verbose``: print file information about output file
 
-        `mode`: permissions mode of output file
+        ``mode``: permissions mode of output file

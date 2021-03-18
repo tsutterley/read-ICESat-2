@@ -23,8 +23,8 @@ python nsidc_icesat2_convert.py --user <username> --directory <outgoing> \
  - `-t X`, `--track X`: ICESat-2 reference ground tracks to sync
  - `-g X`, `--granule X`: ICESat-2 granule regions to sync
  - `-f X`, `--format X`: output file format
- 	* zarr
-	* HDF5
+ 	* `'zarr'`
+	* `'HDF5'`
  - `-c X`, `--chunks X`: Rechunk files to size
  - `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file
  - `-I X, --index X`: Input index of ICESat-2 files to sync

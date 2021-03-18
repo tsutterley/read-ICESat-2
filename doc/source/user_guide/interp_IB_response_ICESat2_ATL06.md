@@ -20,6 +20,6 @@ python interp_IB_response_ICESat2_ATL06.py --directory <path_to_directory> --rea
     * `'ERA5'`
     * `'MERRA-2'`
 - `-m X`, `--mean X`: Start and end year range for mean
-- `-d X`, `--density X`: Density of seawater in kg/m^3
+- `-d X`, `--density X`: Density of seawater in kg/m<sup>3</sup>
 - `-V`, `--verbose`: Output information about each created file
 - `-M X`, `--mode X`: Permission mode of output file

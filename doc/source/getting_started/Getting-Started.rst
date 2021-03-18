@@ -3,7 +3,7 @@ Getting Started
 ===============
 
 - `Register at NASA Earthdata and add NSIDC applications <./NASA-Earthdata.md>`_
-- Retrieve ``ATL03_20191115042423_07520512_003_01.h5` from NSIDC
+- Retrieve ``ATL03_20191115042423_07520512_003_01.h5`` from NSIDC
 
 .. code-block:: bash
 

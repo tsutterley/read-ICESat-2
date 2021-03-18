@@ -21,7 +21,7 @@ General Methods
 
     .. attribute:: object.reformat
 
-        output format (`'zarr'`, `'HDF'`, `'JPL'`, `'csv'`, `'txt'`, `'dataframe'`)
+        output format (``'zarr'``, ``'HDF'``, ``'JPL'``, ``'csv'``, ``'txt'``, ``'dataframe'``)
 
 
     .. method:: object.file_converter(**kwds)

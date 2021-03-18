@@ -46,7 +46,7 @@ setup(
     version=version,
     description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type="text/x-rst",
     url='https://github.com/tsutterley/read-ICESat-2',
     author='Tyler Sutterley',
     author_email='tsutterl@uw.edu',

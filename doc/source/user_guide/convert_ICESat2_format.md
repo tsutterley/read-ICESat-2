@@ -21,8 +21,8 @@ python convert_ICESat2_zarr.py --directory <outgoing> \
  - `-t X`, `--track X`: ICESat-2 reference ground tracks to run
  - `-g X`, `--granule X`: ICESat-2 granule regions to run
  - `-f X`, `--format X`: output file format
- 	* zarr
-	* HDF5
+ 	* `'zarr'`
+	* `'HDF5'`
  - `-c X`, `--chunks X`: Rechunk files to size
  - `-P X`, `--np X`: Number of processes to use in file conversion
  - `-C`, `--clobber`: Overwrite existing zarr files

@@ -17,6 +17,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: parse date strings "time-units since yyyy-mm-dd hh:mm:ss"
+        replaced numpy int/float to prevent deprecation warnings
     Updated 01/2021: added ftp connection checks
         merged with convert_julian and convert_calendar_decimal
         added calendar_days routine to get number of days per month
@@ -109,8 +110,8 @@ def calendar_days(year):
     """
     #-- days per month in a leap and a standard year
     #-- only difference is February (29 vs. 28)
-    dpm_leap = np.array([31,29,31,30,31,30,31,31,30,31,30,31],dtype=np.float)
-    dpm_stnd = np.array([31,28,31,30,31,30,31,31,30,31,30,31],dtype=np.float)
+    dpm_leap = np.array([31,29,31,30,31,30,31,31,30,31,30,31],dtype=np.float64)
+    dpm_stnd = np.array([31,28,31,30,31,30,31,31,30,31,30,31],dtype=np.float64)
     #-- Rules in the Gregorian calendar for a year to be a leap year:
     #-- divisible by 4, but not by 100 unless divisible by 400
     #-- True length of the year is about 365.2422 days
@@ -184,7 +185,7 @@ def convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0,
     epoch2 = datetime.datetime(*epoch)
     delta_time_epochs = (epoch2 - epoch1).total_seconds()
     #-- return the date in days since epoch
-    return scale*np.array(MJD - delta_time_epochs/86400.0,dtype=np.float)
+    return scale*np.array(MJD - delta_time_epochs/86400.0,dtype=np.float64)
 
 #-- PURPOSE: Converts from calendar dates into decimal years
 def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
@@ -237,8 +238,8 @@ def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
 
     #-- days per month in a leap and a standard year
     #-- only difference is February (29 vs. 28)
-    dpm_leap=np.array([31,29,31,30,31,30,31,31,30,31,30,31], dtype=np.float)
-    dpm_stnd=np.array([31,28,31,30,31,30,31,31,30,31,30,31], dtype=np.float)
+    dpm_leap=np.array([31,29,31,30,31,30,31,31,30,31,30,31], dtype=np.float64)
+    dpm_stnd=np.array([31,28,31,30,31,30,31,31,30,31,30,31], dtype=np.float64)
 
     #-- Rules in the Gregorian calendar for a year to be a leap year:
     #-- divisible by 4, but not by 100 unless divisible by 400
@@ -264,7 +265,7 @@ def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
         #-- use calendar month and day of the month to calculate day of the year
         #-- month minus 1: January = 0, February = 1, etc (indice of month)
         #-- in decimal form: January = 0.0
-        month_m1 = np.array(cal_date['month'],dtype=np.int) - 1
+        month_m1 = np.array(cal_date['month'],dtype=int) - 1
 
         #-- day of month
         if day is not None:
@@ -434,7 +435,7 @@ def count_leap_seconds(GPS_Time):
     #-- get the valid leap seconds
     leaps = get_leap_seconds()
     #-- number of leap seconds prior to GPS_Time
-    n_leaps = np.zeros_like(GPS_Time,dtype=np.float)
+    n_leaps = np.zeros_like(GPS_Time,dtype=np.float64)
     for i,leap in enumerate(leaps):
         count = np.count_nonzero(GPS_Time >= leap)
         if (count > 0):
@@ -470,7 +471,7 @@ def get_leap_seconds():
     leap_GPS = convert_delta_time(leap_UTC+TAI_UTC-TAI_GPS-1,
         epoch1=(1900,1,1,0,0,0), epoch2=(1980,1,6,0,0,0))
     #-- return the GPS times of leap second occurance
-    return leap_GPS[leap_GPS >= 0].astype(np.float)
+    return leap_GPS[leap_GPS >= 0].astype(np.float64)
 
 #-- PURPOSE: connects to servers and downloads leap second files
 def update_leap_seconds(verbose=False, mode=0o775):

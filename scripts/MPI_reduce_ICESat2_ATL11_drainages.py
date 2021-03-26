@@ -39,7 +39,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: use size of array to add to any valid check
-        replaced numpy bool to prevent deprecation warning
+        replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Written 12/2020
 """
@@ -253,7 +253,7 @@ def main():
             continue
 
         #-- define indices to run for specific process
-        ind = np.arange(comm.Get_rank(),n_points,comm.Get_size(),dtype=np.int)
+        ind = np.arange(comm.Get_rank(),n_points,comm.Get_size(),dtype=int)
 
         #-- convert lat/lon to polar stereographic
         X,Y = transformer.transform(fileID[ptx]['longitude'][:],
@@ -562,11 +562,11 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
         FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
-        np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))
+    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
+        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
     fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(np.int(YY[1]), np.int(MM[1]), np.int(DD[1]),
-        np.int(HH[1]), np.int(MN[1]), np.int(SS[1]), np.int(1e6*(SS[1] % 1)))
+    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
+        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file

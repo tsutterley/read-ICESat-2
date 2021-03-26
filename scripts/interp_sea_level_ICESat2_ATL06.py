@@ -42,6 +42,7 @@ UPDATE HISTORY:
     Updated 02/2021: using argparse to set command line options
         using scikit-learn neighbors to interpolate fields
         time utilities for converting times from JD and to decimal
+        replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: using conversion protocols following pyproj-2 updates
         https://pyproj4.github.io/pyproj/stable/gotchas.html
     Updated 10/2019: changing Y/N flags to True/False
@@ -149,7 +150,7 @@ def interpolate_sea_level(base_dir, xi, yi, CJD, HEM):
         #-- convert from CNES Julians Days to calendar dates for time
         JD1 = CJD1 + day + 2433282.5
         YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(JD1[0],
-            FORMAT='tuple', ASTYPE=np.int)
+            FORMAT='tuple', ASTYPE=int)
         #-- sea level directory
         ddir = os.path.join(base_dir, '{0:0.0f}'.format(YY))
         #-- input file for day before the measurement
@@ -580,11 +581,11 @@ def HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_attrs, INPUT=None,
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(MJD + 2400000.5,
         FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
-        np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))
+    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
+        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
     fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(np.int(YY[1]), np.int(MM[1]), np.int(DD[1]),
-        np.int(HH[1]), np.int(MN[1]), np.int(SS[1]), np.int(1e6*(SS[1] % 1)))
+    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
+        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file

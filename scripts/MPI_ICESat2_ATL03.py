@@ -40,7 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
-    Updated 02/2021: replaced numpy bool to prevent deprecation warning
+    Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
     Updated 10/2020: using argparse to set parameters
@@ -318,7 +318,7 @@ def calc_first_photon_bias(temporal_residuals,n_pulses,n_pixels,dead_time,dt,
     #-- average number of pixels in the detector that were inactive
     P_dead = np.zeros((nt))
     #-- dead time as a function of the number of bins
-    n_dead = np.int(dead_time/dt)
+    n_dead = int(dead_time/dt)
     #-- calculate moving total of last n_dead bins
     kernel = np.triu(np.tri(nt,nt,0),k=-n_dead)
     P_dead[:] = np.dot(kernel,N0_full[:,None]).flatten()
@@ -461,8 +461,8 @@ def calc_transmit_pulse_shape(t_TX,p_TX,W_TX,W_RX,dt_W,SNR,ITERATE=50):
     W_spread = np.sqrt(np.max([W_RX**2 - W_TX**2,1e-22]))
     #-- create zero padded transmit and received pulses (by 4*W_spread samples)
     dw = np.ceil(W_spread/dt)
-    wmn = -np.int(np.min([0,np.round((-t_TX[0])/dt)-4*dw]))
-    wmx = np.int(np.max([nt,np.round((-t_TX[0])/dt)+4*dw])-nt)
+    wmn = -int(np.min([0,np.round((-t_TX[0])/dt)-4*dw]))
+    wmx = int(np.max([nt,np.round((-t_TX[0])/dt)+4*dw])-nt)
     t_RX = np.arange(t_TX[0]-wmn*dt,t_TX[-1]+(wmx+1)*dt,dt)
     nr = len(t_RX)
     TX = np.zeros((nr))
@@ -668,7 +668,7 @@ def main():
         Segment_Background[gtx] = SPL(fileID[gtx]['geolocation']['delta_time'][:])
 
         #-- ATLAS spot number for beam in current orientation
-        spot = np.int(fileID[gtx].attrs['atlas_spot_number'])
+        spot = int(fileID[gtx].attrs['atlas_spot_number'])
         #-- get ATLAS impulse response variables for the transmitter echo path (TEP)
         tep1,tep2 = ('atlas_impulse_response','tep_histogram')
         #-- get appropriate transmitter-echo-path histogram for spot
@@ -755,7 +755,7 @@ def main():
         Distributed_Latitude = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_Latitude.mask = np.ones((n_seg),dtype=bool)
         #-- number of photons in fit
-        Distributed_N_Fit = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_N_Fit = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_N_Fit.mask = np.ones((n_seg),dtype=bool)
         #-- size of the window used in the fit
         Distributed_Window = np.ma.zeros((n_seg),fill_value=fill_value)
@@ -767,16 +767,16 @@ def main():
         Distributed_SNR = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_SNR.mask = np.ones((n_seg),dtype=bool)
         #-- segment quality summary
-        Distributed_Summary = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_Summary = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_Summary.mask = np.ones((n_seg),dtype=bool)
         #-- number of iterations for fit
-        Distributed_Iterations = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_Iterations = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_Iterations.mask = np.ones((n_seg),dtype=bool)
         #-- signal source selection
-        Distributed_Source = np.ma.zeros((n_seg),fill_value=4,dtype=np.int)
+        Distributed_Source = np.ma.zeros((n_seg),fill_value=4,dtype=int)
         Distributed_Source.mask = np.ones((n_seg),dtype=bool)
         #-- number of pulses in segment
-        Distributed_Pulses = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_Pulses = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_Pulses.mask = np.ones((n_seg),dtype=bool)
         #-- first photon bias estimates
         Distributed_FPB_mean_corr = np.ma.zeros((n_seg),fill_value=fill_value)
@@ -787,7 +787,7 @@ def main():
         Distributed_FPB_median_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_median_sigma = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_FPB_median_sigma.mask = np.ones((n_seg),dtype=bool)
-        Distributed_FPB_n_corr = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Distributed_FPB_n_corr = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_FPB_n_corr.mask = np.ones((n_seg),dtype=bool)
         Distributed_FPB_cal_corr = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_FPB_cal_corr.mask = np.ones((n_seg),dtype=bool)
@@ -815,8 +815,8 @@ def main():
                 #-- index for segment j
                 idx = Segment_Index_begin[gtx][j]
                 #-- number of photons in segment (use 2 ATL03 segments)
-                c1 = np.int(Segment_PE_count[gtx][j])
-                c2 = np.int(Segment_PE_count[gtx][j+1])
+                c1 = int(Segment_PE_count[gtx][j])
+                c2 = int(Segment_PE_count[gtx][j+1])
                 cnt = c1 + c2
                 #-- time of each Photon event (PE)
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
@@ -950,7 +950,7 @@ def main():
                         Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
-                        Distributed_Summary.data[j] = np.int(
+                        Distributed_Summary.data[j] = int(
                             (Distributed_RDE.data[j] >= 1) |
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
@@ -963,10 +963,10 @@ def main():
                 #-- index for segment j
                 idx = Segment_Index_begin[gtx][j-1]
                 #-- number of photons in segment (use 4 ATL03 segments)
-                c1 = Segment_PE_count[gtx][j-1].astype(np.int)
-                c2 = Segment_PE_count[gtx][j].astype(np.int)
-                c3 = Segment_PE_count[gtx][j+1].astype(np.int)
-                c4 = Segment_PE_count[gtx][j+2].astype(np.int)
+                c1 = Segment_PE_count[gtx][j-1].astype(int)
+                c2 = Segment_PE_count[gtx][j].astype(int)
+                c3 = Segment_PE_count[gtx][j+1].astype(int)
+                c4 = Segment_PE_count[gtx][j+2].astype(int)
                 cnt = c1 + c2 + c3 + c4
                 #-- time of each Photon event (PE)
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
@@ -1102,7 +1102,7 @@ def main():
                         Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
-                        Distributed_Summary.data[j] = np.int(
+                        Distributed_Summary.data[j] = int(
                             (Distributed_RDE.data[j] >= 1) |
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
@@ -1229,7 +1229,7 @@ def main():
             recvbuf=[Segment_Latitude[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Latitude = None
         #-- number of photons in fit
-        Segment_N_Fit[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Segment_N_Fit[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Segment_N_Fit[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_N_Fit.data, MPI.INT], \
             recvbuf=[Segment_N_Fit[gtx].data, MPI.INT], op=MPI.SUM)
@@ -1261,7 +1261,7 @@ def main():
             recvbuf=[Segment_SNR[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_SNR = None
         #-- segment quality summary
-        Segment_Summary[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Segment_Summary[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Segment_Summary[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Summary.data, MPI.INT], \
             recvbuf=[Segment_Summary[gtx].data, MPI.INT], op=MPI.SUM)
@@ -1269,7 +1269,7 @@ def main():
             recvbuf=[Segment_Summary[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Summary = None
         #-- number of iterations for fit
-        Segment_Iterations[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Segment_Iterations[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Segment_Iterations[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Iterations.data, MPI.INT], \
             recvbuf=[Segment_Iterations[gtx].data, MPI.INT], op=MPI.SUM)
@@ -1277,7 +1277,7 @@ def main():
             recvbuf=[Segment_Iterations[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Iterations = None
         #-- signal source selection
-        Segment_Source[gtx] = np.ma.zeros((n_seg),fill_value=4,dtype=np.int)
+        Segment_Source[gtx] = np.ma.zeros((n_seg),fill_value=4,dtype=int)
         Segment_Source[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Source.data, MPI.INT], \
             recvbuf=[Segment_Source[gtx].data, MPI.INT], op=MPI.SUM)
@@ -1285,7 +1285,7 @@ def main():
             recvbuf=[Segment_Source[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Source = None
         #-- number of pulses in segment
-        Segment_Pulses[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        Segment_Pulses[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Segment_Pulses[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_Pulses.data, MPI.INT], \
             recvbuf=[Segment_Pulses[gtx].data, MPI.INT], op=MPI.SUM)
@@ -1321,7 +1321,7 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_FPB_median_sigma.mask, MPI.BOOL], \
             recvbuf=[FPB_median_sigma[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_FPB_median_sigma = None
-        FPB_n_corr[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=np.int)
+        FPB_n_corr[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         FPB_n_corr[gtx].mask = np.ones((n_seg),dtype=bool)
         comm.Allreduce(sendbuf=[Distributed_FPB_n_corr.data, MPI.INT], \
             recvbuf=[FPB_n_corr[gtx].data, MPI.INT], op=MPI.SUM)
@@ -2653,11 +2653,11 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
         FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
-        np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))
+    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
+        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
     fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(np.int(YY[1]), np.int(MM[1]), np.int(DD[1]),
-        np.int(HH[1]), np.int(MN[1]), np.int(SS[1]), np.int(1e6*(SS[1] % 1)))
+    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
+        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file

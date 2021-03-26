@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2021: spatially subset sea level pressure maps to conserve memory
+        replaced numpy bool/int to prevent deprecation warnings
     Written 02/2021
 """
 from __future__ import print_function
@@ -100,7 +101,7 @@ def find_pressure_files(ddir, MODEL, MJD):
         JD = mjd + np.arange(-1,2) + 2400000.5
         #-- convert from Julian Days to calendar dates
         Y,M,D,_,_,_ = icesat2_toolkit.time.convert_julian(JD,
-            ASTYPE=np.int, FORMAT='tuple')
+            ASTYPE=int, FORMAT='tuple')
         #-- append day as formatted strings
         for y,m,d in zip(Y,M,D):
             dates.append(joiner.join([str(y),str(m).zfill(2),str(d).zfill(2)]))
@@ -299,7 +300,7 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
 
     #-- for each input beam pair within the file
     for ptx in sorted(IS2_atl11_pairs):
-        #-- output data dictionaries for beam
+        #-- output data dictionaries for beam pair
         IS2_atl11_corr[ptx] = dict(cycle_stats=collections.OrderedDict(),
             crossing_track_data=collections.OrderedDict())
         IS2_atl11_fill[ptx] = dict(cycle_stats={},crossing_track_data={})
@@ -850,11 +851,11 @@ def HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_attrs, INPUT=None,
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(MJD + 2400000.5,
         FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
-        np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))
+    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
+        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
     fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(np.int(YY[1]), np.int(MM[1]), np.int(DD[1]),
-        np.int(HH[1]), np.int(MN[1]), np.int(SS[1]), np.int(1e6*(SS[1] % 1)))
+    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
+        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file

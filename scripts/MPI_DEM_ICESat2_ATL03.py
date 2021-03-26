@@ -60,7 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
-    Updated 02/2021: replaced numpy bool to prevent deprecation warning
+    Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
         using conversion protocols following pyproj-2 updates
@@ -290,10 +290,10 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     ymax = info_geotiff[3]
     #-- reduce input image with GDAL
     #-- Specify offset and rows and columns to read
-    xoffset = np.int((xlimits[0] - xmin)/info_geotiff[1])
-    yoffset = np.int((ymax - ylimits[1])/np.abs(info_geotiff[5]))
-    xcount = np.int((xlimits[1] - xlimits[0])/info_geotiff[1]) + 1
-    ycount = np.int((ylimits[1] - ylimits[0])/np.abs(info_geotiff[5])) + 1
+    xoffset = int((xlimits[0] - xmin)/info_geotiff[1])
+    yoffset = int((ymax - ylimits[1])/np.abs(info_geotiff[5]))
+    xcount = int((xlimits[1] - xlimits[0])/info_geotiff[1]) + 1
+    ycount = int((ylimits[1] - ylimits[0])/np.abs(info_geotiff[5])) + 1
     #-- read data matrix
     im = ds.GetRasterBand(1).ReadAsArray(xoffset, yoffset, xcount, ycount)
     fill_value = ds.GetRasterBand(1).GetNoDataValue()
@@ -447,7 +447,7 @@ def main():
         fv = fileID[gtx]['geolocation']['sigma_h'].fillvalue
 
         #-- define indices to run for specific process
-        ind = np.arange(comm.Get_rank(), n_pe, comm.Get_size(), dtype=np.int)
+        ind = np.arange(comm.Get_rank(), n_pe, comm.Get_size(), dtype=int)
         #-- extract delta time
         delta_time = fileID[gtx]['heights']['delta_time'][:]
         #-- extract lat/lon
@@ -468,9 +468,9 @@ def main():
         associated_map = {}
         for key,poly_obj in tile_dict.items():
             #-- create empty intersection map array for distributing
-            distributed_map = np.zeros((n_pe),dtype=np.int)
+            distributed_map = np.zeros((n_pe),dtype=int)
             #-- create empty intersection map array for receiving
-            associated_map[key] = np.zeros((n_pe),dtype=np.int)
+            associated_map[key] = np.zeros((n_pe),dtype=int)
             #-- finds if points are encapsulated (within tile)
             int_test = poly_obj.intersects(xy_point)
             if int_test:
@@ -631,10 +631,10 @@ def main():
                         if not os.access(buffer_file, os.F_OK):
                             raise IOError('{0} not found'.format(buffer_file))
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
-                        xmin = np.int((x1[0] - x[0])//dx)
-                        xmax = np.int((x1[-1] - x[0])//dx) + 1
-                        ymin = np.int((y1[0] - y[0])//dy)
-                        ymax = np.int((y1[-1] - y[0])//dy) + 1
+                        xmin = int((x1[0] - x[0])//dx)
+                        xmax = int((x1[-1] - x[0])//dx) + 1
+                        ymin = int((y1[0] - y[0])//dy)
+                        ymax = int((y1[-1] - y[0])//dy) + 1
                         #-- add to buffered DEM and mask
                         d[ymin:ymax,xmin:xmax] = DEM.copy()
                         m[ymin:ymax,xmin:xmax] = MASK.copy()
@@ -657,10 +657,10 @@ def main():
                         if not os.access(buffer_file, os.F_OK):
                             raise IOError('{0} not found'.format(buffer_file))
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
-                        xmin = np.int((x1[0] - x[0])//dx)
-                        xmax = np.int((x1[-1] - x[0])//dx) + 1
-                        ymin = np.int((y1[0] - y[0])//dy)
-                        ymax = np.int((y1[-1] - y[0])//dy) + 1
+                        xmin = int((x1[0] - x[0])//dx)
+                        xmax = int((x1[-1] - x[0])//dx) + 1
+                        ymin = int((y1[0] - y[0])//dy)
+                        ymax = int((y1[-1] - y[0])//dy) + 1
                         #-- add to buffered DEM and mask
                         d[ymin:ymax,xmin:xmax] = DEM.copy()
                         m[ymin:ymax,xmin:xmax] = MASK.copy()
@@ -696,10 +696,10 @@ def main():
                         if not os.access(buffer_file, os.F_OK):
                             raise IOError('{0} not found'.format(buffer_file))
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
-                        xmin = np.int((x1[0] - x[0])//dx)
-                        xmax = np.int((x1[-1] - x[0])//dx) + 1
-                        ymin = np.int((y1[0] - y[0])//dy)
-                        ymax = np.int((y1[-1] - y[0])//dy) + 1
+                        xmin = int((x1[0] - x[0])//dx)
+                        xmax = int((x1[-1] - x[0])//dx) + 1
+                        ymin = int((y1[0] - y[0])//dy)
+                        ymax = int((y1[-1] - y[0])//dy) + 1
                         #-- add to buffered DEM and mask
                         d[ymin:ymax,xmin:xmax] = DEM.copy()
                         m[ymin:ymax,xmin:xmax] = MASK.copy()
@@ -892,11 +892,11 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
         FORMAT='tuple')
     #-- add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(np.int(YY[0]), np.int(MM[0]), np.int(DD[0]),
-        np.int(HH[0]), np.int(MN[0]), np.int(SS[0]), np.int(1e6*(SS[0] % 1)))
+    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
+        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
     fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(np.int(YY[1]), np.int(MM[1]), np.int(DD[1]),
-        np.int(HH[1]), np.int(MN[1]), np.int(SS[1]), np.int(1e6*(SS[1] % 1)))
+    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
+        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file

@@ -4,6 +4,7 @@ read_ICESat2_ATL11.py (03/2021)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
+    GROUPS: HDF5 groups to read for each beam pair
     ATTRIBUTES: read HDF5 attributes for groups and variables
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
@@ -20,6 +21,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 03/2021: added function for reading only pair level variables
         simplified group reads to iterate within a try/except statement
+        added keyword argument to explicitly define groups to read
     Updated 02/2021: add check if input streaming from bytes
         add small function to find valid beam pair groups
     Written 01/2021
@@ -33,8 +35,8 @@ import h5py
 import numpy as np
 
 #-- PURPOSE: read ICESat-2 ATL11 HDF5 data files
-def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
-    CROSSOVERS=False, SUBSETTING=False, VERBOSE=False):
+def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
+    REFERENCE=False, CROSSOVERS=False, SUBSETTING=False, VERBOSE=False):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
 
@@ -44,6 +46,7 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
 
     Keyword arguments
     -----------------
+    GROUPS: HDF5 groups to read for each beam pair
     ATTRIBUTES: read HDF5 attributes for groups and variables
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
@@ -83,16 +86,15 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
             IS2_atl11_pairs.append(ptx)
 
     #-- groups to read from ATL11 file
-    groups = ['cycle_stats']
     #-- ATL11 ref_surf group
     if REFERENCE:
-        groups.append('ref_surf')
+        GROUPS.append('ref_surf')
     #-- ATL11 crossing_track_data group
     if CROSSOVERS:
-        groups.append('crossing_track_data')
+        GROUPS.append('crossing_track_data')
     #-- ATL11 subsetting group
     if SUBSETTING:
-        groups.append('subsetting')
+        GROUPS.append('subsetting')
 
     #-- read each input pair track within the file
     for ptx in IS2_atl11_pairs:
@@ -103,7 +105,7 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
                 IS2_atl11_mds[ptx][key] = val[:]
 
         #-- get each HDF5 variable within named groups
-        for group in groups:
+        for group in GROUPS:
             try:
                 IS2_atl11_mds[ptx][group] = {}
                 for key,val in fileID[ptx][group].items():
@@ -123,14 +125,22 @@ def read_HDF5_ATL11(FILENAME, ATTRIBUTES=False, REFERENCE=False,
                 IS2_atl11_attrs[ptx][key] = {}
                 for att_name,att_val in val.attrs.items():
                     IS2_atl11_attrs[ptx][key][att_name] = att_val
+                #-- get fill value attributes if applicable
+                if hasattr(val,'fillvalue'):
+                    IS2_atl11_attrs[ptx][key]['_FillValue'] = \
+                        getattr(val,'fillvalue')
             #-- getting attributes of variables within named groups
-            for group in groups:
+            for group in GROUPS:
                 try:
                     IS2_atl11_attrs[ptx][group] = {}
                     for key,val in fileID[ptx][group].items():
                         IS2_atl11_attrs[ptx][group][key] = {}
                         for att_name,att_val in val.attrs.items():
                             IS2_atl11_attrs[ptx][group][key][att_name] = att_val
+                        #-- get fill value attributes if applicable
+                        if hasattr(val,'fillvalue'):
+                            IS2_atl11_attrs[ptx][group][key]['_FillValue'] = \
+                                getattr(val,'fillvalue')
                 except:
                     pass
 
@@ -219,8 +229,9 @@ def find_HDF5_ATL11_pairs(FILENAME):
     return IS2_atl11_pairs
 
 #-- PURPOSE: read ICESat-2 ATL11 HDF5 data files for a specific beam pair
-def read_HDF5_ATL11_pair(FILENAME, ptx, ATTRIBUTES=False, REFERENCE=False,
-    CROSSOVERS=False, SUBSETTING=False, VERBOSE=False):
+def read_HDF5_ATL11_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
+    ATTRIBUTES=False, REFERENCE=False, CROSSOVERS=False,
+    SUBSETTING=False, VERBOSE=False):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
     for a specific beam pair
@@ -235,6 +246,7 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, ATTRIBUTES=False, REFERENCE=False,
 
     Keyword arguments
     -----------------
+    GROUPS: HDF5 groups to read for each beam pair
     ATTRIBUTES: read HDF5 attributes for groups and variables
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
@@ -262,16 +274,15 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, ATTRIBUTES=False, REFERENCE=False,
     IS2_atl11_attrs = {}
 
     #-- groups to read from ATL11 file
-    groups = ['cycle_stats']
     #-- ATL11 ref_surf group
     if REFERENCE:
-        groups.append('ref_surf')
+        GROUPS.append('ref_surf')
     #-- ATL11 crossing_track_data group
     if CROSSOVERS:
-        groups.append('crossing_track_data')
+        GROUPS.append('crossing_track_data')
     #-- ATL11 subsetting group
     if SUBSETTING:
-        groups.append('subsetting')
+        GROUPS.append('subsetting')
 
     #-- read input pair track within the file
     IS2_atl11_mds[ptx] = {}
@@ -281,7 +292,7 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, ATTRIBUTES=False, REFERENCE=False,
             IS2_atl11_mds[ptx][key] = val[:]
 
     #-- get each cycle_stats HDF5 variable
-    for group in groups:
+    for group in GROUPS:
         try:
             IS2_atl11_mds[ptx][group] = {}
             for key,val in fileID[ptx][group].items():
@@ -301,14 +312,22 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, ATTRIBUTES=False, REFERENCE=False,
             IS2_atl11_attrs[ptx][key] = {}
             for att_name,att_val in val.attrs.items():
                 IS2_atl11_attrs[ptx][key][att_name] = att_val
+            #-- get fill value attributes if applicable
+            if hasattr(val,'fillvalue'):
+                IS2_atl11_attrs[ptx][key]['_FillValue'] = \
+                    getattr(val,'fillvalue')
         #-- getting attributes of variables within named groups
-        for group in groups:
+        for group in GROUPS:
             try:
                 IS2_atl11_attrs[ptx][group] = {}
                 for key,val in fileID[ptx][group].items():
                     IS2_atl11_attrs[ptx][group][key] = {}
                     for att_name,att_val in val.attrs.items():
                         IS2_atl11_attrs[ptx][group][key][att_name] = att_val
+                        #-- get fill value attributes if applicable
+                        if hasattr(val,'fillvalue'):
+                            IS2_atl11_attrs[ptx][group][key]['_FillValue'] = \
+                                getattr(val,'fillvalue')
             except:
                 pass
 

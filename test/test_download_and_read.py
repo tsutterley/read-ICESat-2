@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 u"""
-test_download_and_read.py (11/2020)
+test_download_and_read.py (03/2021)
 
 UPDATE HISTORY:
+    Updated 03/2021: modify ATL11 to read from explicitly named groups
     Updated 11/2020: use output error string returned by from_nsidc
     Written 08/2020
 """
@@ -58,7 +59,7 @@ def test_ATL07_download_and_read(username,password):
     assert all(gtx in IS2_ATL07_mds.keys() for gtx in IS2_ATL07_beams)
 
 #-- PURPOSE: Download an ATL11 file from NSIDC and check that read program runs
-def test_ATL12_download_and_read(username,password):
+def test_ATL11_download_and_read(username,password):
     HOST = ['https://n5eil01u.ecs.nsidc.org','ATLAS','ATL11.002','2019.03.29',
         'ATL11_000103_0308_002_01.h5']
     buffer,error=icesat2_toolkit.utilities.from_nsidc(HOST,username=username,
@@ -67,9 +68,12 @@ def test_ATL12_download_and_read(username,password):
     if not buffer:
         raise Exception(error)
     #-- read ATL12 data from downloaded HDF5 file
+    GROUPS = ['cycle_stats','ref_surf','crossing_track_data']
     IS2_ATL11_mds,IS2_ATL11_attrs,IS2_ATL11_pairs = read_HDF5_ATL11(HOST[-1],
-        ATTRIBUTES=False, CROSSOVERS=True, REFERENCE=True, VERBOSE=True)
+        ATTRIBUTES=False, GROUPS=GROUPS, VERBOSE=True)
     assert all(ptx in IS2_ATL11_mds.keys() for ptx in IS2_ATL11_pairs)
+    ptx = IS2_ATL11_pairs[0]
+    assert all(group in IS2_ATL11_mds[ptx].keys() for group in GROUPS)
 
 #-- PURPOSE: Download an ATL12 file from NSIDC and check that read program runs
 def test_ATL12_download_and_read(username,password):

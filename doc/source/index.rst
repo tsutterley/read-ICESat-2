@@ -53,8 +53,10 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     :caption: Use Cases
 
     user_guide/interp_IB_response_ICESat2_ATL06.md
+    user_guide/interp_IB_response_ICESat2_ATL07.md
     user_guide/interp_IB_response_ICESat2_ATL11.md
     user_guide/interp_sea_level_ICESat2_ATL06.md
+    user_guide/interp_sea_level_ICESat2_ATL07.md
     user_guide/interp_sea_level_ICESat2_ATL11.md
     user_guide/MPI_DEM_ICESat2_ATL03.md
     user_guide/MPI_DEM_ICESat2_ATL06.md

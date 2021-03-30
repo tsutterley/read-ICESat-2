@@ -38,8 +38,16 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
     calc_delta_time.py: calculates difference between universal and dynamic time
 
+REFERENCES:
+    C Wunsch and D Stammer, Atmospheric loading and the oceanic "inverted
+        barometer" effect, Reviews of Geophysics, 35(1), 79--107, (1997).
+        https://doi.org/10.1029/96RG03037
+    P S Callahan, TOPEX/POSEIDON Project GDR Users Handbook, JPL Doc. D-8944,
+        Rev. A, 84 pp., (1994)
+
 UPDATE HISTORY:
     Updated 03/2021: spatially subset sea level pressure maps to conserve memory
+        additionally calculate conventional IB response using an average MSLP
         replaced numpy bool/int to prevent deprecation warnings
     Written 02/2021
 """
@@ -119,11 +127,16 @@ def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,OCEAN,INDICES,AREA):
     nfiles = len(FILENAMES)
     #-- allocate for pressure fields
     SLP = np.ma.zeros((24*nfiles,ny,nx))
+    TPX = np.ma.zeros((24*nfiles,ny,nx))
     MJD = np.zeros((24*nfiles))
     #-- calculate total area of reanalysis ocean
     #-- ocean pressure points will be based on reanalysis mask
     ii,jj = np.nonzero(OCEAN)
     ocean_area = np.sum(AREA[ii,jj])
+    #-- parameters for conventional TOPEX/POSEIDON IB correction
+    rho0 = 1025.0
+    g0 = -9.80665
+    p0 = 101325.0
     #-- counter for filling arrays
     c = 0
     #-- for each file
@@ -149,12 +162,16 @@ def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,OCEAN,INDICES,AREA):
                         if np.any(pressure[j,:,:]):
                             #-- remove average with respect to time
                             AveRmvd = pressure[j,:,:] - MEAN
+                            #-- conventional TOPEX/POSEIDON IB correction
+                            TPX[c,:,:] = (pressure[j,INDICES,:]-p0)/(rho0*g0)
                             break
                 else:
                     #-- sea level pressure for time
                     pressure = fileID.variables[VARNAME][t,:,:].copy()
                     #-- remove average with respect to time
                     AveRmvd = pressure - MEAN
+                    #-- conventional TOPEX/POSEIDON IB correction
+                    TPX[c,:,:] = (pressure[INDICES,:]-p0)/(rho0*g0)
                 #-- calculate average oceanic pressure values
                 AVERAGE = np.sum(AveRmvd[ii,jj]*AREA[ii,jj])/ocean_area
                 #-- calculate sea level pressure anomalies and
@@ -168,13 +185,15 @@ def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,OCEAN,INDICES,AREA):
     LAT = latitude[INDICES]
     ilat = np.argsort(LAT)
     SLP = SLP[:,ilat,:]
+    TPX = TPX[:,ilat,:]
     LAT = LAT[ilat]
     #-- verify time is sorted in ascending order
     itime = np.argsort(MJD)
     SLP = SLP[itime,:,:]
+    TPX = TPX[itime,:,:]
     MJD = MJD[itime]
     #-- return the sea level pressure anomalies, latitudes and times
-    return (SLP,LAT,MJD)
+    return (SLP,TPX,LAT,MJD)
 
 #-- PURPOSE: read ICESat-2 annual land ice height data (ATL11) from NSIDC
 #-- calculate and interpolate the instantaneous inverse barometer response
@@ -314,7 +333,7 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         delta_time = {}
         groups = ['AT']
         #-- dictionary with output inverse barometer variables
-        IB = {}
+        IB,TPX = ({},{})
         #-- number of average segments and number of included cycles
         #-- fill_value for invalid heights and corrections
         fv = IS2_atl11_attrs[ptx]['h_corr']['_FillValue']
@@ -334,6 +353,9 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         #-- along-track (AT) inverse barometer corrections
         IB['AT'] = np.ma.zeros((n_points,n_cycles),fill_value=fv)
         IB['AT'].mask = np.copy(delta_time['AT'].mask)
+        #-- along-track (AT) conventional TOPEX/POSEIDON IB corrections
+        TPX['AT'] = np.ma.zeros((n_points,n_cycles),fill_value=fv)
+        TPX['AT'].mask = np.copy(delta_time['AT'].mask)
         #-- if running ATL11 crossovers
         if CROSSOVERS:
             #-- add to group
@@ -354,6 +376,9 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
             #-- across-track (XT) inverse barometer corrections
             IB['XT'] = np.ma.zeros((n_cross),fill_value=fv)
             IB['XT'].mask = np.copy(delta_time['XT'].mask)
+            #-- across-track (AT) conventional TOPEX/POSEIDON IB corrections
+            TPX['XT'] = np.ma.zeros((n_cross),fill_value=fv)
+            TPX['XT'].mask = np.copy(delta_time['XT'].mask)
 
         #-- calculate corrections for along-track and across-track data
         for track in groups:
@@ -399,16 +424,20 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
                         IB[track].mask[valid] = True
                         continue
                     #-- read sea level pressure and calculate anomalies
-                    islp,ilat,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,
-                        mean_pressure,MASK,indices,AREA)
+                    islp,itpx,ilat,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,
+                        LATNAME,mean_pressure,MASK,indices,AREA)
                     #-- create an interpolator for mean sea level pressure anomalies
-                    RGI = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
+                    R1 = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
                         islp, bounds_error=False)
-                    SLP = RGI.__call__(np.c_[MJD[valid,cycle],iy[valid],ix[valid]])
+                    R2 = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
+                        itpx, bounds_error=False)
+                    SLP = R1.__call__(np.c_[MJD[valid,cycle],iy[valid],ix[valid]])
                     #-- calculate inverse barometer response
                     IB[track].data[valid,cycle] = -SLP*(DENSITY*gs[valid])**-1
+                    TPX[track].data[valid,cycle] = R2.__call__(np.c_[MJD[valid,cycle],
+                        iy[valid],ix[valid]])
                     #-- clear variables for iteration to free up memory
-                    islp,RGI = (None,None)
+                    islp,itpx,R1,R2 = (None,None,None,None)
             elif (track == 'XT'):
                 #-- find valid points to points
                 if np.all(delta_time[track].mask):
@@ -430,19 +459,25 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
                         IB[track].mask[valid] = True
                         continue
                     #-- read sea level pressure and calculate anomalies
-                    islp,ilat,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,
-                        mean_pressure,MASK,indices,AREA)
+                    islp,itpx,ilat,imjd = ncdf_pressure(FILENAMES,VARNAME,TIMENAME,
+                        LATNAME,mean_pressure,MASK,indices,AREA)
                     #-- create an interpolator for mean sea level pressure anomalies
-                    RGI = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
+                    R1 = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
                         islp, bounds_error=False)
-                    SLP = RGI.__call__(np.c_[MJD[valid],iy[valid],ix[valid]])
+                    R2 = scipy.interpolate.RegularGridInterpolator((imjd,ilat,lon),
+                        itpx, bounds_error=False)
+                    SLP = R1.__call__(np.c_[MJD[valid],iy[valid],ix[valid]])
                     #-- calculate inverse barometer response
                     IB[track][valid] = -SLP*(DENSITY*gs[valid])**-1
+                    TPX[track].data[valid] = R2.__call__(np.c_[MJD[valid],
+                        iy[valid],ix[valid]])
                     #-- clear variables for iteration to free up memory
-                    islp,RGI = (None,None)
+                    islp,itpx,R1,R2 = (None,None,None,None)
             #-- replace any nan values with fill value
             IB[track].mask |= np.isnan(IB[track].data)
+            TPX[track].mask |= np.isnan(TPX[track].data)
             IB[track].data[IB[track].mask] = IB[track].fill_value
+            TPX[track].data[IB[track].mask] = TPX[track].fill_value
 
         #-- group attributes for beam
         IS2_atl11_corr_attrs[ptx]['description'] = ('Contains the primary science parameters '
@@ -555,6 +590,23 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         IS2_atl11_corr_attrs[ptx]['cycle_stats']['ib']['reference'] = \
             'https://doi.org/10.1029/96RG03037'
         IS2_atl11_corr_attrs[ptx]['cycle_stats']['ib']['coordinates'] = \
+            "../ref_pt ../cycle_number ../delta_time ../latitude ../longitude"
+
+        #-- conventional (TOPEX/POSEIDON) inverse barometer response
+        IS2_atl11_corr[ptx]['cycle_stats']['tpx'] = TPX['AT'].copy()
+        IS2_atl11_fill[ptx]['cycle_stats']['tpx'] = TPX['AT'].fill_value
+        IS2_atl11_dims[ptx]['cycle_stats']['tpx'] = ['ref_pt','cycle_number']
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx'] = collections.OrderedDict()
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['units'] = "meters"
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['contentType'] = "referenceInformation"
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['long_name'] = "inverse barometer"
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['description'] = ("Conventional "
+            "(TOPEX/POSEIDON) instantaneous inverse barometer effect due to "
+            "atmospheric loading")
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['source'] = MODEL
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['reference'] = \
+            ' TOPEX/POSEIDON Project GDR Users Handbook'
+        IS2_atl11_corr_attrs[ptx]['cycle_stats']['tpx']['coordinates'] = \
             "../ref_pt ../cycle_number ../delta_time ../latitude ../longitude"
 
         #-- if crossover measurements were calculated
@@ -675,6 +727,23 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
             IS2_atl11_corr_attrs[ptx][XT]['ib']['reference'] = \
                 'https://doi.org/10.1029/96RG03037'
             IS2_atl11_corr_attrs[ptx][XT]['ib']['coordinates'] = \
+                "ref_pt delta_time latitude longitude"
+
+            #-- conventional (TOPEX/POSEIDON) inverse barometer response
+            IS2_atl11_corr[ptx][XT]['tpx'] = TPX['XT'].copy()
+            IS2_atl11_fill[ptx][XT]['tpx'] = TPX['XT'].fill_value
+            IS2_atl11_dims[ptx][XT]['tpx'] = ['ref_pt']
+            IS2_atl11_corr_attrs[ptx][XT]['tpx'] = collections.OrderedDict()
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['units'] = "meters"
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['contentType'] = "referenceInformation"
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['long_name'] = "inverse barometer"
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['description'] = ("Conventional "
+                "(TOPEX/POSEIDON) instantaneous inverse barometer effect due to "
+                "atmospheric loading")
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['source'] = MODEL
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['reference'] = \
+                'TOPEX/POSEIDON Project GDR Users Handbook'
+            IS2_atl11_corr_attrs[ptx][XT]['tpx']['coordinates'] = \
                 "ref_pt delta_time latitude longitude"
 
     #-- output HDF5 files with interpolated inverse barometer data
@@ -881,7 +950,8 @@ def main():
         help='Working data directory')
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('--reanalysis','-R',
-        type=str, default='ERA5', choices=choices,
+        metavar='REANALYSIS', type=str,
+        default='ERA5', choices=choices,
         help='Reanalysis Model')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',

@@ -174,6 +174,7 @@ Download
 Disclaimer
 ##########
 
+This project contains work and contributions from the `scientific community <./CONTRIBUTORS.rst>`_.
 This program is not sponsored or maintained by the Universities Space Research Association (USRA) or NASA.
 It is provided here for your convenience but *with no guarantees whatsoever*.
 

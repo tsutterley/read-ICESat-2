@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 time.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (04/2021)
 Utilities for calculating time operations
 
 PYTHON DEPENDENCIES:
@@ -16,6 +16,7 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2021: updated NIST ftp server url for leap-seconds.list
     Updated 02/2021: parse date strings "time-units since yyyy-mm-dd hh:mm:ss"
         replaced numpy int/float to prevent deprecation warnings
     Updated 01/2021: added ftp connection checks
@@ -495,7 +496,7 @@ def update_leap_seconds(verbose=False, mode=0o775):
     HASH = icesat2_toolkit.utilities.get_hash(LOCAL)
 
     #-- try downloading from NIST ftp servers
-    HOST = ['ftp.nist.gov','pub','time','iers',FILE]
+    HOST = ['ftp.nist.gov','pub','time',FILE]
     try:
         icesat2_toolkit.utilities.check_ftp_connection(HOST[0])
         icesat2_toolkit.utilities.from_ftp(HOST, timeout=20, local=LOCAL,

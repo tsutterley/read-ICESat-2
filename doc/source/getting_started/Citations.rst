@@ -14,7 +14,7 @@ is developed in conjunction with other ICESat-2 projects.
 Contributors
 ############
 
-- `Tyler Sutterley (University of Washington) <http://psc.apl.uw.edu/people/investigators/tyler-sutterley/>`_
+.. include:: ../../../CONTRIBUTORS.rst
 
 Development
 ###########

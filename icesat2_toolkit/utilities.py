@@ -1,6 +1,7 @@
-"""
+#!/usr/bin/env python
+u"""
 utilities.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (03/2021)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -8,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 03/2021: added sha1 option for retrieving file hashes
     Updated 01/2021: added username and password to ftp functions
         added ftp connection check
     Updated 12/2020: added file object keyword for downloads if verbose

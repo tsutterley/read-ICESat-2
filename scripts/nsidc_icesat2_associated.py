@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (04/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     server that is associated with an input file
@@ -24,8 +24,8 @@ CALLING SEQUENCE:
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -U X, --user=X: username for NASA Earthdata Login
-    -N X, --netrc=X: path to .netrc file for alternative authentication
+    -U X, --user X: username for NASA Earthdata Login
+    -N X, --netrc X: path to .netrc file for alternative authentication
     -D X, --directory: working data directory
     -p X, --product: associated product to download
         ATL03: Global Geolocated Photon Data
@@ -40,7 +40,7 @@ COMMAND LINE OPTIONS:
     -a, --auxiliary: Download ICESat-2 auxiliary files for each HDF5 file
     -F, --flatten: Do not create subdirectories
     -P X, --np X: Number of processes to use in file downloads
-    -M X, --mode=X: Local permissions mode of the directories and files synced
+    -M X, --mode X: Local permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -54,6 +54,8 @@ PROGRAM DEPENDENCIES:
     utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2021: set a default netrc file and check access
+        default credentials from environmental variables
     Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
         added multiprocessing option for parallel download
@@ -228,10 +230,11 @@ def main():
         help='ICESat-2 products to associate')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
-        type=str, default='',
+        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
@@ -265,21 +268,20 @@ def main():
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
-    if not args.user and not args.netrc:
+    if not args.user and not os.access(args.netrc,os.F_OK):
         #-- check that NASA Earthdata credentials were entered
-        USER = builtins.input('Username for {0}: '.format(HOST))
+        args.user = builtins.input('Username for {0}: '.format(HOST))
         #-- enter password securely from command-line
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
-    elif args.netrc:
-        USER,LOGIN,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+    elif not args.user and os.access(args.netrc,os.F_OK):
+        args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
-        USER = args.user
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,HOST))
+        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
 
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
-    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
+    icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
 
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program

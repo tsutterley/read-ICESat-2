@@ -7,9 +7,14 @@ from setuptools import setup, find_packages
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 log = logging.getLogger()
 
-# get long_description from README.md
+# package description and keywords
+description = ('Python tools for obtaining and working with elevation data '
+    'from the NASA ICESat-2 mission')
+keywords = 'ICESat-2 laser altimetry, ATLAS, surface elevation and change'
+# get long_description from README.rst
 with open("README.rst", "r") as fh:
     long_description = fh.read()
+long_description_content_type = "text/x-rst"
 
 # get install requirements
 with open('requirements.txt') as fh:
@@ -44,9 +49,9 @@ if gdal_output[3]:
 setup(
     name='read-ICESat-2',
     version=version,
-    description='Python tools for obtaining and working with elevation data from the NASA ICESat-2 mission',
+    description=description,
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type=long_description_content_type,
     url='https://github.com/tsutterley/read-ICESat-2',
     author='Tyler Sutterley',
     author_email='tsutterl@uw.edu',
@@ -62,7 +67,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    keywords='ICESat-2 laser altimetry, ATLAS',
+    keywords=keywords,
     packages=find_packages(),
     install_requires=install_requires,
     scripts=scripts,

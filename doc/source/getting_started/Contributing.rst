@@ -58,3 +58,15 @@ Adding Examples
 ^^^^^^^^^^^^^^^
 Examples may be in the form of executable scripts or interactive `Jupyter Notebooks <./Examples.html>`_.
 Fully working (but unrendered) examples should be submitted with the same steps as above.
+
+Continuous Integration
+^^^^^^^^^^^^^^^^^^^^^^
+We use `GitHub Actions <https://github.com/tsutterley/read-ICESat-2/actions>`_ continuous integration (CI) services to build and test the project on Linux (Ubuntu) and Mac Operating Systems.
+The configuration files for this service are in `.github/workflows <https://github.com/tsutterley/read-ICESat-2/blob/main/.github/workflows>`_.
+The workflows rely on the `requirements.txt <https://github.com/tsutterley/read-ICESat-2/blob/main/requirements.txt>`_ and `test requirements.txt <https://github.com/tsutterley/read-ICESat-2/blob/main/test/requirements.txt>`_ files to install the required dependencies.
+
+The GitHub Actions jobs include:
+
+* Updating `leap second <https://github.com/tsutterley/pyTMD/blob/main/read-ICESat-2/data/leap-seconds.list>`_ file
+* Running `flake8 <https://flake8.pycqa.org/en/latest/>`_ to check the code for style and compilation errors
+* Running the test suite on multiple combinations of OS and Python version

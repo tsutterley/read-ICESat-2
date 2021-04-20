@@ -91,8 +91,8 @@ def interpolate_sea_level(base_dir, xi, yi, CJD, HEM):
     #-- EPSG projections for converting lat/lon to polar stereographic
     EPSG = dict(N=3413,S=3031)
     #-- pyproj transformer for converting to polar stereographic
-    crs1 = pyproj.CRS.from_string('epsg:4326')
-    crs2 = pyproj.CRS.from_string(EPSG[HEM])
+    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs2 = pyproj.CRS.from_string("epsg:{0:d}".format(EPSG[HEM]))
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
 
     #-- interpolate mean dynamic topography

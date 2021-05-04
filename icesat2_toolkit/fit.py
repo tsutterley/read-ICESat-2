@@ -47,8 +47,8 @@ def windowed_manhattan(u, v, window=[], w=None):
 
     Arguments
     ---------
-    u : Input array
-    v : Input array for distance
+    u: Input array
+    v: Input array for distance
 
     Keyword arguments
     -----------------
@@ -115,6 +115,12 @@ def classify_photons(x, h, h_win_width, indices, K=5, MIN_PH=5,
     # calculate horizontal and vertical window sizes
     win_x = 0.75*MIN_PH*np.sqrt(density)
     win_h = 0.25*MIN_PH*np.sqrt(density)
+    # reduce to a buffered window around major frame
+    xmin = np.min(x[indices]) - win_x
+    xmax = np.max(x[indices]) + win_x
+    hmin = np.min(h[indices]) - win_h
+    hmax = np.max(h[indices]) + win_h
+    iwin, = np.nonzero((x >= xmin) & (x <= xmax) & (h >= hmin) & (h <= hmax))
     # method of calculating photon event weights
     if (METHOD == 'ball_tree'):
         # use BallTree with custom metric to calculate photon event weights
@@ -122,7 +128,7 @@ def classify_photons(x, h, h_win_width, indices, K=5, MIN_PH=5,
         window = np.array([win_x/2.0,win_h/2.0])
         # create ball tree with photon events in the 3 major frames
         # using a cythonized callable distance metric
-        tree = sklearn.neighbors.BallTree(np.c_[x,h], leaf_size=MIN_PH,
+        tree = sklearn.neighbors.BallTree(np.c_[x[iwin],h[iwin]],
             metric=_fit.windowed_manhattan, window=window)
         # K nearest neighbors with windowed manhattan metric
         # use K+1 to remove identity distances (d=0)
@@ -134,12 +140,10 @@ def classify_photons(x, h, h_win_width, indices, K=5, MIN_PH=5,
         pe_weights[valid] = inv_dist[valid]/(win_x*win_h)
     elif (METHOD == 'brute'):
         # use brute force approach to calculate photon event weights
-        # indices of all photon events in 3 major frames
-        all_indices = np.arange(len(h))
         # for each photon in the major frame
         for j,i in enumerate(indices):
-            # all photon events excluding source photon
-            ii = sorted(set(all_indices) - set([i]))
+            # all photon events in buffer excluding source photon
+            ii = sorted(set(iwin) - set([i]))
             # distance of photon events to source photon
             dx = np.abs(x[ii] - x[i])
             dh = np.abs(h[ii] - h[i])

@@ -3,6 +3,7 @@ import sys
 import logging
 import subprocess
 from setuptools import setup, find_packages
+from Cython.Build import cythonize
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 log = logging.getLogger()
@@ -72,4 +73,5 @@ setup(
     install_requires=install_requires,
     scripts=scripts,
     include_package_data=True,
+    ext_modules=cythonize("icesat2_toolkit/*.pyx"),
 )

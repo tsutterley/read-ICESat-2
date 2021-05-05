@@ -4,17 +4,6 @@ fit.py
 
 Utilities for calculating average fits from ATL03 Geolocated Photon Data
 
-Calling Sequence
-================
-
-Count the number of leap seconds between a GPS time and UTC
-
-.. code-block:: python
-
-    import icesat2_toolkit.fit
-    pe_weights = icesat2_toolkit.fit.classify_photons(x, h, h_win_width,
-        indices, K=5, MIN_PH=5, MIN_XSPREAD=1.0, MIN_HSPREAD=0.01)
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/fit.py
@@ -32,77 +21,6 @@ General Methods
         ``i``: indices to compress
 
         ``n``: largest gap between indices to accept for range
-
-
-.. method:: icesat2_toolkit.fit.windowed_manhattan(u, v, window=[], w=None)
-
-    Create a windowed manhattan distance metric
-
-    Arguments:
-
-        ``u``: Input array
-
-        ``v``: Input array for distance
-
-    Keyword arguments:
-
-        ``window``: distance window for reducing neighbors
-
-        ``w``: weights for each value
-
-
-.. method:: icesat2_toolkit.fit.distance_matrix(u, v, p=1, window=[])
-
-    Calculate distances between points as matrices
-
-    Arguments:
-
-        ``u``: Input array
-
-        ``v``: Input array for distance
-
-    Keyword arguments:
-
-        ``p``: power for calculating distance
-
-            ``1``: Manhattan distances
-
-            ``2``: Euclidean distances
-
-        ``window``: distance window for reducing neighbors
-
-
-.. method:: icesat2_toolkit.fit.classify_photons(x, h, h_win_width, indices, K=5, MIN_PH=5, MIN_XSPREAD=1.0, MIN_HSPREAD=0.01, METHOD='ball_tree')
-
-    Use the NASA GSFC YAPC k-nearest neighbors algorithm to determine weights for each photon event within an ATL03 major frame
-
-    Arguments:
-
-        ``x``: along-track x coordinates for photon events for 3 major frames
-
-        ``h``: photon event heights for 3 major frames
-
-        ``h_win_width``: height of (possibly 2) telemetry bands
-
-        ``indices``: indices of photon events in ATL03 major frame
-
-    Keyword arguments:
-
-        ``K``: number of values for KNN algorithm
-
-        ``MIN_PH``: minimum number of photons for a major frame to be valid
-
-        ``MIN_XSPREAD``: minimum along-track spread of photon events
-
-        ``MIN_HSPREAD``: minimum window of heights for photon events
-
-        ``METHOD``: algorithm for computing photon event weights
-
-            ``'ball_tree'``: use scikit.learn.BallTree with custom distance metric
-
-            ``'linear'``: use a brute-force approach with linear algebra
-
-            ``'brute'``: use a brute-force approach
 
 
 .. method:: icesat2_toolkit.fit.extract_tep_histogram(tep_hist_time,tep_hist,tep_range_prim)

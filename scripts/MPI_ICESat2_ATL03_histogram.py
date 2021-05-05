@@ -43,8 +43,10 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
+    fit.py: Utilities for calculating fits from ATL03 Geolocated Photon Data
     time.py: Utilities for calculating time operations
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
+    classify_photons.py: Yet Another Photon Classifier for Geolocated Photon Data
 
 REFERENCES:
     A Chauve, C Mallet, F Bretar, S Durrieu, M P Deseilligny and W Puech.
@@ -117,6 +119,7 @@ from mpi4py import MPI
 import icesat2_toolkit.fit
 import icesat2_toolkit.time
 from icesat2_toolkit.convert_delta_time import convert_delta_time
+from yapc.classify_photons import classify_photons
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -495,9 +498,9 @@ def main():
             #-- indices for the major frame within the buffered window
             i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
             #-- calculate photon event weights
-            Distributed_Weights[i1[i2]] = icesat2_toolkit.fit.classify_photons(
-                x_atc[i1], h_ph[i1], h_win_width, i2, K=5, MIN_PH=5,
-                MIN_XSPREAD=1.0, MIN_HSPREAD=0.01, METHOD='linear')
+            Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
+                h_win_width, i2, K=5, MIN_PH=5, MIN_XSPREAD=1.0,
+                MIN_HSPREAD=0.01, METHOD='linear')
         #-- photon event weights
         pe_weights = np.zeros((n_pe),dtype=np.float)
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \
@@ -560,12 +563,12 @@ def main():
                 ice_sig_conf = np.copy(fileID[gtx]['heights']['signal_conf_ph'][idx:idx+cnt,3])
                 ice_sig_low_count = np.count_nonzero(ice_sig_conf > 1)
                 #-- indices of TEP classified photons
-                ice_sig_tep_pe = np.count_nonzero(ice_sig_conf == -2)
+                ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
                 #-- photon event weights from photon classifier
                 segment_weights = pe_weights[idx:idx+cnt]
                 snr_norm = np.max(segment_weights)
                 #-- photon event signal-to-noise ratio from photon classifier
-                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=np.int)
+                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)
                 Distributed_Photon_SNR.data[j] = np.copy(snr_norm)
                 Distributed_Photon_SNR.mask[j] = (snr_norm > 0)
                 #-- photon confidence levels from classifier
@@ -764,12 +767,12 @@ def main():
                 ice_sig_conf = np.copy(fileID[gtx]['heights']['signal_conf_ph'][idx:idx+cnt,3])
                 ice_sig_low_count = np.count_nonzero(ice_sig_conf > 1)
                 #-- indices of TEP classified photons
-                ice_sig_tep_pe = np.count_nonzero(ice_sig_conf == -2)
+                ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
                 #-- photon event weights from photon classifier
                 segment_weights = pe_weights[idx:idx+cnt]
                 snr_norm = np.max(segment_weights)
                 #-- photon event signal-to-noise ratio from photon classifier
-                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=np.int)
+                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)
                 Distributed_Photon_SNR.data[j] = np.copy(snr_norm)
                 Distributed_Photon_SNR.mask[j] = (snr_norm > 0)
                 #-- photon confidence levels from classifier

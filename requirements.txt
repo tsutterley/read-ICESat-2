@@ -1,4 +1,3 @@
-cython
 numpy
 scipy
 mpi4py

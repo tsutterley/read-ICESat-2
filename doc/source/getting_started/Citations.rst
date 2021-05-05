@@ -37,7 +37,6 @@ This software is also dependent on other commonly used Python packages:
 
 - `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
 - `scipy: Scientific Tools for Python <https://docs.scipy.org/doc//>`_
-- `cython: C-extensions for Python <http://cython.org/>`_
 - `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
 - `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <http://h5py.org>`_
 - `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_

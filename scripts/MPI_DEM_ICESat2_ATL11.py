@@ -51,7 +51,7 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 REFERENCES:
     https://www.pgc.umn.edu/guides/arcticdem/data-description/

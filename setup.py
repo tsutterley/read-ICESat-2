@@ -3,7 +3,6 @@ import sys
 import logging
 import subprocess
 from setuptools import setup, find_packages
-from Cython.Build import cythonize
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 log = logging.getLogger()
@@ -17,9 +16,17 @@ with open("README.rst", "r") as fh:
     long_description = fh.read()
 long_description_content_type = "text/x-rst"
 
-# get install requirements
-with open('requirements.txt') as fh:
-    install_requires = [line.split().pop(0) for line in fh.read().splitlines()]
+# install requirements and dependencies
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+if on_rtd:
+    install_requires = []
+    dependency_links = []
+else:
+    # get install requirements
+    with open('requirements.txt') as fh:
+        install_requires = [line.split().pop(0) for line in fh.read().splitlines()]
+    # dependency links
+    dependency_links = ['https://github.com/tsutterley/yapc/tarball/main']
 
 # get version
 with open('version.txt') as fh:
@@ -71,7 +78,7 @@ setup(
     keywords=keywords,
     packages=find_packages(),
     install_requires=install_requires,
+    dependency_links=dependency_links,
     scripts=scripts,
     include_package_data=True,
-    ext_modules=cythonize("icesat2_toolkit/*.pyx"),
 )

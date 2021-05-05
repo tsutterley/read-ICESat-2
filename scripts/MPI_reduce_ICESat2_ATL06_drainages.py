@@ -35,7 +35,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     time.py: Utilities for calculating time operations
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 02/2021: use size of array to add to any valid check

@@ -60,7 +60,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 04/2021: set a default netrc file and check access

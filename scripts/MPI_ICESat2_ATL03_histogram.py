@@ -497,7 +497,7 @@ def main():
             #-- calculate photon event weights
             Distributed_Weights[i1[i2]] = icesat2_toolkit.fit.classify_photons(
                 x_atc[i1], h_ph[i1], h_win_width, i2, K=5, MIN_PH=5,
-                MIN_XSPREAD=1.0, MIN_HSPREAD=0.01)
+                MIN_XSPREAD=1.0, MIN_HSPREAD=0.01, METHOD='linear')
         #-- photon event weights
         pe_weights = np.zeros((n_pe),dtype=np.float)
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \

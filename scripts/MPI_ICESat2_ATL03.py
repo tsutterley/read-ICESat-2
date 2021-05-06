@@ -588,37 +588,6 @@ def main():
                         Distributed_Mean_Median.data[j] = np.mean(height_residuals[ifit]) - \
                             np.median(height_residuals[ifit])
                         Distributed_Mean_Median.mask[j] = False
-                        #-- estimate first photon bias corrections
-                        #-- step-size for histograms (50 ps ~ 7.5mm height)
-                        ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
-                            (height_residuals <= Distributed_Window.data[j]))
-                        FPB = icesat2_toolkit.fit.calc_first_photon_bias(
-                            temporal_residuals[ii], n_pulses, n_pixels,
-                            mean_dead_time[gtx], 5e-11, ITERATE=20)
-                        Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
-                        Distributed_FPB_mean_corr.mask[j] = False
-                        Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
-                        Distributed_FPB_mean_sigma.mask[j] = False
-                        Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
-                        Distributed_FPB_median_corr.mask[j] = False
-                        Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
-                        Distributed_FPB_median_sigma.mask[j] = False
-                        Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
-                        Distributed_FPB_n_corr.mask[j] = False
-                        #-- first photon bias correction from CAL-19
-                        FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
-                        Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
-                        Distributed_FPB_cal_corr.mask[j] = False
-                        #-- estimate transmit pulse shape correction
-                        W_RX = 2.0*Distributed_RDE.data[j]/c
-                        dt_W = 2.0*Distributed_Window.data[j]/c
-                        TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
-                            p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
-                            ITERATE=50)
-                        Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
-                        Distributed_TPS_mean_corr.mask[j] = False
-                        Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
-                        Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
                         Distributed_Summary.data[j] = int(
@@ -626,6 +595,45 @@ def main():
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
                         Distributed_Summary.mask[j] = False
+                        #-- estimate first photon bias corrections
+                        #-- step-size for histograms (50 ps ~ 7.5mm height)
+                        ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
+                            (height_residuals <= Distributed_Window.data[j]))
+                        try:
+                            FPB = icesat2_toolkit.fit.calc_first_photon_bias(
+                                temporal_residuals[ii], n_pulses, n_pixels,
+                                mean_dead_time[gtx], 5e-11, ITERATE=20)
+                        except:
+                            pass
+                        else:
+                            Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
+                            Distributed_FPB_mean_corr.mask[j] = False
+                            Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
+                            Distributed_FPB_mean_sigma.mask[j] = False
+                            Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
+                            Distributed_FPB_median_corr.mask[j] = False
+                            Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
+                            Distributed_FPB_median_sigma.mask[j] = False
+                            Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
+                            Distributed_FPB_n_corr.mask[j] = False
+                            #-- first photon bias correction from CAL-19
+                            FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
+                            Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
+                            Distributed_FPB_cal_corr.mask[j] = False
+                        #-- estimate transmit pulse shape correction
+                        try:
+                            W_RX = 2.0*Distributed_RDE.data[j]/c
+                            dt_W = 2.0*Distributed_Window.data[j]/c
+                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                                p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
+                                ITERATE=50)
+                        except:
+                            pass
+                        else:
+                            Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
+                            Distributed_TPS_mean_corr.mask[j] = False
+                            Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
+                            Distributed_TPS_median_corr.mask[j] = False
 
             #-- some ATL03 segments will not result in a valid fit
             #-- backup algorithm uses 4 segments to find a valid surface
@@ -772,37 +780,6 @@ def main():
                         Distributed_Mean_Median.data[j] = np.mean(height_residuals[ifit]) - \
                             np.median(height_residuals[ifit])
                         Distributed_Mean_Median.mask[j] = False
-                        #-- estimate first photon bias corrections
-                        #-- step-size for histograms (50 ps ~ 7.5mm height)
-                        ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
-                            (height_residuals <= Distributed_Window.data[j]))
-                        FPB = icesat2_toolkit.fit.calc_first_photon_bias(
-                            temporal_residuals[ii], n_pulses, n_pixels,
-                            mean_dead_time[gtx], 5e-11, ITERATE=20)
-                        Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
-                        Distributed_FPB_mean_corr.mask[j] = False
-                        Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
-                        Distributed_FPB_mean_sigma.mask[j] = False
-                        Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
-                        Distributed_FPB_median_corr.mask[j] = False
-                        Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
-                        Distributed_FPB_median_sigma.mask[j] = False
-                        Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
-                        Distributed_FPB_n_corr.mask[j] = False
-                        #-- first photon bias correction from CAL-19
-                        FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
-                        Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
-                        Distributed_FPB_cal_corr.mask[j] = False
-                        #-- estimate transmit pulse shape correction
-                        W_RX = 2.0*Distributed_RDE.data[j]/c
-                        dt_W = 2.0*Distributed_Window.data[j]/c
-                        TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
-                            p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
-                            ITERATE=50)
-                        Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
-                        Distributed_TPS_mean_corr.mask[j] = False
-                        Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
-                        Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
                         Distributed_Summary.data[j] = int(
@@ -810,6 +787,45 @@ def main():
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
                         Distributed_Summary.mask[j] = False
+                        #-- estimate first photon bias corrections
+                        #-- step-size for histograms (50 ps ~ 7.5mm height)
+                        try:
+                            ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
+                                (height_residuals <= Distributed_Window.data[j]))
+                            FPB = icesat2_toolkit.fit.calc_first_photon_bias(
+                                temporal_residuals[ii], n_pulses, n_pixels,
+                                mean_dead_time[gtx], 5e-11, ITERATE=20)
+                        except:
+                            pass
+                        else:
+                            Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
+                            Distributed_FPB_mean_corr.mask[j] = False
+                            Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
+                            Distributed_FPB_mean_sigma.mask[j] = False
+                            Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
+                            Distributed_FPB_median_corr.mask[j] = False
+                            Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
+                            Distributed_FPB_median_sigma.mask[j] = False
+                            Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
+                            Distributed_FPB_n_corr.mask[j] = False
+                            #-- first photon bias correction from CAL-19
+                            FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
+                            Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
+                            Distributed_FPB_cal_corr.mask[j] = False
+                        #-- estimate transmit pulse shape correction
+                        try:
+                            W_RX = 2.0*Distributed_RDE.data[j]/c
+                            dt_W = 2.0*Distributed_Window.data[j]/c
+                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                                p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
+                                ITERATE=50)
+                        except:
+                            pass
+                        else:
+                            Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
+                            Distributed_TPS_mean_corr.mask[j] = False
+                            Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
+                            Distributed_TPS_median_corr.mask[j] = False
 
             #-- if there is a valid land ice height
             if (~Distributed_Height.mask[j]):

@@ -568,7 +568,10 @@ def main():
                 segment_weights = pe_weights[idx:idx+cnt]
                 snr_norm = np.max(segment_weights)
                 #-- photon event signal-to-noise ratio from photon classifier
-                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)
+                photon_snr = np.zeros((cnt),dtype=int)
+                if (snr_norm > 0):
+                    photon_snr[:] = 100.0*segment_weights/snr_norm
+                #-- copy signal to noise ratio for segment
                 Distributed_Photon_SNR.data[j] = np.copy(snr_norm)
                 Distributed_Photon_SNR.mask[j] = (snr_norm > 0)
                 #-- photon confidence levels from classifier

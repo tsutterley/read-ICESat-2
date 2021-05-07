@@ -433,6 +433,8 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \
             recvbuf=[pe_weights, MPI.DOUBLE], op=MPI.SUM)
         Distributed_Weights = None
+        #-- wait for all distributed processes to finish for beam
+        comm.Barrier()
 
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
@@ -1987,15 +1989,15 @@ def main():
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- segment photon signal-to-noise ratio from photon classifier
-        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr'] = Segment_Photon_SNR[gtx]
-        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr'] = Segment_Photon_SNR[gtx].fill_value
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr'] = {}
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr']['units'] = "1"
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr']['contentType'] = "physicalMeasurement"
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr']['long_name'] = "Maximum SNR"
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr']['description'] = ("Maximum "
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = Segment_Photon_SNR[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = Segment_Photon_SNR[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['contentType'] = "qualityInformation"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['long_name'] = "Maximum SNR"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['description'] = ("Maximum "
             "signal-to-noise ratio from the photon event classifier used to normalize the photon weights")
-        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['max_pe_snr']['coordinates'] = \
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- robust dispersion estimator
         IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['h_robust_sprd'] = Segment_RDE[gtx]

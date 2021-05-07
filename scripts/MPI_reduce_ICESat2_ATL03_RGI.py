@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL03_RGI.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
@@ -414,18 +415,19 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and valid_check:
         #-- output HDF5 file with RGI masks
-        arg=(PRD,RGI_VERSION,RGI_NAME,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
+        fargs=(PRD,RGI_VERSION,RGI_NAME,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format='{0}_RGI{1}_{2}_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
+        output_file=os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
         if args.verbose:
-            print('\t{0}'.format(file_format.format(*arg)))
+            print('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL03_mask_write(IS2_atl03_mask, IS2_atl03_mask_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
             FILL_VALUE=IS2_atl03_fill, DIMENSIONS=IS2_atl03_dims,
-            FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
+            FILENAME=output_file)
         #-- change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
+        os.chmod(output_file, args.mode)
     #-- close the input file
     fileID.close()
 

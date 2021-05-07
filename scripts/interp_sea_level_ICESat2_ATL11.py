@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_sea_level_ICESat2_ATL11.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 Interpolates sea level anomalies (sla), absolute dynamic topography (adt) and
     mean dynamic topography (mdt) to times and locations of ICESat-2 ATL11 data
     This data will be extrapolated onto land points
@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Written 02/2021
 """
@@ -578,16 +579,17 @@ def interp_sea_level_ICESat2(base_dir, FILE, CROSSOVERS=False, VERBOSE=False,
                     "ref_pt delta_time latitude longitude"
 
     #-- output HDF5 files with interpolated sea level data
-    args = (PRD,'AVISO_SEA_LEVEL',TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
+    fargs = (PRD,'AVISO_SEA_LEVEL',TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
     file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
+    output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information
-    print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+    print('\t{0}'.format(output_file)) if VERBOSE else None
     HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_corr_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE), CROSSOVERS=CROSSOVERS,
         FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
-        FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+        FILENAME=output_file)
     #-- change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+    os.chmod(output_file, MODE)
 
 #-- PURPOSE: outputting the correction values for ICESat-2 data to HDF5
 def HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_attrs, INPUT=None,

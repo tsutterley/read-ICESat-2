@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_IB_ICESat2_ATL07.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Calculates and interpolates inverse-barometer responses to times and
     locations of ICESat-2 ATL07 sea ice height data
 
@@ -43,6 +43,7 @@ REFERENCES:
         Rev. A, 84 pp., (1994)
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Written 03/2021
 """
 from __future__ import print_function
@@ -507,16 +508,17 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
             "../height_segment_id ../delta_time ../latitude ../longitude"
 
     #-- output HDF5 files with interpolated inverse barometer data
-    args = (PRD,HEM,MODEL,YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX)
+    fargs = (PRD,HEM,MODEL,YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX)
     file_format = '{0}-{1}_{2}_IB_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
+    output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information
-    print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+    print('\t{0}'.format(output_file)) if VERBOSE else None
     HDF5_ATL07_corr_write(IS2_atl07_corr, IS2_atl07_corr_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE),
         FILL_VALUE=IS2_atl07_fill, DIMENSIONS=IS2_atl07_dims,
-        FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+        FILENAME=output_file)
     #-- change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+    os.chmod(output_file, MODE)
 
 #-- PURPOSE: outputting the correction values for ICESat-2 data to HDF5
 def HDF5_ATL07_corr_write(IS2_atl07_corr, IS2_atl07_attrs, INPUT=None,

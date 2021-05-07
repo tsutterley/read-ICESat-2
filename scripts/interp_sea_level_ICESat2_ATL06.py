@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_sea_level_ICESat2_ATL06.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Interpolates sea level anomalies (sla), absolute dynamic topography (adt) and
     mean dynamic topography (mdt) to times and locations of ICESat-2 ATL06 data
     This data will be extrapolated onto land points
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 03/2021: simplified copying of interpolated variables
     Updated 02/2021: using argparse to set command line options
         using scikit-learn neighbors to interpolate fields
@@ -408,16 +409,17 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
                 "../segment_id ../delta_time ../latitude ../longitude"
 
     #-- output HDF5 files with interpolated sea level data
-    args = (PRD,'AVISO_SEA_LEVEL',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
-    file_format='{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
+    fargs = (PRD,'AVISO_SEA_LEVEL',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+    file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
+    output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information
-    print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+    print('\t{0}'.format(output_file)) if VERBOSE else None
     HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_corr_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE),
         FILL_VALUE=IS2_atl06_fill, DIMENSIONS=IS2_atl06_dims,
-        FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+        FILENAME=output_file)
     #-- change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+    os.chmod(output_file, MODE)
 
 #-- PURPOSE: outputting the correction values for ICESat-2 data to HDF5
 def HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_attrs, INPUT=None,

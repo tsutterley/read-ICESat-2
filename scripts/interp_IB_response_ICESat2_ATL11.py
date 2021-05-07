@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_IB_response_ICESat2_ATL11.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Calculates and interpolates inverse-barometer responses to times and
     locations of ICESat-2 ATL11 annual land ice height data
     This data will be interpolated for all valid points
@@ -46,6 +46,7 @@ REFERENCES:
         Rev. A, 84 pp., (1994)
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 03/2021: spatially subset sea level pressure maps to conserve memory
         additionally calculate conventional IB response using an average MSLP
         replaced numpy bool/int to prevent deprecation warnings
@@ -747,16 +748,17 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
                 "ref_pt delta_time latitude longitude"
 
     #-- output HDF5 files with interpolated inverse barometer data
-    args = (PRD,MODEL,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
+    fargs = (PRD,MODEL,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
     file_format = '{0}_{1}_IB_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
+    output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information
-    print('\t{0}'.format(file_format.format(*args))) if VERBOSE else None
+    print('\t{0}'.format(output_file)) if VERBOSE else None
     HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_corr_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE), CROSSOVERS=CROSSOVERS,
         FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
-        FILENAME=os.path.join(DIRECTORY,file_format.format(*args)))
+        FILENAME=output_file)
     #-- change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,file_format.format(*args)), MODE)
+    os.chmod(output_file, MODE)
 
 #-- PURPOSE: outputting the correction values for ICESat-2 data to HDF5
 def HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_attrs, INPUT=None,

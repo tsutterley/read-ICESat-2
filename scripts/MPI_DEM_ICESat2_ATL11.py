@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL11.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 Determines which digital elevation model tiles to read for a given ATL11 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL11 segments
@@ -59,6 +59,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Written 12/2020
@@ -759,18 +760,19 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and bool(valid_tiles):
         #-- output HDF5 files with output masks
-        arg = (PRD,DEM_MODEL,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
+        fargs = (PRD,DEM_MODEL,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
         file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
+        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
         if args.verbose:
-            print('\t{0}'.format(file_format.format(*arg)))
+            print('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL11_dem_write(IS2_atl11_dem, IS2_atl11_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
             FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
-            FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
+            FILENAME=output_file)
         #-- change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
+        os.chmod(output_file, args.mode)
     #-- close the input file
     fileID.close()
 

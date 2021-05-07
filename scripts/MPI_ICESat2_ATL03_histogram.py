@@ -2409,9 +2409,9 @@ def main():
         if args.output:
             output_file=os.path.expanduser(args.output)
         else:
-            args=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+            fargs=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
             file_format='{0}{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
-            output_file=os.path.join(ATL03_dir,file_format.format(*args))
+            output_file=os.path.join(ATL03_dir,file_format.format(*fargs))
         #-- write to HDF5 file
         HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm,
             VERBOSE=args.verbose, INPUT=[args.ATL03,args.ATL09],

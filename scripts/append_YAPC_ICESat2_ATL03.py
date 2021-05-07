@@ -238,7 +238,8 @@ def main():
     args = parser.parse_args()
 
     #-- run the program for the ATL03 file
-    append_ICESat2_ATL03(args.infile, VERBOSE=args.verbose, MODE=args.mode)
+    for ATL03_file in args.infile:
+        append_ICESat2_ATL03(ATL03_file, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

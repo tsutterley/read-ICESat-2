@@ -151,6 +151,7 @@ Dependencies
 
  - `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
  - `scipy: Scientific Tools for Python <https://docs.scipy.org/doc/>`_
+ - `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
  - `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <http://h5py.org>`_
  - `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_
  - `pandas: Python Data Analysis Library <https://pandas.pydata.org/>`_
@@ -161,7 +162,7 @@ Dependencies
  - `paramiko: Native Python SSHv2 protocol library <http://www.paramiko.org/>`_
  - `scp: scp module for paramiko <https://github.com/jbardin/scp.py>`_
  - `future: Compatibility layer between Python 2 and Python 3 <http://python-future.org/>`_
- - `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
+ - `yapc: Python version of the NASA Goddard Space Flight Center YAPC Program <https://github.com/tsutterley/yapc>`_
 
 Download
 ########

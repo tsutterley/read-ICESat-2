@@ -9,6 +9,9 @@
 *.pyc
 *.m~
 *.m~~
+# Cython Files #
+################
+_*.c
 # Packages #
 ############
 *.7z
@@ -19,9 +22,12 @@
 *.rar
 *.tar
 *.zip
+# Data Files #
+##############
 *.nc
 *.h5
 *.hdf
+*.tif
 # Logs and databases #
 ######################
 *.log
@@ -50,7 +56,7 @@ wheels/
 ehthumbs.db
 Thumbs.db
 # LaTeX and Vim #
-######################
+#################
 *.aux
 *.bbl
 *.blg

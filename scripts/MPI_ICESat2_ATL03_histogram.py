@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (02/2021)
+MPI_ICESat2_ATL03_histogram.py (05/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -43,8 +43,10 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
+    fit.py: Utilities for calculating fits from ATL03 Geolocated Photon Data
     time.py: Utilities for calculating time operations
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
+    classify_photons.py: Yet Another Photon Classifier for Geolocated Photon Data
 
 REFERENCES:
     A Chauve, C Mallet, F Bretar, S Durrieu, M P Deseilligny and W Puech.
@@ -73,6 +75,8 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 05/2021: add photon classifier based on GSFC YAPC algorithms
+        move histogram fit operations into separate module
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
@@ -104,17 +108,18 @@ import re
 import h5py
 import argparse
 import datetime
-import operator
-import itertools
 import numpy as np
 import scipy.stats
 import scipy.signal
 import scipy.optimize
 import scipy.interpolate
 import sklearn.neighbors
+import sklearn.cluster
 from mpi4py import MPI
-from icesat2_toolkit.convert_delta_time import convert_delta_time
+import icesat2_toolkit.fit
 import icesat2_toolkit.time
+from icesat2_toolkit.convert_delta_time import convert_delta_time
+from yapc.classify_photons import classify_photons
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -123,628 +128,6 @@ def info(rank, size):
     if hasattr(os, 'getppid'):
         print('parent process: {0:d}'.format(os.getppid()))
     print('process id: {0:d}'.format(os.getpid()))
-
-#-- PURPOSE: try fitting a function to the signal photons with progressively
-#-- less confidence if no valid histogram fit is found
-def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
-    FIT_TYPE='gaussian', ITERATE=25, BACKGROUND=0, CONFIDENCE=[2,1,0]):
-    #-- try with progressively less confidence
-    for i,conf in enumerate(CONFIDENCE):
-        ind, = np.nonzero(confidence_mask >= conf)
-        centroid = dict(x=dist_along, y=np.mean(y[ind]))
-        try:
-            surf = reduce_histogram_fit(x[ind], y[ind], z[ind], ind,
-                dt, FIT_TYPE=FIT_TYPE, ITERATE=ITERATE, PEAKS=2,
-                BACKGROUND=BACKGROUND)
-        except (ValueError, RuntimeError, SyntaxError):
-            pass
-        else:
-            return (i+1,surf,centroid)
-    #-- if still no values found: return infinite values
-    #-- will need to attempt a backup algorithm
-    surf = dict(error=np.full(1,np.inf))
-    centroid = None
-    return (None,surf,centroid)
-
-#-- PURPOSE: iteratively use decomposition fitting to the elevation data to
-#-- reduce to within a valid window
-def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
-    ITERATE=25, PEAKS=2, BACKGROUND=0):
-    #-- speed of light
-    c = 299792458.0
-    #-- use same delta time as calculating first photon bias
-    #-- so that the residuals will be the same
-    dz = dt*c
-    #-- number of background photons in each bin
-    N_BG = dz*BACKGROUND
-    #-- create a histogram of the heights
-    zmin,zmax = (z.min(),z.max())
-    z_full = np.arange(zmin,zmax+dz,dz)
-    nz = len(z_full)
-    #-- maximum allowable window size
-    H_win_max = 20.0
-    #-- minimum allowable window size
-    H_win_min = 3.0
-    #-- set initial window to the full z range
-    window = zmax - zmin
-    window_p1 = np.copy(window)
-
-    #-- number of data points
-    n_max = len(z)
-    #-- number of terms in fit
-    if (FIT_TYPE == 'gaussian'):#-- gaussian fit
-        n_terms = 3
-    elif (FIT_TYPE == 'general'):#-- generalized gaussian fit
-        n_terms = 4
-    #-- run only if number of histogram points is above number of terms
-    FLAG1 = ((nz - n_terms) > 10)
-
-    #-- using kernel density functions from scikit-learn neighbors
-    #-- gaussian kernels will reflect more accurate distributions of the data
-    #-- with less sensitivity to sampling width than histograms (tophat kernels)
-    kde = sklearn.neighbors.KernelDensity(bandwidth=dz,kernel='gaussian')
-    kde.fit(z[:,None])
-    #-- kde score_samples outputs are normalized log density functions
-    hist = np.exp(kde.score_samples(z_full[:,None]) + np.log(n_max*dz))
-    #-- smooth histogram before determining differentials
-    gw = scipy.signal.gaussian(nz,4)
-    hist_smooth = scipy.signal.convolve(hist, gw/gw.sum(), mode='same')
-    #-- First differentials to find zero crossings
-    #-- histogram 1st differential
-    dhist = np.zeros((nz))
-    #-- forward differentiation for starting point
-    dhist[0] = hist_smooth[1] - hist_smooth[0]
-    #-- backward differentiation for end point
-    dhist[-1] = hist_smooth[-1] - hist_smooth[-2]
-    #-- centered differentiation for all others
-    dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
-
-    #-- find positive peaks above amplitude threshold (percent of max)
-    #-- by calculating the histogram differentials
-    #-- signal amplitude threshold greater than 10% of max or 5.5xbackground rate
-    AmpThreshold = 0.10
-    HistThreshold = np.max([5.5*N_BG, AmpThreshold*np.max(hist_smooth)])
-    n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
-        ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
-    n_peaks = np.min([n_peaks,PEAKS])
-    peak_index, = np.nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
-        ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
-    #-- initial indices for reducing to window
-    filt = np.arange(n_max)
-    filt_p1 = np.copy(filt)
-    filt_p2 = np.copy(filt_p1)
-    if FLAG1 and (n_peaks > 0):
-        #-- save initial indices for fitting all photons for confidence level
-        indices = ind.copy()
-        #-- sort peak index by amplitude of peaks (descending from max to min)
-        #-- and truncate to a finite number of peaks
-        sorted_peaks = np.argsort(hist[peak_index])[::-1]
-        peak_index = peak_index[sorted_peaks][:n_peaks]
-        #-- amplitude of the maximum peak
-        max_amp = hist[peak_index][0]
-        #-- cumulative probability distribution function of initial histogram
-        hist_cpdf = np.cumsum(hist/np.sum(hist))
-        #-- IQR: first and third quartiles (25th and 75th percentiles)
-        #-- RDE: 16th and 84th percentiles
-        Q1,Q3,P16,P84 = np.interp([0.25,0.75,0.16,0.84],hist_cpdf,z_full)
-        #-- create priors list
-        priors = []
-        lower_bound = []
-        upper_bound = []
-        for i,p in enumerate(peak_index):
-            if (FIT_TYPE == 'gaussian'):
-                #-- Fit Gaussian functions to photon event histogram
-                #-- a*: amplitude of waveform
-                #-- r*: range from differential index
-                #-- w*: width as 0.75*IQR
-                priors.append([hist[p],z_full[p],0.75*(Q3-Q1)])
-                #-- bounds of each parameter
-                #-- amplitude: 0 to histogram max+5.5xbackground rate
-                #-- range: zmin to zmax
-                #-- width: sz to half width of z
-                lower_bound.extend([0,zmin,dz])
-                upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0])
-            elif (FIT_TYPE == 'general'):
-                #-- Fit Generalized Gaussian functions to photon event histogram
-                #-- a*: amplitude of waveform
-                #-- r*: range from differential index
-                #-- w*: width as 0.75*IQR
-                #-- p*: shape parameter = gaussian sqrt(2)
-                priors.append([hist[p],z_full[p],0.75*(Q3-Q1),np.sqrt(2)])
-                #-- bounds of each parameter
-                #-- amplitude: 0 to histogram max+5.5xbackground rate
-                #-- range: zmin to zmax
-                #-- width: sz to half width of z
-                #-- shape: positive
-                lower_bound.extend([0,zmin,dz,0])
-                upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0,np.inf])
-        #-- run optimized curve fit with Levenberg-Marquardt algorithm
-        fit = fit_histogram(z_full,hist,priors,lower_bound,upper_bound,
-            FIT_TYPE=FIT_TYPE)
-        #-- number of iterations performed
-        n_iter = 1
-        #-- height fits and height fit errors
-        height = fit['height'].copy()
-        amplitude = fit['amplitude'].copy()
-        height_errors = fit['error'].copy()
-        #-- minimum and maximum heights
-        min_peak = np.min(fit['height'])
-        max_peak = np.max(fit['height'])
-        #-- save MSE and DOF for error analysis
-        MSE = np.copy(fit['MSE'])
-        DOF = np.copy(fit['DOF'])
-        #-- Root mean square error
-        RMSE = np.sqrt(fit['MSE'])
-        #-- Normalized root mean square error
-        NRMSE = RMSE/(zmax-zmin)
-        #-- histogram fit
-        model = np.copy(fit['model'])
-        #-- histogram fit residuals
-        resid = np.copy(fit['residuals'])
-        #-- cumulative probability distribution function of initial histogram
-        cpdf = np.cumsum(fit['residuals']/np.sum(fit['residuals']))
-        #-- interpolate residuals to percentiles of interest for statistics
-        Q1,Q3,MEDIAN,P16,P84 = np.interp([0.25,0.75,0.5,0.16,0.84],cpdf,z_full)
-        #-- IQR: first and third quartiles (25th and 75th percentiles)
-        #-- RDE: 16th and 84th percentiles
-        IQR = 0.75*(Q3-Q1)
-        RDE = 0.50*(P84-P16)
-        #-- checking if any residuals are outside of the window
-        window = np.max([H_win_min,6.0*RDE,0.5*window_p1])
-        filt, = np.nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
-        #-- run only if number of points is above number of terms
-        n_rem = np.count_nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
-        nz = (np.max(z[filt])-np.min(z[filt]))//dz + 1
-        FLAG1 = ((nz - n_terms) > 10) & ((n_rem - n_terms) > 10)
-        #-- maximum number of iterations to prevent infinite loops
-        FLAG2 = (n_iter <= ITERATE)
-        #-- compare indices over two iterations to prevent false stoppages
-        FLAG3 = (set(filt) != set(filt_p1)) | (set(filt_p1) != set(filt_p2))
-        #-- iterate until there are no additional removed photons
-        while FLAG1 & FLAG2 & FLAG3:
-            #-- fit selected photons for window
-            x_filt,y_filt,z_filt,indices = (x[filt],y[filt],z[filt],ind[filt])
-            zmin,zmax = (z_filt.min(),z_filt.max())
-            z_full = np.arange(zmin,zmax+dz,dz)
-            nz = len(z_full)
-            #-- using kernel density functions from scikit-learn neighbors
-            #-- gaussian kernels will reflect more accurate distributions of the data
-            #-- with less sensitivity to sampling width than histograms (tophat kernels)
-            kde = sklearn.neighbors.KernelDensity(bandwidth=dz,kernel='gaussian')
-            kde.fit(z_filt[:,None])
-            #-- kde score_samples outputs are normalized log density functions
-            hist = np.exp(kde.score_samples(z_full[:,None]) + np.log(nz*dz))
-            #-- smooth histogram before determining differentials
-            gw = scipy.signal.gaussian(nz,4)
-            hist_smooth = scipy.signal.convolve(hist, gw/gw.sum(), mode='same')
-            #-- First differentials to find zero crossings
-            #-- histogram 1st differential
-            dhist = np.zeros((nz))
-            #-- forward differentiation for starting point
-            dhist[0] = hist_smooth[1] - hist_smooth[0]
-            #-- backward differentiation for end point
-            dhist[-1] = hist_smooth[-1] - hist_smooth[-2]
-            #-- centered differentiation for all others
-            dhist[1:-1] = (hist_smooth[2:] - hist_smooth[0:-2])/2.0
-            #-- find positive peaks above amplitude threshold (percent of max)
-            #-- by calculating the histogram differentials
-            #-- signal amplitude threshold greater than 10% of max or 5.5xbackground rate
-            HistThreshold = np.max([5.5*N_BG, AmpThreshold*np.max(hist_smooth)])
-            n_peaks = np.count_nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
-                ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
-            n_peaks = np.min([n_peaks,PEAKS])
-            peak_index, = np.nonzero((np.sign(dhist[0:-1]) >= 0) & (np.sign(dhist[1:]) < 0) &
-                ((hist_smooth[0:-1] > HistThreshold) | (hist_smooth[1:] > HistThreshold)))
-            #-- sort peak index by amplitude of peaks (descending from max to min)
-            #-- and truncate to a finite number of peaks
-            sorted_peaks = np.argsort(hist[peak_index])[::-1]
-            peak_index = peak_index[sorted_peaks][:n_peaks]
-            #-- amplitude of the maximum peak
-            max_amp = hist[peak_index][0]
-            #-- cumulative probability distribution function of initial histogram
-            hist_cpdf = np.cumsum(hist/np.sum(hist))
-            #-- IQR: first and third quartiles (25th and 75th percentiles)
-            #-- RDE: 16th and 84th percentiles
-            Q1,Q3,P16,P84 = np.interp([0.25,0.75,0.16,0.84],hist_cpdf,z_full)
-            #-- create priors list
-            priors = []
-            lower_bound = []
-            upper_bound = []
-            for i,p in enumerate(peak_index):
-                if (FIT_TYPE == 'gaussian'):
-                    #-- Fit Gaussian functions to photon event histogram
-                    #-- a*: amplitude of waveform
-                    #-- r*: range from differential index
-                    #-- w*: width as 0.75*IQR
-                    priors.append([hist[p],z_full[p],0.75*(Q3-Q1)])
-                    #-- bounds of each parameter
-                    #-- amplitude: 0 to histogram max+5.5xbackground rate
-                    #-- range: zmin to zmax
-                    #-- width: sz to half width of z
-                    lower_bound.extend([0,zmin,dz])
-                    upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0])
-                elif (FIT_TYPE == 'general'):
-                    #-- Fit Generalized Gaussian functions to photon event histogram
-                    #-- a*: amplitude of waveform
-                    #-- r*: range from differential index
-                    #-- w*: width as 0.75*IQR
-                    #-- p*: shape parameter = gaussian sqrt(2)
-                    priors.append([hist[p],z_full[p],0.75*(Q3-Q1),np.sqrt(2)])
-                    #-- bounds of each parameter
-                    #-- amplitude: 0 to histogram max+5.5xbackground rate
-                    #-- range: zmin to zmax
-                    #-- width: sz to half width of z
-                    #-- shape: positive
-                    lower_bound.extend([0,zmin,dz,0])
-                    upper_bound.extend([max_amp+5.5*N_BG,zmax,(zmax-zmin)/2.0,np.inf])
-            #-- run optimized curve fit with Levenberg-Marquardt algorithm
-            fit = fit_histogram(z_full,hist,priors,lower_bound,upper_bound,
-                FIT_TYPE=FIT_TYPE)
-            #-- add to number of iterations performed
-            n_iter += 1
-            #-- height fits and height fit errors
-            height = fit['height'].copy()
-            amplitude = fit['amplitude'].copy()
-            height_errors = fit['error'].copy()
-            #-- minimum and maximum heights
-            min_peak = np.min(fit['height'])
-            max_peak = np.max(fit['height'])
-            #-- save MSE and DOF for error analysis
-            MSE = np.copy(fit['MSE'])
-            DOF = np.copy(fit['DOF'])
-            #-- Root mean square error
-            RMSE = np.sqrt(fit['MSE'])
-            #-- Normalized root mean square error
-            NRMSE = RMSE/(zmax-zmin)
-            #-- histogram fit
-            model = np.copy(fit['model'])
-            #-- histogram fit residuals
-            resid = np.copy(fit['residuals'])
-            #-- cumulative probability distribution function of initial histogram
-            cpdf = np.cumsum(resid/np.sum(resid))
-            #-- interpolate residuals to percentiles of interest for statistics
-            Q1,Q3,MEDIAN,P16,P84 = np.interp([0.25,0.75,0.5,0.16,0.84],cpdf,z_full)
-            #-- IQR: first and third quartiles (25th and 75th percentiles)
-            #-- RDE: 16th and 84th percentiles
-            IQR = 0.75*(Q3-Q1)
-            RDE = 0.50*(P84-P16)
-            #-- checking if any residuals are outside of the window
-            window = np.max([H_win_min,6.0*RDE,0.5*window_p1])
-            #-- filter out using median statistics and refit
-            filt_p2 = np.copy(filt_p1)
-            filt_p1 = np.copy(filt)
-            filt, = np.nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
-            #-- save iteration of window
-            window_p1 = np.copy(window)
-            #-- run only if number of points is above number of terms
-            n_rem = np.count_nonzero((z > (min_peak-window/2.0)) & (z < (max_peak+window/2.0)))
-            nz = (np.max(z[filt])-np.min(z[filt]))//dz + 1
-            FLAG1 = ((nz - n_terms) > 10) & ((n_rem - n_terms) > 10)
-            #-- maximum number of iterations to prevent infinite loops
-            FLAG2 = (n_iter <= ITERATE)
-            #-- compare indices over two iterations to prevent false stoppages
-            FLAG3 = (set(filt) != set(filt_p1)) | (set(filt_p1) != set(filt_p2))
-
-    #-- return reduced model fit
-    FLAG3 = (set(filt) == set(filt_p1))
-    if FLAG1 & FLAG3 & (window <= H_win_max) & (n_peaks > 0):
-        #-- calculate time with respect to mean of fit heights
-        t_full = -2*(z_full-np.mean(height))/c
-        #-- return values
-        return {'height':height, 'error':height_errors, 'amplitude':amplitude,
-            'MSE':MSE, 'NRMSE':NRMSE, 'residuals':resid, 'time': t_full,
-            'model':model, 'DOF':DOF, 'count':n_max, 'indices':indices,
-            'iterations':n_iter, 'window':window, 'RDE':RDE, 'peaks':n_peaks}
-    else:
-        raise ValueError('No valid fit found')
-
-#-- PURPOSE: optimially fit a function to the photon event histogram
-#-- with Levenberg-Marquardt algorithm
-def fit_histogram(z, hist, priors, lower_bound, upper_bound, FIT_TYPE=None):
-    #-- create lists for the initial parameters
-    #-- parameters, and functions for each maximum
-    plist = []
-    flist = []
-    n_peaks = len(priors)
-    #-- function formatting string and parameter list for each fit type
-    if (FIT_TYPE == 'gaussian'):
-        #-- summation of gaussian functions with:
-        #-- peak amplitudes a*
-        #-- peak ranges r* (mean)
-        #-- peak widths w* (standard deviation)
-        #-- Gaussian function formatting string and parameters
-        function = 'a{0:d}*np.exp(-(x-r{0:d})**2.0/(2*w{0:d}**2))'
-        parameters = 'a{0:d}, r{0:d}, w{0:d}'
-    elif (FIT_TYPE == 'general'):
-        #-- summation of generalized gaussian functions with:
-        #-- peak amplitudes a*
-        #-- peak ranges r* (mean)
-        #-- peak widths w* (standard deviation)
-        #-- shape parameter p* (gaussian=sqrt(2))
-        #-- Generalized Gaussian function formatting string and parameters
-        function = 'a{0:d}*np.exp(-np.abs(x-r{0:d})**(p{0:d}**2.0)/(2*w{0:d}**2))'
-        parameters = 'a{0:d}, r{0:d}, w{0:d}, p{0:d}'
-    #-- fit decomposition functions to photon event histograms
-    for n,p in enumerate(priors):
-        #-- parameter list for peak n
-        plist.append(parameters.format(n))
-        #-- function definition list for peak n
-        flist.append(function.format(n))
-    #-- initial parameters for iteration n
-    p0 = np.concatenate((priors),axis=0)
-    #-- variables for iteration n
-    lambda_parameters = ', '.join([p for p in plist])
-    #-- full function for iteration n
-    lambda_function = ' + '.join([f for f in flist])
-    #-- tuple for parameter bounds (lower and upper)
-    bounds = (lower_bound, upper_bound)
-    #-- create lambda function for iteration n
-    #-- lambda functions are inline definitions
-    #-- with the parameters, variables and function definition
-    fsum = eval('lambda x, {0}: {1}'.format(lambda_parameters, lambda_function))
-    #-- optimized curve fit with Levenberg-Marquardt algorithm
-    #-- with the initial guess parameters p0 and parameter bounds
-    popt, pcov = scipy.optimize.curve_fit(fsum,z,hist,p0=p0,bounds=bounds)
-    #-- modelled histogram fit
-    model = fsum(z, *popt)
-    #-- 1 standard deviation errors in parameters
-    perr = np.sqrt(np.diag(pcov))
-    #-- number of points for fit and number of terms in fit
-    n_max = len(hist)
-    n_terms = len(p0)
-    #-- extract function outputs
-    if (FIT_TYPE == 'gaussian'):
-        #-- Gaussian function outputs
-        n = np.arange(n_peaks)*3
-        peak_amplitude = popt[n]
-        peak_height = popt[n+1]
-        peak_height_error = perr[n+1]
-        peak_stdev = popt[n+2]
-    elif (FIT_TYPE == 'general'):
-        #-- Generalized Gaussian function outputs
-        n = np.arange(n_peaks)*4
-        peak_amplitude = popt[n]
-        peak_height = popt[n+1]
-        peak_height_error = perr[n+1]
-        peak_stdev = popt[n+2]
-    #-- residual of fit
-    res = hist - model
-    #-- nu = Degrees of Freedom = number of measurements-number of parameters
-    nu = n_max - n_terms
-    #-- Mean square error
-    #-- MSE = (1/nu)*sum((Y-X*B)**2)
-    MSE = np.dot(np.transpose(hist - model),(hist - model))/nu
-    #-- Default is 95% confidence interval
-    alpha = 1.0 - (0.95)
-    #-- Student T-Distribution with D.O.F. nu
-    #-- t.ppf parallels tinv in matlab
-    tstar = scipy.stats.t.ppf(1.0-(alpha/2.0),nu)
-    return {'height':peak_height, 'amplitude':peak_amplitude,
-        'error':tstar*peak_height_error, 'stdev': peak_stdev,
-        'model':model, 'residuals':np.abs(res), 'MSE':MSE, 'DOF':nu}
-
-#-- PURPOSE: calculate delta_time, latitude and longitude of the segment center
-def fit_geolocation(var, distance_along_X, X_atc):
-    #-- calculate x relative to centroid point
-    rel_x = distance_along_X - X_atc
-    #-- design matrix
-    XMAT = np.transpose([np.ones_like((distance_along_X)),rel_x])
-    #-- Standard Least-Squares fitting (the [0] denotes coefficients output)
-    beta_mat = np.linalg.lstsq(XMAT,var,rcond=-1)[0]
-    #-- return the fitted geolocation
-    return beta_mat[0]
-
-#-- PURPOSE: estimate mean and median first photon bias corrections
-def calc_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
-    METHOD='direct',ITERATE=20):
-    #-- number of time points
-    nt = len(t_full)
-    #-- normalize residual histogram by number of pulses and number of pixels
-    N0_full = hist/(n_pulses*n_pixels)
-    #-- centroid of initial histogram
-    hist_centroid = np.sum(t_full*hist)/np.sum(hist)
-    #-- cumulative probability distribution function of initial histogram
-    hist_cpdf = np.cumsum(hist/np.sum(hist))
-    #-- linearly interpolate to 10th, 50th, and 90th percentiles
-    H10,hist_median,H90 = np.interp([0.1,0.5,0.9],hist_cpdf,t_full)
-
-    #-- calculate moving total of normalized histogram
-    #-- average number of pixels in the detector that were inactive
-    P_dead = np.zeros((nt))
-    #-- dead time as a function of the number of bins
-    n_dead = int(dead_time/dt)
-    #-- calculate moving total of last n_dead bins
-    kernel = np.triu(np.tri(nt,nt,0),k=-n_dead)
-    P_dead[:] = np.dot(kernel,N0_full[:,None]).flatten()
-
-    #-- estimate gain directly
-    if (METHOD == 'direct'):
-        #-- estimate gain
-        G_est_full = 1.0 - P_dead
-        #-- parameters for calculating first photon bias from calibration products
-        width = np.abs(H90 - H10)
-        strength = np.sum(N0_full)
-        #-- calculate corrected histogram of photon events
-        N_PEcorr = (n_pulses*n_pixels)*N0_full/G_est_full
-        N_PE = np.sum(N_PEcorr)
-        N_sigma = np.sqrt(n_pulses*n_pixels*N0_full)/G_est_full
-        #-- calculate mean corrected estimate
-        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE - hist_centroid
-        FPB_mean_sigma = np.sqrt(np.sum((N_sigma*(t_full-FPB_mean_corr)/N_PE)**2))
-        #-- calculate median corrected estimate
-        PEcorr_cpdf = np.cumsum(N_PEcorr/N_PE)
-        sigma_cpdf = np.sqrt(np.cumsum(N_sigma**2))/N_PE
-        #-- calculate median first photon bias correction
-        #-- linearly interpolate to 40th, 50th and 60th percentiles
-        PE40,PE50,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
-        FPB_median_corr = PE50 - hist_median
-        FPB_median_sigma = (PE60-PE40)*np.interp(0.5,PEcorr_cpdf,sigma_cpdf)/0.2
-    elif (METHOD == 'logarithmic') and np.count_nonzero(P_dead > 0.01):
-        #-- find indices above threshold for computing correction
-        ii, = np.nonzero(P_dead > 0.01)
-        #-- complete gain over entire histogram
-        G_est_full = np.ones((nt))
-        #-- segment indices (above threshold and +/- dead time)
-        imin,imax = (np.min(ii)-n_dead,np.max(ii)+n_dead)
-        #-- truncate values to range of segment
-        N0 = N0_full[imin:imax+1]
-        N_corr = np.copy(N0)
-        nr = len(N0)
-        #-- calculate gain for segment
-        gain = np.ones((nr))
-        gain_prev = np.zeros((nr))
-        kernel = np.triu(np.tri(nr,nr,0),k=-n_dead)
-        #-- counter for number of iterations for segment
-        n_iter = 0
-        #-- iterate until convergence or until reaching limit of iterations
-        #-- using matrix algebra to avoid using a nested loop
-        while np.any(np.abs(gain-gain_prev) > 0.001) & (n_iter <= ITERATE):
-            gain_prev=np.copy(gain)
-            gain=np.exp(np.dot(kernel,np.log(1.0-N_corr[:,None]))).flatten()
-            N_corr=N0/gain
-            n_iter += 1
-        #-- add segment to complete gain array
-        G_est_full[imin:imax+1] = gain[:]
-
-        #-- calculate corrected histogram of photon events
-        N_PEcorr = (n_pulses*n_pixels)*N0_full/G_est_full
-        N_PE = np.sum(N_PEcorr)
-        N_sigma = np.sqrt(n_pulses*n_pixels*N0_full)/G_est_full
-
-        #-- calculate mean corrected estimate
-        FPB_mean_corr = np.sum(t_full*N_PEcorr)/N_PE - hist_centroid
-        FPB_mean_sigma = np.sqrt(np.sum((N_sigma*(t_full-FPB_mean_corr)/N_PE)**2))
-        #-- calculate median corrected estimate
-        PEcorr_cpdf = np.cumsum(N_PEcorr/N_PE)
-        sigma_cpdf = np.sqrt(np.cumsum(N_sigma**2))/N_PE
-        #-- calculate median first photon bias correction
-        #-- linearly interpolate to 40th, 50th and 60th percentiles
-        PE40,PE50,PE60 = np.interp([0.4,0.5,0.6],PEcorr_cpdf,t_full)
-        FPB_median_corr = PE50 - hist_median
-        FPB_median_sigma = (PE60-PE40)*np.interp(0.5,PEcorr_cpdf,sigma_cpdf)/0.2
-    else:
-        #-- possible that no first photon bias correction is necessary
-        FPB_mean_corr = 0.0
-        FPB_mean_sigma = 0.0
-        FPB_median_corr = 0.0
-        FPB_median_sigma = 0.0
-        N_PE = np.sum(hist)
-
-    #-- return first photon bias corrections
-    return {'mean':FPB_mean_corr, 'mean_sigma':np.abs(FPB_mean_sigma),
-        'median':FPB_median_corr, 'median_sigma':np.abs(FPB_median_sigma),
-        'width':width, 'strength':strength, 'count':N_PE}
-
-#-- PURPOSE: compress complete list of valid indices into a set of ranges
-def compress_list(i,n):
-    for a,b in itertools.groupby(enumerate(i), lambda v: ((v[1]-v[0])//n)*n):
-        group = list(map(operator.itemgetter(1),b))
-        yield (group[0], group[-1])
-
-#-- PURPOSE: centers the transmit-echo-path histogram reported by ATL03
-#-- using an iterative edit to distinguish between signal and noise
-def extract_tep_histogram(tep_hist_time,tep_hist,tep_range_prim):
-    #-- ATL03 recommends subset between 15-30 ns to avoid secondary
-    #-- using primary histogram range values from ATL03 tep attributes
-    i, = np.nonzero((tep_hist_time >= tep_range_prim[0]) &
-        (tep_hist_time < tep_range_prim[1]))
-    t_tx = np.copy(tep_hist_time[i])
-    n_tx = len(t_tx)
-    #-- noise samples of tep_hist (first 5ns and last 10 ns)
-    ns,ne = (tep_range_prim[0]+5e-9,tep_range_prim[1]-10e-9)
-    noise, = np.nonzero((t_tx <= ns) | (t_tx >= ne))
-    noise_p1 = []
-    #-- signal samples of tep_hist
-    signal = sorted(set(np.arange(n_tx)) - set(noise))
-    #-- number of iterations
-    n_iter = 0
-    while (set(noise) != set(noise_p1)) & (n_iter < 10):
-        #-- value of noise in tep histogram
-        tep_noise_value = np.sqrt(np.sum(tep_hist[i][noise]**2)/n_tx)
-        p_tx = np.abs(np.copy(tep_hist[i]) - tep_noise_value)
-        #-- calculate centroid of tep_hist
-        t0_tx = np.sum(t_tx[signal]*p_tx[signal])/np.sum(p_tx[signal])
-        #-- calculate cumulative distribution function
-        TX_cpdf = np.cumsum(p_tx[signal]/np.sum(p_tx[signal]))
-        #-- linearly interpolate to 16th and 84th percentile for RDE
-        TX16,TX84 = np.interp([0.16,0.84],TX_cpdf,t_tx[signal]-t0_tx)
-        #-- calculate width of transmitted pulse (RDE)
-        W_TX = 0.5*(TX84 - TX16)
-        #-- recalculate noise
-        noise_p1 = np.copy(noise)
-        ns,ne = (t0_tx-6.0*W_TX,t0_tx+6.0*W_TX)
-        noise, = np.nonzero((t_tx <= ns) | (t_tx >= ne))
-        signal = sorted(set(np.arange(n_tx)) - set(noise))
-        #-- add 1 to counter
-        n_iter += 1
-    #-- valid primary TEP return has full-width at half max < 3 ns
-    mx = np.argmax(p_tx[signal])
-    halfmax = np.max(p_tx[signal])/2.0
-    H1 = np.interp(halfmax,p_tx[signal][:mx],t_tx[signal][:mx])
-    H2 = np.interp(halfmax,p_tx[signal][:mx:-1],t_tx[signal][:mx:-1])
-    FWHM = H2 - H1
-    #-- return values
-    return (t_tx[signal]-t0_tx,p_tx[signal],W_TX,FWHM,ns,ne)
-
-#-- PURPOSE: Estimate transmit-pulse-shape correction
-def calc_transmit_pulse_shape(t_TX,p_TX,W_TX,W_RX,dt_W,SNR,ITERATE=50):
-    #-- length of the transmit pulse
-    nt = len(p_TX)
-    #-- average time step of the transmit pulse
-    dt = np.abs(t_TX[1]-t_TX[0])
-
-    #-- calculate broadening of the received pulse
-    W_spread = np.sqrt(np.max([W_RX**2 - W_TX**2,1e-22]))
-    #-- create zero padded transmit and received pulses (by 4*W_spread samples)
-    dw = np.ceil(W_spread/dt)
-    wmn = -int(np.min([0,np.round((-t_TX[0])/dt)-4*dw]))
-    wmx = int(np.max([nt,np.round((-t_TX[0])/dt)+4*dw])-nt)
-    t_RX = np.arange(t_TX[0]-wmn*dt,t_TX[-1]+(wmx+1)*dt,dt)
-    nr = len(t_RX)
-    TX = np.zeros((nr))
-    TX[wmn:wmn+nt] = np.copy(p_TX)
-
-    #-- smooth the transmit pulse by the spread
-    gw = scipy.signal.gaussian(nr, W_spread/dt)
-    RX = scipy.signal.convolve(TX/TX.sum(), gw/gw.sum(), mode='same')
-    #-- normalize and add a random noise estimate
-    RX /= np.sum(RX)
-    RX += (1.0-2.0*np.random.rand(nr))*(dt/dt_W)/SNR
-    #-- verify that all values of the synthetic received pulse are positive
-    RX = np.abs(RX)
-
-    #-- calculate median estimate of the synthetic received pulse
-    RX_cpdf = np.cumsum(RX/np.sum(RX))
-    #-- linearly interpolate to 50th percentile to calculate median
-    t_synthetic_med = np.interp(0.5,RX_cpdf,t_RX)
-    #-- calculate centroid for mean of the synthetic received pulse
-    t_synthetic_mean = np.sum(t_RX*RX)/np.sum(RX)
-
-    #-- number of iterations
-    n_iter = 0
-    #-- threshold for stopping iteration
-    threshold = 2e-4/299792458.0
-    #-- iterate until convergence of both mean and median
-    FLAG1,FLAG2 = (False,False)
-    while (FLAG1 | FLAG2) and (n_iter < ITERATE):
-        #-- copy previous mean and median times
-        tmd_prev = np.copy(t_synthetic_med)
-        tmn_prev = np.copy(t_synthetic_mean)
-        #-- truncate to within window
-        i, = np.nonzero((t_RX >= (t_synthetic_mean-0.5*dt_W)) &
-            (t_RX <= (t_synthetic_mean+0.5*dt_W)))
-        #-- linearly interpolate to 50th percentile to calculate median
-        t_synthetic_med = np.interp(0.5,np.cumsum(RX[i]/np.sum(RX[i])),t_RX[i])
-        #-- calculate mean time for window
-        t_synthetic_mean = np.sum(t_RX[i]*RX[i])/np.sum(RX[i])
-        #-- add to iteration
-        n_iter += 1
-        #-- check iteration
-        FLAG1 = (np.abs(t_synthetic_med - tmd_prev) > threshold)
-        FLAG2 = (np.abs(t_synthetic_mean - tmn_prev) > threshold)
-
-    #-- return estimated transmit pulse corrections corrections
-    return {'mean':t_synthetic_mean,'median':t_synthetic_med,'spread':W_spread}
 
 #-- PURPOSE: reads ICESat-2 ATL03 and ATL09 HDF5 files
 #-- and computes heights over segments using the decomposition of histograms
@@ -874,8 +257,10 @@ def main():
     Segment_Window = {}
     Segment_RDE = {}
     Segment_SNR = {}
+    Segment_Photon_SNR = {}
     Segment_Summary = {}
     Segment_Iterations = {}
+    Segment_Clusters = {}
     Segment_Source = {}
     Segment_Pulses = {}
     #-- correction parameters
@@ -899,6 +284,8 @@ def main():
         Segment_ID[gtx] = fileID[gtx]['geolocation']['segment_id'][:]
         #-- number of valid overlapping ATL03 segments
         n_seg = len(Segment_ID[gtx]) - 1
+        #-- number of photon events
+        n_pe, = fileID[gtx]['heights']['delta_time'].shape
 
         #-- first photon in the segment (convert to 0-based indexing)
         Segment_Index_begin[gtx] = fileID[gtx]['geolocation']['ph_index_beg'][:] - 1
@@ -933,8 +320,8 @@ def main():
         #-- ATL03 recommends subsetting between 15-30 ns to avoid secondary
         tep_hist_time = np.copy(fileID[tep1][pce][tep2]['tep_hist_time'][:])
         tep_hist = np.copy(fileID[tep1][pce][tep2]['tep_hist'][:])
-        t_TX,p_TX,W_TX,FWHM,TXs,TXe = extract_tep_histogram(tep_hist_time,
-            tep_hist, tep_range_prim)
+        t_TX,p_TX,W_TX,FWHM,TXs,TXe = icesat2_toolkit.fit.extract_tep_histogram(
+            tep_hist_time, tep_hist, tep_range_prim)
         #-- save tep information and statistics
         tep[gtx] = {}
         tep[gtx]['pce'] = pce
@@ -1036,12 +423,18 @@ def main():
         #-- signal-to-noise ratio
         Distributed_SNR = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_SNR.mask = np.ones((n_seg),dtype=bool)
+        #-- maximum signal-to-noise ratio from photon classifier
+        Distributed_Photon_SNR = np.ma.zeros((n_seg),fill_value=0,dtype=int)
+        Distributed_Photon_SNR.mask = np.ones((n_seg),dtype=bool)
         #-- segment quality summary
         Distributed_Summary = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_Summary.mask = np.ones((n_seg),dtype=bool)
         #-- number of iterations for fit
         Distributed_Iterations = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Distributed_Iterations.mask = np.ones((n_seg),dtype=bool)
+        #-- number of estimated clusters of data
+        Distributed_Clusters = np.ma.zeros((n_seg),fill_value=0,dtype=int)
+        Distributed_Clusters.mask = np.ones((n_seg),dtype=bool)
         #-- signal source selection
         Distributed_Source = np.ma.zeros((n_seg),fill_value=4,dtype=int)
         Distributed_Source.mask = np.ones((n_seg),dtype=bool)
@@ -1067,6 +460,55 @@ def main():
         Distributed_TPS_median_corr = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_TPS_median_corr.mask = np.ones((n_seg),dtype=bool)
 
+        #-- along-track and across-track distance for photon events
+        x_atc = fileID[gtx]['heights']['dist_ph_along'][:].copy()
+        y_atc = fileID[gtx]['heights']['dist_ph_across'][:].copy()
+        #-- photon event heights
+        h_ph = fileID[gtx]['heights']['h_ph'][:].copy()
+        #-- for each 20m segment
+        for j,_ in enumerate(Segment_ID[gtx]):
+            #-- index for 20m segment j
+            idx = Segment_Index_begin[gtx][j]
+            #-- skip segments with no photon events
+            if (idx < 0):
+                continue
+            #-- number of photons in 20m segment
+            cnt = Segment_PE_count[gtx][j]
+            #-- add segment distance to along-track coordinates
+            x_atc[idx:idx+cnt] += Segment_Distance[gtx][j]
+
+        #-- iterate over ATLAS major frames
+        photon_mframes = fileID[gtx]['heights']['pce_mframe_cnt'][:].copy()
+        pce_mframe_cnt = fileID[gtx]['bckgrd_atlas']['pce_mframe_cnt'][:].copy()
+        unique_major_frames,unique_index = np.unique(pce_mframe_cnt,return_index=True)
+        major_frame_count = len(unique_major_frames)
+        tlm_height_band1 = fileID[gtx]['bckgrd_atlas']['tlm_height_band1'][:].copy()
+        tlm_height_band2 = fileID[gtx]['bckgrd_atlas']['tlm_height_band2'][:].copy()
+        #-- photon event weights
+        Distributed_Weights = np.zeros((n_pe),dtype=np.float)
+        #-- run for each major frame (distributed over comm.size # of processes)
+        for iteration in range(comm.rank, major_frame_count, comm.size):
+            #-- background atlas index for iteration
+            idx = unique_index[iteration]
+            #-- sum of 2 telemetry band widths for major frame
+            h_win_width = tlm_height_band1[idx] + tlm_height_band2[idx]
+            #-- photon indices for major frame (buffered by 1 on each side)
+            i1, = np.nonzero((photon_mframes >= unique_major_frames[iteration]-1) &
+                (photon_mframes <= unique_major_frames[iteration]+1))
+            #-- indices for the major frame within the buffered window
+            i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
+            #-- calculate photon event weights
+            Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
+                h_win_width, i2, K=5, MIN_PH=5, MIN_XSPREAD=1.0,
+                MIN_HSPREAD=0.01, METHOD='linear')
+        #-- photon event weights
+        pe_weights = np.zeros((n_pe),dtype=np.float)
+        comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \
+            recvbuf=[pe_weights, MPI.DOUBLE], op=MPI.SUM)
+        Distributed_Weights = None
+        #-- wait for all distributed processes to finish for beam
+        comm.Barrier()
+
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
         #-- here in 0-based indexing: invalid == -1
@@ -1091,7 +533,7 @@ def main():
                 #-- time of each Photon event (PE)
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
                 #-- Photon event lat/lon and elevation (re-tided WGS84)
-                segment_heights = np.copy(fileID[gtx]['heights']['h_ph'][idx:idx+cnt])
+                segment_heights = np.copy(h_ph[idx:idx+cnt])
                 #-- ATL03 pe heights no longer apply the ocean tide
                 #-- and so "re-tiding" is no longer unnecessary
                 # segment_heights[:c1] += tide_ocean[j]
@@ -1106,10 +548,8 @@ def main():
                 #-- vertical noise-photon density
                 background_density = 2.0*n_pulses*Segment_Background[gtx][j]/c
                 #-- along-track X and Y coordinates
-                distance_along_X = np.copy(fileID[gtx]['heights']['dist_ph_along'][idx:idx+cnt])
-                distance_along_X[:c1] += Segment_Distance[gtx][j]
-                distance_along_X[c1:] += Segment_Distance[gtx][j+1]
-                distance_along_Y = np.copy(fileID[gtx]['heights']['dist_ph_across'][idx:idx+cnt])
+                distance_along_X = np.copy(x_atc[idx:idx+cnt])
+                distance_along_Y = np.copy(y_atc[idx:idx+cnt])
                 #-- check the spread of photons along-track (must be > 20m)
                 along_X_spread = distance_along_X.max() - distance_along_X.min()
                 #-- check confidence level associated with each photon event
@@ -1124,18 +564,51 @@ def main():
                 #-- 0=Land; 1=Ocean; 2=SeaIce; 3=LandIce; 4=InlandWater
                 ice_sig_conf = np.copy(fileID[gtx]['heights']['signal_conf_ph'][idx:idx+cnt,3])
                 ice_sig_low_count = np.count_nonzero(ice_sig_conf > 1)
+                #-- indices of TEP classified photons
+                ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
+                #-- photon event weights from photon classifier
+                segment_weights = pe_weights[idx:idx+cnt]
+                snr_norm = np.max(segment_weights)
+                #-- photon event signal-to-noise ratio from photon classifier
+                photon_snr = np.zeros((cnt),dtype=int)
+                if (snr_norm > 0):
+                    photon_snr[:] = 100.0*segment_weights/snr_norm
+                #-- copy signal to noise ratio for segment
+                Distributed_Photon_SNR.data[j] = np.copy(snr_norm)
+                Distributed_Photon_SNR.mask[j] = (snr_norm > 0)
+                #-- photon confidence levels from classifier
+                pe_sig_conf = np.zeros((cnt),dtype=int)
+                #-- calculate confidence levels from photon classifier
+                pe_sig_conf[photon_snr >= 25] = 2
+                pe_sig_conf[photon_snr >= 60] = 3
+                pe_sig_conf[photon_snr >= 80] = 4
+                #-- copy classification for TEP photons
+                pe_sig_conf[ice_sig_tep_pe] = -2
+                pe_sig_low_count = np.count_nonzero(pe_sig_conf > 1)
                 #-- check if segment has photon events classified for land ice
                 #-- that are at or above low-confidence threshold
                 #-- and that the spread of photons is greater than 20m
-                print(iteration,ice_sig_low_count,along_X_spread)
                 if (ice_sig_low_count > 10) & (along_X_spread > 20):
+                    #-- use density-based spatial clustering in segment
+                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
+                        np.c_[distance_along_X, segment_heights],
+                        sample_weight=photon_snr)
+                    labels = db.labels_
+                    #-- number of noise photons
+                    noise_photons = list(labels).count(-1)
+                    noise_cluster = 1 if noise_photons else 0
+                    #-- number of photon event clusters in segment
+                    n_clusters = len(set(labels)) - noise_cluster
+                    Distributed_Clusters.data[j] = n_clusters
+                    Distributed_Clusters.mask[j] = (n_clusters > 0)
                     #-- perform a histogram fit procedure
                     Segment_X = Segment_Distance[gtx][j] + Segment_Length[gtx][j]
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
-                    valid,fit,centroid = try_histogram_fit(distance_along_X,
-                        distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE=args.fit, ITERATE=20,
-                        BACKGROUND=background_density, CONFIDENCE=[2,1,0])
+                    valid,fit,centroid = icesat2_toolkit.fit.try_histogram_fit(
+                        distance_along_X, distance_along_Y, segment_heights,
+                        pe_sig_conf, Segment_X, 5e-11, FIT_TYPE=args.fit,
+                        ITERATE=20, BACKGROUND=background_density,
+                        CONFIDENCE=[2,1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
                     if bool(valid) & (np.abs(fit['error'][0]) < 20):
@@ -1171,13 +644,16 @@ def main():
                         Distributed_Y_atc.data[j] = np.copy(centroid['y'])
                         Distributed_Y_atc.mask[j] = False
                         #-- fit geolocation to the along-track distance of segment
-                        Distributed_delta_time.data[j] = fit_geolocation(segment_times[ifit],
+                        Distributed_delta_time.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_times[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_delta_time.mask[j] = False
-                        Distributed_Longitude.data[j] = fit_geolocation(segment_lons[ifit],
+                        Distributed_Longitude.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_lons[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Longitude.mask[j] = False
-                        Distributed_Latitude.data[j] = fit_geolocation(segment_lats[ifit],
+                        Distributed_Latitude.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_lats[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Latitude.mask[j] = False
                         #-- number of photons used in fit
@@ -1210,34 +686,6 @@ def main():
                         residual_median = np.interp(0.5,residual_cpdf,z_full)
                         Distributed_Mean_Median.data[j] = residual_mean - residual_median
                         Distributed_Mean_Median.mask[j] = False
-                        #-- estimate first photon bias corrections
-                        #-- step-size for histograms (50 ps ~ 7.5mm height)
-                        FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
-                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,
-                            METHOD='direct',ITERATE=20)
-                        Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
-                        Distributed_FPB_mean_corr.mask[j] = False
-                        Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
-                        Distributed_FPB_mean_sigma.mask[j] = False
-                        Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
-                        Distributed_FPB_median_corr.mask[j] = False
-                        Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
-                        Distributed_FPB_median_sigma.mask[j] = False
-                        Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
-                        Distributed_FPB_n_corr.mask[j] = False
-                        #-- first photon bias correction from CAL-19
-                        FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
-                        Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
-                        Distributed_FPB_cal_corr.mask[j] = False
-                        #-- estimate transmit pulse shape correction
-                        W_RX = 2.0*Distributed_RDE.data[j]/c
-                        dt_W = 2.0*Distributed_Window.data[j]/c
-                        TPS = calc_transmit_pulse_shape(t_TX, p_TX, W_TX, W_RX,
-                            dt_W, Distributed_SNR.data[j], ITERATE=50)
-                        Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
-                        Distributed_TPS_mean_corr.mask[j] = False
-                        Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
-                        Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
                         Distributed_Summary.data[j] = int(
@@ -1245,6 +693,43 @@ def main():
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
                         Distributed_Summary.mask[j] = False
+                        #-- estimate first photon bias corrections
+                        #-- step-size for histograms (50 ps ~ 7.5mm height)
+                        try:
+                            FPB = icesat2_toolkit.fit.histogram_first_photon_bias(fit['time'],
+                                fit['residuals'], n_pulses, n_pixels, mean_dead_time[gtx],
+                                5e-11, METHOD='direct', ITERATE=20)
+                        except:
+                            pass
+                        else:
+                            Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
+                            Distributed_FPB_mean_corr.mask[j] = False
+                            Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
+                            Distributed_FPB_mean_sigma.mask[j] = False
+                            Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
+                            Distributed_FPB_median_corr.mask[j] = False
+                            Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
+                            Distributed_FPB_median_sigma.mask[j] = False
+                            Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
+                            Distributed_FPB_n_corr.mask[j] = False
+                            #-- first photon bias correction from CAL-19
+                            FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
+                            Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
+                            Distributed_FPB_cal_corr.mask[j] = False
+                        #-- estimate transmit pulse shape correction
+                        try:
+                            W_RX = 2.0*Distributed_RDE.data[j]/c
+                            dt_W = 2.0*Distributed_Window.data[j]/c
+                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                                p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
+                                ITERATE=50)
+                        except:
+                            pass
+                        else:
+                            Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
+                            Distributed_TPS_mean_corr.mask[j] = False
+                            Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
+                            Distributed_TPS_median_corr.mask[j] = False
 
             #-- some ATL03 segments will not result in a valid fit
             #-- backup algorithm uses 4 segments to find a valid surface
@@ -1261,7 +746,7 @@ def main():
                 #-- time of each Photon event (PE)
                 segment_times = np.copy(fileID[gtx]['heights']['delta_time'][idx:idx+cnt])
                 #-- Photon event lat/lon and elevation (re-tided WGS84)
-                segment_heights = np.copy(fileID[gtx]['heights']['h_ph'][idx:idx+cnt])
+                segment_heights = np.copy(h_ph[idx:idx+cnt])
                 #-- ATL03 pe heights no longer apply the ocean tide
                 #-- and so "re-tiding" is no longer unnecessary
                 # segment_heights[:c1] += tide_ocean[j-1]
@@ -1278,12 +763,8 @@ def main():
                 #-- vertical noise-photon density
                 background_density = 2.0*n_pulses*Segment_Background[gtx][j]/c
                 #-- along-track X and Y coordinates
-                distance_along_X = np.copy(fileID[gtx]['heights']['dist_ph_along'][idx:idx+cnt])
-                distance_along_X[:c1] += Segment_Distance[gtx][j-1]
-                distance_along_X[c1:c1+c2] += Segment_Distance[gtx][j]
-                distance_along_X[c1+c2:c1+c2+c3] += Segment_Distance[gtx][j+1]
-                distance_along_X[c1+c2+c3:] += Segment_Distance[gtx][j+2]
-                distance_along_Y = np.copy(fileID[gtx]['heights']['dist_ph_across'][idx:idx+cnt])
+                distance_along_X = np.copy(x_atc[idx:idx+cnt])
+                distance_along_Y = np.copy(y_atc[idx:idx+cnt])
                 #-- check the spread of photons along-track (must be > 40m)
                 along_X_spread = distance_along_X.max() - distance_along_X.min()
                 #-- check confidence level associated with each photon event
@@ -1298,17 +779,47 @@ def main():
                 #-- 0=Land; 1=Ocean; 2=SeaIce; 3=LandIce; 4=InlandWater
                 ice_sig_conf = np.copy(fileID[gtx]['heights']['signal_conf_ph'][idx:idx+cnt,3])
                 ice_sig_low_count = np.count_nonzero(ice_sig_conf > 1)
+                #-- indices of TEP classified photons
+                ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
+                #-- photon event weights from photon classifier
+                segment_weights = pe_weights[idx:idx+cnt]
+                snr_norm = np.max(segment_weights)
+                #-- photon event signal-to-noise ratio from photon classifier
+                photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)
+                Distributed_Photon_SNR.data[j] = np.copy(snr_norm)
+                Distributed_Photon_SNR.mask[j] = (snr_norm > 0)
+                #-- photon confidence levels from classifier
+                pe_sig_conf = np.zeros((cnt),dtype=int)
+                #-- calculate confidence levels from photon classifier
+                pe_sig_conf[photon_snr >= 25] = 2
+                pe_sig_conf[photon_snr >= 60] = 3
+                pe_sig_conf[photon_snr >= 80] = 4
+                #-- copy classification for TEP photons
+                pe_sig_conf[ice_sig_tep_pe] = -2
+                pe_sig_low_count = np.count_nonzero(pe_sig_conf > 1)
                 #-- check if segment has photon events classified for land ice
                 #-- that are at or above low-confidence threshold
                 #-- and that the spread of photons is greater than 40m
-                if (ice_sig_low_count > 10) & (along_X_spread > 40):
+                if (pe_sig_low_count > 10) & (along_X_spread > 40):
+                    #-- use density-based spatial clustering in segment
+                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
+                        np.c_[distance_along_X, segment_heights],
+                        sample_weight=photon_snr)
+                    labels = db.labels_
+                    #-- number of noise photons
+                    noise_photons = list(labels).count(-1)
+                    noise_cluster = 1 if noise_photons else 0
+                    #-- number of photon event clusters in segment
+                    n_clusters = len(set(labels)) - noise_cluster
+                    Distributed_Clusters.data[j] = n_clusters
+                    Distributed_Clusters.mask[j] = (n_clusters > 0)
                     #-- perform a histogram fit procedure
                     Segment_X = Segment_Distance[gtx][j] + Segment_Length[gtx][j]
                     #-- step-size for histograms (50 ps ~ 7.5mm height)
-                    valid,fit,centroid = try_histogram_fit(distance_along_X,
-                        distance_along_Y, segment_heights, ice_sig_conf,
-                        Segment_X, 5e-11, FIT_TYPE=args.fit, ITERATE=20,
-                        BACKGROUND=background_density, CONFIDENCE=[1,0])
+                    valid,fit,centroid = icesat2_toolkit.fit.try_histogram_fit(
+                        distance_along_X, distance_along_Y, segment_heights,
+                        pe_sig_conf, Segment_X, 5e-11, FIT_TYPE=args.fit,
+                        ITERATE=20, BACKGROUND=background_density, CONFIDENCE=[1,0])
                     #-- indices of points used in final iterated fit
                     ifit = fit['indices'] if valid else None
                     if bool(valid) & (np.abs(fit['error'][0]) < 20):
@@ -1344,12 +855,15 @@ def main():
                         Distributed_Y_atc.data[j] = np.copy(centroid['y'])
                         Distributed_Y_atc.mask[j] = False
                         #-- fit geolocation to the along-track distance of segment
-                        Distributed_delta_time.data[j] = fit_geolocation(segment_times[ifit],
+                        Distributed_delta_time.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_times[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
-                        Distributed_Longitude.data[j] = fit_geolocation(segment_lons[ifit],
+                        Distributed_Longitude.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_lons[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Longitude.mask[j] = False
-                        Distributed_Latitude.data[j] = fit_geolocation(segment_lats[ifit],
+                        Distributed_Latitude.data[j] = \
+                            icesat2_toolkit.fit.fit_geolocation(segment_lats[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         #-- number of photons used in fit
                         Distributed_N_Fit.data[j] = len(ifit)
@@ -1381,34 +895,6 @@ def main():
                         residual_median = np.interp(0.5,residual_cpdf,z_full)
                         Distributed_Mean_Median.data[j] = residual_mean - residual_median
                         Distributed_Mean_Median.mask[j] = False
-                        #-- estimate first photon bias corrections
-                        #-- step-size for histograms (50 ps ~ 7.5mm height)
-                        FPB = calc_first_photon_bias(fit['time'],fit['residuals'],
-                            n_pulses,n_pixels,mean_dead_time[gtx],5e-11,
-                            METHOD='direct',ITERATE=20)
-                        Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
-                        Distributed_FPB_mean_corr.mask[j] = False
-                        Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
-                        Distributed_FPB_mean_sigma.mask[j] = False
-                        Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
-                        Distributed_FPB_median_corr.mask[j] = False
-                        Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
-                        Distributed_FPB_median_sigma.mask[j] = False
-                        Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
-                        Distributed_FPB_n_corr.mask[j] = False
-                        #-- first photon bias correction from CAL-19
-                        FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
-                        Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
-                        Distributed_FPB_cal_corr.mask[j] = False
-                        #-- estimate transmit pulse shape correction
-                        W_RX = 2.0*Distributed_RDE.data[j]/c
-                        dt_W = 2.0*Distributed_Window.data[j]/c
-                        TPS = calc_transmit_pulse_shape(t_TX, p_TX, W_TX, W_RX,
-                            dt_W, Distributed_SNR.data[j], ITERATE=50)
-                        Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
-                        Distributed_TPS_mean_corr.mask[j] = False
-                        Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
-                        Distributed_TPS_median_corr.mask[j] = False
                         #-- calculate flags for quality summary
                         VPD = Distributed_N_Fit.data[j]/Distributed_Window.data[j]
                         Distributed_Summary.data[j] = int(
@@ -1416,6 +902,43 @@ def main():
                             (Distributed_Height_Error.data[j] >= 1) |
                             (VPD <= (n_pixels/4.0)))
                         Distributed_Summary.mask[j] = False
+                        #-- estimate first photon bias corrections
+                        #-- step-size for histograms (50 ps ~ 7.5mm height)
+                        try:
+                            FPB = icesat2_toolkit.fit.histogram_first_photon_bias(fit['time'],
+                                fit['residuals'], n_pulses, n_pixels, mean_dead_time[gtx],
+                                5e-11, METHOD='direct', ITERATE=20)
+                        except:
+                            pass
+                        else:
+                            Distributed_FPB_mean_corr.data[j] = -0.5*FPB['mean']*c
+                            Distributed_FPB_mean_corr.mask[j] = False
+                            Distributed_FPB_mean_sigma.data[j] = 0.5*FPB['mean_sigma']*c
+                            Distributed_FPB_mean_sigma.mask[j] = False
+                            Distributed_FPB_median_corr.data[j] = -0.5*FPB['median']*c
+                            Distributed_FPB_median_corr.mask[j] = False
+                            Distributed_FPB_median_sigma.data[j] = 0.5*FPB['median_sigma']*c
+                            Distributed_FPB_median_sigma.mask[j] = False
+                            Distributed_FPB_n_corr.data[j] = np.copy(FPB['count'])
+                            Distributed_FPB_n_corr.mask[j] = False
+                            #-- first photon bias correction from CAL-19
+                            FPB_calibrated = CAL19.ev(FPB['strength'],FPB['width'])
+                            Distributed_FPB_cal_corr.data[j] = -0.5*FPB_calibrated*c
+                            Distributed_FPB_cal_corr.mask[j] = False
+                        #-- estimate transmit pulse shape correction
+                        try:
+                            W_RX = 2.0*Distributed_RDE.data[j]/c
+                            dt_W = 2.0*Distributed_Window.data[j]/c
+                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                                p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
+                                ITERATE=50)
+                        except:
+                            pass
+                        else:
+                            Distributed_TPS_mean_corr.data[j] = 0.5*TPS['mean']*c
+                            Distributed_TPS_mean_corr.mask[j] = False
+                            Distributed_TPS_median_corr.data[j] = 0.5*TPS['median']*c
+                            Distributed_TPS_median_corr.mask[j] = False
 
             #-- if there is a valid land ice height
             if (~Distributed_Height.mask[j]):
@@ -1633,6 +1156,14 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_SNR.mask, MPI.BOOL], \
             recvbuf=[Segment_SNR[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_SNR = None
+        #-- photon event signal-to-noise ratio from photon classifier
+        Segment_Photon_SNR[gtx] = np.ma.zeros((n_seg),fill_value=0,dtype=int)
+        Segment_Photon_SNR[gtx].mask = np.ones((n_seg),dtype=bool)
+        comm.Allreduce(sendbuf=[Distributed_Photon_SNR.data, MPI.INT], \
+            recvbuf=[Segment_Photon_SNR[gtx].data, MPI.INT], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Photon_SNR.mask, MPI.BOOL], \
+            recvbuf=[Segment_Photon_SNR[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Photon_SNR = None
         #-- segment quality summary
         Segment_Summary[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
         Segment_Summary[gtx].mask = np.ones((n_seg),dtype=bool)
@@ -1649,6 +1180,14 @@ def main():
         comm.Allreduce(sendbuf=[Distributed_Iterations.mask, MPI.BOOL], \
             recvbuf=[Segment_Iterations[gtx].mask, MPI.BOOL], op=MPI.LAND)
         Distributed_Iterations = None
+        #-- number of photon event clusters
+        Segment_Clusters[gtx] = np.ma.zeros((n_seg),fill_value=0,dtype=int)
+        Segment_Clusters[gtx].mask = np.ones((n_seg),dtype=bool)
+        comm.Allreduce(sendbuf=[Distributed_Clusters.data, MPI.INT], \
+            recvbuf=[Segment_Clusters[gtx].data, MPI.INT], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Clusters.mask, MPI.BOOL], \
+            recvbuf=[Segment_Clusters[gtx].mask, MPI.BOOL], op=MPI.LAND)
+        Distributed_Clusters = None
         #-- signal source selection
         Segment_Source[gtx] = np.ma.zeros((n_seg),fill_value=4,dtype=int)
         Segment_Source[gtx].mask = np.ones((n_seg),dtype=bool)
@@ -2717,6 +2256,17 @@ def main():
             "ratio in the final refined window")
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
+        #-- segment photon signal-to-noise ratio from photon classifier
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = Segment_Photon_SNR[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = Segment_Photon_SNR[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['contentType'] = "qualityInformation"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['long_name'] = "Maximum SNR"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['description'] = ("Maximum "
+            "signal-to-noise ratio from the photon event classifier used to normalize the photon weights")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['snr_norm_ph']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
         #-- robust dispersion estimator
         IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['h_robust_sprd'] = Segment_RDE[gtx]
         IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['h_robust_sprd'] = Segment_RDE[gtx].fill_value
@@ -2738,6 +2288,17 @@ def main():
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_iterations']['description'] = ("Number of Iterations when "
             "determining the mean surface height")
         IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_fit_iterations']['coordinates'] = \
+            "../segment_id ../delta_time ../latitude ../longitude"
+        #-- number of photon event clusters
+        IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['n_clusters'] = Segment_Clusters[gtx]
+        IS2_atl03_fill[gtx]['land_ice_segments']['fit_statistics']['n_clusters'] = Segment_Clusters[gtx].fill_value
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters'] = {}
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters']['units'] = "1"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters']['contentType'] = "modelResult"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters']['long_name'] = "Number of Estimated Clusters"
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters']['description'] = ("Number of clusters calculated "
+            "using weighted density-based spatial clustering")
+        IS2_atl03_attrs[gtx]['land_ice_segments']['fit_statistics']['n_clusters']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
         #-- signal source selection
         IS2_atl03_fit[gtx]['land_ice_segments']['fit_statistics']['signal_selection_source'] = Segment_Source[gtx]
@@ -2853,9 +2414,9 @@ def main():
         if args.output:
             output_file=os.path.expanduser(args.output)
         else:
-            args=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
+            fargs=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
             file_format='{0}{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
-            output_file=os.path.join(ATL03_dir,file_format.format(*args))
+            output_file=os.path.join(ATL03_dir,file_format.format(*fargs))
         #-- write to HDF5 file
         HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm,
             VERBOSE=args.verbose, INPUT=[args.ATL03,args.ATL09],

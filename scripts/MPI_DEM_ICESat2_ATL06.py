@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -52,7 +52,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     time.py: Utilities for calculating time operations
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 REFERENCES:
     https://www.pgc.umn.edu/guides/arcticdem/data-description/
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 12/2020: H5py deprecation warning change to use make_scale
@@ -784,18 +785,19 @@ def main():
     #-- parallel h5py I/O does not support compression filters at this time
     if (comm.rank == 0) and bool(valid_tiles):
         #-- output HDF5 files with output masks
-        arg = (PRD,DEM_MODEL,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
-        file_format='{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
+        fargs = (PRD,DEM_MODEL,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
+        file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
+        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
         if args.verbose:
-            print('\t{0}'.format(file_format.format(*arg)))
+            print('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
             FILL_VALUE=IS2_atl06_fill, DIMENSIONS=IS2_atl06_dims,
-            FILENAME=os.path.join(DIRECTORY,file_format.format(*arg)))
+            FILENAME=output_file)
         #-- change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,file_format.format(*arg)), args.mode)
+        os.chmod(output_file, args.mode)
     #-- close the input file
     fileID.close()
 

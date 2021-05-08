@@ -78,11 +78,12 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
+        use regex backslash for comment special characters
     Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 11/2020: nsidc_list will output a string for errors
     Updated 10/2020: using argparse to set parameters
@@ -170,7 +171,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
     if INDEX:
         #-- read the index file, split at lines and remove all commented lines
         with open(os.path.expanduser(INDEX),'r') as f:
-            files = [i for i in f.read().splitlines() if re.match(r'^(?!#)',i)]
+            files = [i for i in f.read().splitlines() if re.match(r'^(?!\#)',i)]
         #-- regular expression operator for extracting information from files
         rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')

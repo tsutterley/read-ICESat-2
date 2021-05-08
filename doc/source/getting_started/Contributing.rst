@@ -68,14 +68,14 @@ The workflows rely on the `requirements.txt <https://github.com/tsutterley/read-
 
 The GitHub Actions jobs include:
 
-* Updating `leap second <https://github.com/tsutterley/pyTMD/blob/main/read-ICESat-2/data/leap-seconds.list>`_ file
+* Updating `leap second <https://github.com/tsutterley/read-ICESat-2/blob/main/icesat2_toolkit/data/leap-seconds.list>`_ file
 * Running `flake8 <https://flake8.pycqa.org/en/latest/>`_ to check the code for style and compilation errors
 * Running the test suite on multiple combinations of OS and Python version
 
 Semantic Commit Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Commit messages should follow the `Conventional Commits <https://www.conventionalcommits.org/>`_ specification:
+Please follow the `Conventional Commits <https://www.conventionalcommits.org/>`_ specification for your commit messages to help organize the pull requests:
 
 .. code-block:: bash
 

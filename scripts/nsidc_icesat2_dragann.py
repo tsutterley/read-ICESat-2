@@ -50,7 +50,7 @@ PYTHON DEPENDENCIES:
         https://github.com/lxml/lxml
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:

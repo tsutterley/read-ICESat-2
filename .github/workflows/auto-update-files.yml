@@ -26,7 +26,7 @@ jobs:
         pip install --upgrade pip
         pip install --upgrade setuptools
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-        pip install --upgrade scipy h5py zarr lxml pandas
+        pip install --upgrade scipy scikit-learn h5py zarr lxml pandas
     - name: Update required files
       run: |
         pip install --no-deps .

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -33,6 +33,8 @@ COMMAND LINE OPTIONS:
     -t X, --track X: ICESat-2 reference ground tracks to sync
     -g X, --granule X: ICESat-2 granule regions to sync
     -F, --flatten: Do not create subdirectories
+    -T X, --timeout X: Timeout in seconds for blocking operations
+    -R X, --retry X: Connection retry attempts
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
@@ -54,6 +56,7 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
+    Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Written 02/2021
@@ -83,7 +86,7 @@ from icesat2_toolkit.read_ICESat2_ATL03 import find_HDF5_ATL03_beams
 #-- ATL08 DRAGANN classifications from NSIDC
 def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None, FLATTEN=False,
-    LOG=False, LIST=False, CLOBBER=False, MODE=None):
+    TIMEOUT=None, RETRY=1, LOG=False, LIST=False, CLOBBER=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -133,7 +136,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
     #-- read and parse request for subdirectories (find column names)
     remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-        build=False,timeout=120,parser=parser,pattern=R2,sort=True)
+        build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
     #-- for each remote subdirectory
     for sd in remote_sub:
         #-- local directory for product and subdirectory
@@ -147,7 +150,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
         PATH = [HOST,'ATLAS',atl08_directory,sd]
         #-- find matching files (for granule, release, version, track)
         atl08s,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-            build=False,timeout=120,parser=parser,pattern=R1,sort=True)
+            build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
         #-- print if file was not found
         if not atl08s:
             print(error,file=fid)
@@ -163,7 +166,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             PATH = [HOST,'ATLAS',atl03_directory,sd]
             #-- find associated ATL03 files
             atl03s,lastmod,error=icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=120,parser=parser,pattern=R3,sort=True)
+                build=False,timeout=TIMEOUT,parser=parser,pattern=R3,sort=True)
             #-- remote and local versions of the file
             for atl03,remote_mtime in zip(atl03s,lastmod):
                 #-- sync ICESat-2 ATL03 files with NSIDC server
@@ -177,7 +180,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                 PATH = [HOST,'ATLAS',atl08_directory,sd,atl08]
                 print(posixpath.join(*PATH), file=fid)
                 remote_buffer,_ = icesat2_toolkit.utilities.from_nsidc(PATH,
-                    build=False, timeout=120)
+                    build=False, timeout=TIMEOUT)
                 #-- for each beam in the ATL03 file
                 for gtx in find_HDF5_ATL03_beams(local_file):
                     #-- open ATL03 file in append mode
@@ -221,7 +224,8 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file, remote_mtime, local_file, LIST, CLOBBER):
+def http_pull_file(remote_file, remote_mtime, local_file,
+    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -242,16 +246,32 @@ def http_pull_file(remote_file, remote_mtime, local_file, LIST, CLOBBER):
         output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
         #-- if executing copy command (not only printing the files)
         if not LIST:
-            #-- Create and submit request. There are a wide range of exceptions
-            #-- that can be thrown here, including HTTPError and URLError.
-            request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response = icesat2_toolkit.utilities.urllib2.urlopen(request)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- copy contents to local file using chunked transfer encoding
-            #-- transfer should work properly with ascii and binary data formats
-            with open(local_file, 'wb') as f:
-                shutil.copyfileobj(response, f, CHUNK)
+            #-- attempt to download up to the number of retries
+            retry_counter = 0
+            while (retry_counter < RETRY):
+                #-- attempt to retrieve file from https server
+                try:
+                    #-- Create and submit request.
+                    #-- There are a range of exceptions that can be thrown here
+                    #-- including HTTPError and URLError.
+                    request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
+                    response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+                        timeout=TIMEOUT)
+                    #-- copy contents to file using chunked transfer encoding
+                    #-- transfer should work with ascii and binary data formats
+                    with open(local_file, 'wb') as f:
+                        shutil.copyfileobj(response, f, CHUNK)
+                except:
+                    pass
+                else:
+                    break
+                #-- add to retry counter
+                retry_counter += 1
+            #-- check if maximum number of retries were reached
+            if (retry_counter == RETRY):
+                raise TimeoutError('Maximum number of retries reached')
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
         #-- return the output string
@@ -374,6 +394,13 @@ def main():
     parser.add_argument('--flatten','-F',
         default=False, action='store_true',
         help='Do not create subdirectories')
+    #-- connection timeout and number of retry attempts
+    parser.add_argument('--timeout','-T',
+        type=int, default=120,
+        help='Timeout in seconds for blocking operations')
+    parser.add_argument('--retry','-R',
+        type=int, default=5,
+        help='Connection retry attempts')
     #-- Output log file in form
     #-- NSIDC_IceSat-2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -396,16 +423,16 @@ def main():
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
-    if not args.user and not os.access(args.netrc,os.F_OK):
-        #-- check that NASA Earthdata credentials were entered
-        args.user = builtins.input('Username for {0}: '.format(HOST))
-        #-- enter password securely from command-line
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
-    elif not args.user and os.access(args.netrc,os.F_OK):
+    try:
         args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
-    else:
+    except:
+        #-- check that NASA Earthdata credentials were entered
+        if not args.user:
+            prompt = 'Username for {0}: '.format(HOST)
+            args.user = builtins.input(prompt)
         #-- enter password securely from command-line
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+        prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+        PASSWORD = getpass.getpass(prompt)
 
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
@@ -416,7 +443,8 @@ def main():
     if icesat2_toolkit.utilities.check_credentials():
         nsidc_icesat2_dragann(args.directory, args.release, args.version,
             args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, FLATTEN=args.flatten, LOG=args.log,
+            SUBDIRECTORY=args.subdirectory, FLATTEN=args.flatten,
+            TIMEOUT=args.timeout, RETRY=args.retry, LOG=args.log,
             LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program

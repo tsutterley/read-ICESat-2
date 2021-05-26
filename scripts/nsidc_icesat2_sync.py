@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -42,10 +42,13 @@ COMMAND LINE OPTIONS:
     -v X, --version X: ICESat-2 data version to sync
     -t X, --track X: ICESat-2 reference ground tracks to sync
     -g X, --granule X: ICESat-2 granule regions to sync
+    -n X, --region X: ICESat-2 Named Region (ATL14/ATL15)
     -a X, --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
     -I X, --index X: Input index of ICESat-2 files to sync
     -F, --flatten: Do not create subdirectories
     -P X, --np X: Number of processes to use in file downloads
+    -T X, --timeout X: Timeout in seconds for blocking operations
+    -R X, --retry X: Connection retry attempts
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
@@ -63,6 +66,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
         use regex backslash for comment special characters
@@ -104,8 +108,8 @@ import icesat2_toolkit.utilities
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
-    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0,
-    CLOBBER=False, MODE=0o775):
+    INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False,
+    LIST=False, PROCESSES=0, CLOBBER=False, MODE=0o775):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -180,7 +184,7 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=120,parser=parser,pattern=f.strip())
+                build=False,timeout=TIMEOUT,parser=parser,pattern=f.strip())
             #-- print if file was not found
             if not names:
                 print(error,file=fid)
@@ -211,7 +215,7 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     regex_granule,RELEASE,regex_version,regex_suffix))
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=120,parser=parser,pattern=R2,sort=True)
+                build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
                 print(error,file=fid)
@@ -230,7 +234,7 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
                 names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                    build=False,timeout=120,parser=parser,pattern=R1,sort=True)
+                    build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
                 #-- print if file was not found
                 if not names:
                     print(error,file=fid)
@@ -248,7 +252,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             output = http_pull_file(remote_file, remote_mtimes[i],
-                local_files[i], LIST, CLOBBER, MODE)
+                local_files[i], TIMEOUT=TIMEOUT, RETRY=RETRY,
+                LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             #-- print the output string
             print(output, file=fid) if output else None
     else:
@@ -259,7 +264,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
+                CLOBBER=CLOBBER, MODE=MODE)
             out.append(pool.apply_async(multiprocess_sync,
                 args=args,kwds=kwds))
         #-- start multiprocessing jobs
@@ -280,10 +286,10 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(remote_file, remote_mtime, local_file,
-    LIST=False, CLOBBER=False, MODE=0o775):
+    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775):
     try:
         output = http_pull_file(remote_file,remote_mtime,local_file,
-            LIST,CLOBBER,MODE)
+            TIMEOUT=TIMEOUT,RETRY=RETRY,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -295,7 +301,8 @@ def multiprocess_sync(remote_file, remote_mtime, local_file,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
+def http_pull_file(remote_file, remote_mtime, local_file,
+    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -316,16 +323,32 @@ def http_pull_file(remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
         output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
         #-- if executing copy command (not only printing the files)
         if not LIST:
-            #-- Create and submit request. There are a wide range of exceptions
-            #-- that can be thrown here, including HTTPError and URLError.
-            request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response = icesat2_toolkit.utilities.urllib2.urlopen(request)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- copy contents to local file using chunked transfer encoding
-            #-- transfer should work properly with ascii and binary data formats
-            with open(local_file, 'wb') as f:
-                shutil.copyfileobj(response, f, CHUNK)
+            #-- attempt to download up to the number of retries
+            retry_counter = 0
+            while (retry_counter < RETRY):
+                #-- attempt to retrieve file from https server
+                try:
+                    #-- Create and submit request.
+                    #-- There are a range of exceptions that can be thrown here
+                    #-- including HTTPError and URLError.
+                    request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
+                    response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+                        timeout=TIMEOUT)
+                    #-- copy contents to file using chunked transfer encoding
+                    #-- transfer should work with ascii and binary data formats
+                    with open(local_file, 'wb') as f:
+                        shutil.copyfileobj(response, f, CHUNK)
+                except:
+                    pass
+                else:
+                    break
+                #-- add to retry counter
+                retry_counter += 1
+            #-- check if maximum number of retries were reached
+            if (retry_counter == RETRY):
+                raise TimeoutError('Maximum number of retries reached')
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
@@ -382,7 +405,7 @@ def main():
         help='ICESat-2 Granule Region')
     #-- ICESat-2 ATL14 and 15 named regions
     ATL1415_regions = ['AA','AK','CN','CS','GL','IC','SV','RU']
-    region.add_argument('--region','-R',
+    region.add_argument('--region','-n',
         metavar='REGION', type=str, nargs='+',
         choices=ATL1415_regions, default=['AA','GL'],
         help='ICESat-2 Named Region (ATL14/ATL15)')
@@ -407,6 +430,13 @@ def main():
     parser.add_argument('--np','-P',
         metavar='PROCESSES', type=int, default=0,
         help='Number of processes to use in file downloads')
+    #-- connection timeout and number of retry attempts
+    parser.add_argument('--timeout','-T',
+        type=int, default=120,
+        help='Timeout in seconds for blocking operations')
+    parser.add_argument('--retry','-R',
+        type=int, default=5,
+        help='Connection retry attempts')
     #-- Output log file in form
     #-- NSIDC_IceSat-2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -429,16 +459,16 @@ def main():
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
-    if not args.user and not os.access(args.netrc,os.F_OK):
+    try:
+        args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
+    except:
         #-- check that NASA Earthdata credentials were entered
-        args.user=builtins.input('Username for {0}: '.format(HOST))
+        if not args.user:
+            prompt = 'Username for {0}: '.format(HOST)
+            args.user = builtins.input(prompt)
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
-    elif not args.user and os.access(args.netrc,os.F_OK):
-        args.user,_,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
-    else:
-        #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+        prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+        PASSWORD = getpass.getpass(prompt)
 
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
@@ -451,8 +481,8 @@ def main():
             args.version, args.granule, args.track, YEARS=args.year,
             SUBDIRECTORY=args.subdirectory, REGION=args.region,
             AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
-            PROCESSES=args.np, LOG=args.log, LIST=args.list,
-            CLOBBER=args.clobber, MODE=args.mode)
+            PROCESSES=args.np, TIMEOUT=args.timeout, RETRY=args.retry,
+            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

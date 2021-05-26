@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_convert.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Acquires ICESat-2 datafiles from NSIDC and directly converts to
     zarr datafiles or rechunked HDF5 files
@@ -56,6 +56,8 @@ COMMAND LINE OPTIONS:
     -I X, --index X: Input index of ICESat-2 files to sync
     -F, --flatten: Do not create subdirectories
     -P X, --np X: Number of processes to use in file downloads
+    -T X, --timeout X: Timeout in seconds for blocking operations
+    -R X, --retry X: Connection retry attempts
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
@@ -81,6 +83,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
         use regex backslash for comment special characters
@@ -120,8 +123,8 @@ import icesat2_toolkit.utilities
 #-- either zarr or rechunked HDF5
 def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
     YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None, AUXILIARY=False,
-    INDEX=None, FLATTEN=False, LOG=False, LIST=False, PROCESSES=0, CLOBBER=False,
-    MODE=None):
+    INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False, LIST=False,
+    PROCESSES=0, CLOBBER=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -194,7 +197,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=120,parser=parser,pattern=f.strip())
+                build=False,timeout=TIMEOUT,parser=parser,pattern=f.strip())
             #-- print if file was not found
             if not names:
                 print(error,file=fid)
@@ -217,7 +220,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=120,parser=parser,pattern=R2,sort=True)
+                build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
                 print(error,file=fid)
@@ -236,7 +239,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
                 names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                    build=False,timeout=120,parser=parser,pattern=R1,sort=True)
+                    build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
                 #-- print if file was not found
                 if not names:
                     print(error,file=fid)
@@ -256,8 +259,8 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             output = http_pull_file(remote_file, remote_mtimes[i], local_files[i],
-                FORMAT=FORMAT, CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER,
-                MODE=MODE)
+                TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT, CHUNKS=CHUNKS,
+                LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             #-- print the output string
             print(output, file=fid) if output else None
     else:
@@ -268,8 +271,8 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(FORMAT=FORMAT, CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER,
-                MODE=MODE)
+            kwds = dict(TIMEOUT=TIMEOUT, FORMAT=FORMAT, CHUNKS=CHUNKS,
+                RETRY=RETRY,LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             out.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
         #-- start multiprocessing jobs
         #-- close the pool
@@ -288,11 +291,12 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
-def multiprocess_sync(remote_file, remote_mtime, local_file,
-    FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+def multiprocess_sync(remote_file, remote_mtime, local_file, TIMEOUT=None,
+    RETRY=1, FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
     try:
         output = http_pull_file(remote_file,remote_mtime,local_file,
-            FORMAT=FORMAT,CHUNKS=CHUNKS,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
+            TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT, CHUNKS=CHUNKS,
+            LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -304,8 +308,9 @@ def multiprocess_sync(remote_file, remote_mtime, local_file,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file, remote_mtime, local_file,
-    FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
+    RETRY=1, FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False,
+    MODE=0o775):
     #-- split extension from input local file
     fileBasename, fileExtension = os.path.splitext(local_file)
     #-- copy HDF5 file from server into new file
@@ -334,38 +339,41 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         #-- output string for printing files transferred
         output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
         #-- if executing copy command (not only printing the files)
-        if not LIST and (fileExtension == '.h5'):
-            #-- Create and submit request. There are a wide range of exceptions
-            #-- that can be thrown here, including HTTPError and URLError.
-            request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response = icesat2_toolkit.utilities.urllib2.urlopen(request)
+        if not LIST:
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- copy contents to BytesIO object using chunked transfer encoding
-            #-- transfer should work properly with ascii and binary data formats
-            fid = io.BytesIO()
-            shutil.copyfileobj(response, fid, CHUNK)
+            #-- attempt to download up to the number of retries
+            retry_counter = 0
+            while (retry_counter < RETRY):
+                #-- attempt to retrieve file from https server
+                try:
+                    #-- Create and submit request
+                    #-- There are a range of exceptions that can be thrown
+                    #-- including HTTPError and URLError.
+                    fid = icesat2_toolkit.utilities.from_http(remote_file,
+                        timeout=TIMEOUT,context=None,chunk=CHUNK)
+                except:
+                    pass
+                else:
+                    break
+                #-- add to retry counter
+                retry_counter += 1
+            #-- check if maximum number of retries were reached
+            if (retry_counter == RETRY):
+                raise TimeoutError('Maximum number of retries reached')
             #-- rewind retrieved binary to start of file
             fid.seek(0)
-            #-- copy local HDF5 filename to BytesIO object attribute
-            fid.filename = hdf5_file
-            #-- copy everything from the HDF5 file to the output file
-            conv = icesat2_toolkit.convert(filename=fid,reformat=FORMAT)
-            conv.file_converter(chunks=CHUNKS)
-            #-- keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
-        elif not LIST:
-            #-- Create and submit request. There are a wide range of exceptions
-            #-- that can be thrown here, including HTTPError and URLError.
-            request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response = icesat2_toolkit.utilities.urllib2.urlopen(request)
-            #-- chunked transfer encoding size
-            CHUNK = 16 * 1024
-            #-- copy contents to local file using chunked transfer encoding
-            #-- transfer should work properly with ascii and binary data formats
-            with open(local_file, 'wb') as f:
-                shutil.copyfileobj(response, f, CHUNK)
+            if (fileExtension == '.h5'):
+                #-- copy local HDF5 filename to BytesIO object attribute
+                fid.filename = hdf5_file
+                #-- copy everything from the HDF5 file to the output file
+                conv = icesat2_toolkit.convert(filename=fid,reformat=FORMAT)
+                conv.file_converter(chunks=CHUNKS)
+            else:
+                #-- copy contents to file using chunked transfer encoding
+                #-- transfer should work with ascii and binary data formats
+                with open(local_file, 'wb') as f:
+                    shutil.copyfileobj(fid, f, CHUNK)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
@@ -448,6 +456,13 @@ def main():
     parser.add_argument('--np','-P',
         metavar='PROCESSES', type=int, default=0,
         help='Number of processes to use in file conversion')
+    #-- connection timeout and number of retry attempts
+    parser.add_argument('--timeout','-T',
+        type=int, default=120,
+        help='Timeout in seconds for blocking operations')
+    parser.add_argument('--retry','-R',
+        type=int, default=5,
+        help='Connection retry attempts')
     #-- Output log file in form
     #-- NSIDC_IceSat-2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -492,8 +507,9 @@ def main():
             args.version, args.granule, args.track, YEARS=args.year,
             SUBDIRECTORY=args.subdirectory, FORMAT=args.format,
             CHUNKS=args.chunks, AUXILIARY=args.auxiliary, INDEX=args.index,
-            FLATTEN=args.flatten, PROCESSES=args.np, LOG=args.log,
-            LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+            FLATTEN=args.flatten, PROCESSES=args.np, TIMEOUT=args.timeout,
+            RETRY=args.retry, LOG=args.log, LIST=args.list,
+            CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

@@ -71,7 +71,7 @@ jobs:
     - name: Install dependencies
       run: |
         brew install open-mpi
-        brew install proj
+        brew install proj@7
         brew install geos
         brew install gdal
         brew unlink hdf5
@@ -85,6 +85,10 @@ jobs:
         export CC=mpicc
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/local/opt/hdf5-mpi
+        export LDFLAGS="-L/usr/local/opt/proj@7/lib"
+        export CPPFLAGS="-I/usr/local/opt/proj@7/include"
+        export ACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1
+        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/opt/proj@7/lib/pkgconfig"
         pip install git+https://github.com/h5py/h5py.git
         pip install .
     - name: Lint with flake8

@@ -9,7 +9,7 @@ pyproj
 scikit-learn
 python-dateutil
 matplotlib
-cartopy
+cartopy --no-binary=cartopy
 shapely
 fiona
 future

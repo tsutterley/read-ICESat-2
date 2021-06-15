@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (06/2021)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2021: added BedMachine v4 floating ice for Greenland
     Updated 05/2021: print full path of output filename
     Updated 02/2021: use size of array to add to any valid check
         replaced numpy bool/int to prevent deprecation warnings
@@ -64,13 +65,16 @@ import icesat2_toolkit.time
 
 #-- regional ice shelf files
 ice_shelf_file = {}
+ice_shelf_file['N'] = ['BedMachineGreenlandFloatingv4.shp']
 ice_shelf_file['S'] = ['IceBoundaries_Antarctica_v02.shp']
 #-- description and reference for each ice shelf file
 ice_shelf_description = {}
+ice_shelf_description['N'] = ('IceBridge BedMachine Greenland, Version 4')
 ice_shelf_description['S'] = ('MEaSUREs Antarctic Boundaries for IPY 2007-2009 '
     'from Satellite Radar, Version 2')
 ice_shelf_reference = {}
-ice_shelf_reference['S'] = 'http://dx.doi.org/10.5067/AXE4121732AD'
+ice_shelf_reference['N'] = 'https://doi.org/10.5067/VLJ5YXKCNGXO'
+ice_shelf_reference['S'] = 'https://doi.org/10.5067/AXE4121732AD'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -98,8 +102,13 @@ def load_ice_shelves(base_dir, BUFFER, HEM):
     shape_attributes = shape_input.records()
     #-- python dictionary of polygon objects
     poly_dict = {}
-    #-- iterate through shape entities and attributes to find FL attributes
-    indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'FL')]
+    #-- find floating ice indices within shapefile
+    if (HEM == 'S'):
+        #-- iterate through shape entities and attributes to find FL attributes
+        indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'FL')]
+    else:
+        indices = [i for i,a in enumerate(shape_attributes)]
+    #-- for each floating ice indice
     for i in indices:
         #-- extract Polar-Stereographic coordinates for record
         points = np.array(shape_entities[i].points)
@@ -178,7 +187,7 @@ def main():
     #-- read data on rank 0
     if (comm.rank == 0):
         #-- read shapefile and create shapely polygon objects
-        poly_dict,input_file = load_ice_shelves(args.directory,args.buffer,HEM)
+        poly_dict,_ = load_ice_shelves(args.directory,args.buffer,HEM)
     else:
         #-- create empty object for dictionary of shapely objects
         poly_dict = None

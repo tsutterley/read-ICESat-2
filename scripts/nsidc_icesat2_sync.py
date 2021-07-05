@@ -109,7 +109,7 @@ import icesat2_toolkit.utilities
 def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
     INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False,
-    LIST=False, PROCESSES=0, CLOBBER=False, MODE=0o775):
+    LIST=False, PROCESSES=0, CLOBBER=False, MODE=0o775, USER=None, PASSWORD=None):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -227,6 +227,7 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     local_dir = os.path.expanduser(DIRECTORY)
                 else:
                     local_dir = os.path.join(DIRECTORY,product_directory,sd)
+                print("building file list for " + sd)
                 #-- check if data directory exists and recursively create if not
                 os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
@@ -261,11 +262,12 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         pool = mp.Pool(processes=PROCESSES)
         #-- sync each ICESat-2 data file
         out = []
+        
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, MODE=MODE)
+                CLOBBER=CLOBBER, MODE=MODE, USER=USER, PASSWORD=PASSWORD)
             out.append(pool.apply_async(multiprocess_sync,
                 args=args,kwds=kwds))
         #-- start multiprocessing jobs
@@ -286,7 +288,9 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775):
+    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775, USER=None, PASSWORD=None):
+    #-- multithreading doesn't play nicely with urllib2 for some reason; rebuild authentication
+    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
     try:
         output = http_pull_file(remote_file,remote_mtime,local_file,
             TIMEOUT=TIMEOUT,RETRY=RETRY,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
@@ -455,7 +459,6 @@ def main():
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
     args = parser.parse_args()
-
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication
@@ -469,7 +472,6 @@ def main():
         #-- enter password securely from command-line
         prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
         PASSWORD = getpass.getpass(prompt)
-
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
     icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
@@ -482,7 +484,8 @@ def main():
             SUBDIRECTORY=args.subdirectory, REGION=args.region,
             AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
             PROCESSES=args.np, TIMEOUT=args.timeout, RETRY=args.retry,
-            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode,
+            USER=args.user, PASSWORD=PASSWORD)
 
 #-- run main program
 if __name__ == '__main__':

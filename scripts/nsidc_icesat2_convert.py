@@ -294,12 +294,9 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
-def multiprocess_sync(remote_file, remote_mtime, local_file, TIMEOUT=None,
-    RETRY=1, FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+def multiprocess_sync(*args, **kwds):
     try:
-        output = http_pull_file(remote_file,remote_mtime,local_file,
-            TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT, CHUNKS=CHUNKS,
-            LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+        output = http_pull_file(*args, **kwds)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the

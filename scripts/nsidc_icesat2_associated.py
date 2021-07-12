@@ -180,11 +180,9 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             print(out.get())
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
-def multiprocess_sync(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, RETRY=1, MODE=0o775):
+def multiprocess_sync(*args, **kwds):
     try:
-        output = http_pull_file(remote_file,remote_mtime,local_file,
-            TIMEOUT=TIMEOUT, RETRY=RETRY, MODE=MODE)
+        output = http_pull_file(*args, **kwds)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the

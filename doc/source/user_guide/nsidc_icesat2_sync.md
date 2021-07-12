@@ -30,6 +30,7 @@ python nsidc_icesat2_sync.py --user <username> --directory <outgoing> \
 - `-R X`, `--retry X`: Connection retry attempts
 - `--log`: output log of files downloaded
 - `--list`: print files to be transferred, but do not execute transfer
+- `--checksum`: compare hashes to check if overwriting existing data
 - `-C`, `--clobber`: Overwrite existing data in transfer
 
 Also look into using the [NSIDC subsetting API](https://github.com/tsutterley/nsidc-subsetter)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (07/2021)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 07/2021: return Earthdata opener from build function
     Updated 03/2021: added sha1 option for retrieving file hashes
     Updated 01/2021: added username and password to ftp functions
         added ftp connection check
@@ -465,6 +466,7 @@ def build_opener(username, password, context=ssl.SSLContext(),
     #-- All calls to urllib2.urlopen will now use handler
     #-- Make sure not to include the protocol in with the URL, or
     #-- HTTPPasswordMgrWithDefaultRealm will be confused.
+    return opener
 
 #-- PURPOSE: check that entered NASA Earthdata credentials are valid
 def check_credentials():

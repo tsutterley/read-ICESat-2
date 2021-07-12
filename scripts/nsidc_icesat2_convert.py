@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_convert.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Acquires ICESat-2 datafiles from NSIDC and directly converts to
     zarr datafiles or rechunked HDF5 files
@@ -83,6 +83,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -264,8 +265,10 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             #-- print the output string
             print(output, file=fid) if output else None
     else:
+        #-- set multiprocessing start method
+        ctx = mp.get_context("fork")
         #-- sync in parallel with multiprocessing Pool
-        pool = mp.Pool(processes=PROCESSES)
+        pool = ctx.Pool(processes=PROCESSES)
         #-- sync each ICESat-2 data file
         out = []
         for i,remote_file in enumerate(remote_files):
@@ -291,12 +294,9 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
-def multiprocess_sync(remote_file, remote_mtime, local_file, TIMEOUT=None,
-    RETRY=1, FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False, MODE=0o775):
+def multiprocess_sync(*args, **kwds):
     try:
-        output = http_pull_file(remote_file,remote_mtime,local_file,
-            TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT, CHUNKS=CHUNKS,
-            LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+        output = http_pull_file(*args, **kwds)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the

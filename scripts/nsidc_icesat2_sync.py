@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -52,6 +52,7 @@ COMMAND LINE OPTIONS:
     -l, --log: output log of files downloaded
     -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
+    --checksum: compare hashes to check if overwriting existing data
     -M X, --mode X: Local permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
@@ -66,6 +67,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2021: set context for multiprocessing to fork child processes
+        added option to compare checksums in order to overwrite data
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -92,6 +95,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import io
 import time
 import netrc
 import shutil
@@ -109,7 +113,7 @@ import icesat2_toolkit.utilities
 def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
     INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False,
-    LIST=False, PROCESSES=0, CLOBBER=False, MODE=0o775, USER=None, PASSWORD=None):
+    LIST=False, PROCESSES=0, CLOBBER=False, CHECKSUM=False, MODE=0o775):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -227,7 +231,7 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     local_dir = os.path.expanduser(DIRECTORY)
                 else:
                     local_dir = os.path.join(DIRECTORY,product_directory,sd)
-                print("building file list for " + sd)
+                print("Building file list: {0}".format(sd), file=fid)
                 #-- check if data directory exists and recursively create if not
                 os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
@@ -252,22 +256,24 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         #-- sync each ICESat-2 data file
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
-            output = http_pull_file(remote_file, remote_mtimes[i],
-                local_files[i], TIMEOUT=TIMEOUT, RETRY=RETRY,
-                LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            args = (remote_file,remote_mtimes[i],local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
+                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            output = http_pull_file(*args, **kwds)
             #-- print the output string
             print(output, file=fid) if output else None
     else:
+        #-- set multiprocessing start method
+        ctx = mp.get_context("fork")
         #-- sync in parallel with multiprocessing Pool
-        pool = mp.Pool(processes=PROCESSES)
+        pool = ctx.Pool(processes=PROCESSES)
         #-- sync each ICESat-2 data file
         out = []
-        
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, MODE=MODE, USER=USER, PASSWORD=PASSWORD)
+                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
             out.append(pool.apply_async(multiprocess_sync,
                 args=args,kwds=kwds))
         #-- start multiprocessing jobs
@@ -287,13 +293,9 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
-def multiprocess_sync(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775, USER=None, PASSWORD=None):
-    #-- multithreading doesn't play nicely with urllib2 for some reason; rebuild authentication
-    icesat2_toolkit.utilities.build_opener(USER,PASSWORD)
+def multiprocess_sync(*args, **kwds):
     try:
-        output = http_pull_file(remote_file,remote_mtime,local_file,
-            TIMEOUT=TIMEOUT,RETRY=RETRY,LIST=LIST,CLOBBER=CLOBBER,MODE=MODE)
+        output = http_pull_file(*args, **kwds)
     except:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
@@ -305,13 +307,34 @@ def multiprocess_sync(remote_file, remote_mtime, local_file,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775):
+#-- or if the checksums do not match between the files
+def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
+    RETRY=1, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
     #-- check if local version of file exists
-    if os.access(local_file, os.F_OK):
+        #-- check if local version of file exists
+    if CHECKSUM and os.access(local_file, os.F_OK):
+        #-- generate checksum hash for local file
+        #-- open the local_file in binary read mode
+        local_hash = icesat2_toolkit.utilities.get_hash(local_file)
+        #-- Create and submit request.
+        #-- There are a wide range of exceptions that can be thrown here
+        #-- including HTTPError and URLError.
+        request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
+        response = icesat2_toolkit.utilities.urllib2.urlopen(request,
+            timeout=TIMEOUT)
+        #-- copy remote file contents to bytesIO object
+        remote_buffer = io.BytesIO(response.read())
+        remote_buffer.seek(0)
+        #-- generate checksum hash for remote file
+        remote_hash = icesat2_toolkit.utilities.get_hash(remote_buffer)
+        #-- compare checksums
+        if (local_hash != remote_hash):
+            TEST = True
+            OVERWRITE = ' (checksums: {0} {1})'.format(local_hash,remote_hash)
+    elif os.access(local_file, os.F_OK):
         #-- check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
         #-- if remote file is newer: overwrite the local file
@@ -329,35 +352,47 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         if not LIST:
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- attempt to download up to the number of retries
-            retry_counter = 0
-            while (retry_counter < RETRY):
-                #-- attempt to retrieve file from https server
-                try:
-                    #-- Create and submit request.
-                    #-- There are a range of exceptions that can be thrown here
-                    #-- including HTTPError and URLError.
-                    request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
-                    response=icesat2_toolkit.utilities.urllib2.urlopen(request,
-                        timeout=TIMEOUT)
-                    #-- copy contents to file using chunked transfer encoding
-                    #-- transfer should work with ascii and binary data formats
-                    with open(local_file, 'wb') as f:
-                        shutil.copyfileobj(response, f, CHUNK)
-                except:
-                    pass
-                else:
-                    break
-                #-- add to retry counter
-                retry_counter += 1
-            #-- check if maximum number of retries were reached
-            if (retry_counter == RETRY):
-                raise TimeoutError('Maximum number of retries reached')
+            #-- copy bytes or transfer file
+            if CHECKSUM and os.access(local_file, os.F_OK):
+                #-- store bytes to file using chunked transfer encoding
+                remote_buffer.seek(0)
+                with open(local_file, 'wb') as f:
+                    shutil.copyfileobj(remote_buffer, f, CHUNK)
+            else:
+                retry_download(remote_file, local_file,
+                    TIMEOUT=TIMEOUT, RETRY=RETRY, CHUNK=CHUNK)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
         #-- return the output string
         return output
+
+#-- PURPOSE: Try downloading a file up to a set number of times
+def retry_download(remote_file, local_file, TIMEOUT=None, RETRY=1, CHUNK=0):
+    #-- attempt to download up to the number of retries
+    retry_counter = 0
+    while (retry_counter < RETRY):
+        #-- attempt to retrieve file from https server
+        try:
+            #-- Create and submit request.
+            #-- There are a range of exceptions that can be thrown here
+            #-- including HTTPError and URLError.
+            request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
+            response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+                timeout=TIMEOUT)
+            #-- copy contents to file using chunked transfer encoding
+            #-- transfer should work with ascii and binary data formats
+            with open(local_file, 'wb') as f:
+                shutil.copyfileobj(response, f, CHUNK)
+        except:
+            pass
+        else:
+            break
+        #-- add to retry counter
+        retry_counter += 1
+    #-- check if maximum number of retries were reached
+    if (retry_counter == RETRY):
+        raise TimeoutError('Maximum number of retries reached')
 
 #-- Main program that calls nsidc_icesat2_sync()
 def main():
@@ -454,6 +489,9 @@ def main():
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data')
+    parser.add_argument('--checksum',
+        default=False, action='store_true',
+        help='Compare hashes to check for overwriting existing data')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -474,7 +512,7 @@ def main():
         PASSWORD = getpass.getpass(prompt)
     #-- build a urllib opener for NSIDC
     #-- Add the username and password for NASA Earthdata Login system
-    icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
+    opener = icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
 
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program
@@ -484,8 +522,8 @@ def main():
             SUBDIRECTORY=args.subdirectory, REGION=args.region,
             AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
             PROCESSES=args.np, TIMEOUT=args.timeout, RETRY=args.retry,
-            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode,
-            USER=args.user, PASSWORD=PASSWORD)
+            LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
+            CHECKSUM=args.checksum, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

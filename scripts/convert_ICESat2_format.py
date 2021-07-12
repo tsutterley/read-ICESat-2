@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 convert_ICESat2_format.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (07/2021)
 
 Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 10/2020: using argparse to set parameters. added verbose keyword
         added chunks keyword to rechunk output zarr files
@@ -126,8 +127,10 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             #-- print the output string
             print(output) if VERBOSE else None
     else:
+        #-- set multiprocessing start method
+        ctx = mp.get_context("fork")
         #-- convert in parallel with multiprocessing Pool
-        pool = mp.Pool(processes=PROCESSES)
+        pool = ctx.Pool(processes=PROCESSES)
         #-- convert each ICESat-2 data file
         output = []
         for hdf5_file in hdf5_file_list:

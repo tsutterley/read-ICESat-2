@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     server that is associated with an input file
@@ -56,6 +56,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -156,8 +157,10 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             #-- print the output string
             print('{0}\n{1}'.format(input_file,out))
     else:
+        #-- set multiprocessing start method
+        ctx = mp.get_context("fork")
         #-- download in parallel with multiprocessing Pool
-        pool = mp.Pool(processes=PROCESSES)
+        pool = ctx.Pool(processes=PROCESSES)
         #-- download each associated ICESat-2 data file
         output = []
         for i,input_file in enumerate(original_files):

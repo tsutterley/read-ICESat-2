@@ -198,7 +198,10 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=TIMEOUT,parser=parser,pattern=f.strip())
+                build=False,
+                timeout=TIMEOUT,
+                parser=parser,
+                pattern=f.strip())
             #-- print if file was not found
             if not names:
                 print(error,file=fid)
@@ -221,7 +224,11 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
+                build=False,
+                timeout=TIMEOUT,
+                parser=parser,
+                pattern=R2,
+                sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
                 print(error,file=fid)
@@ -240,7 +247,11 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
                 names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                    build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
+                    build=False,
+                    timeout=TIMEOUT,
+                    parser=parser,
+                    pattern=R1,
+                    sort=True)
                 #-- print if file was not found
                 if not names:
                     print(error,file=fid)
@@ -251,17 +262,16 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                     remote_files.append(posixpath.join(remote_dir,colname))
                     local_files.append(os.path.join(local_dir,colname))
                     remote_mtimes.append(remote_mtime)
-            #-- close request
-            req = None
 
     #-- sync in series if PROCESSES = 0
     if (PROCESSES == 0):
         #-- sync each ICESat-2 data file
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
-            output = http_pull_file(remote_file, remote_mtimes[i], local_files[i],
-                TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT, CHUNKS=CHUNKS,
-                LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            args = (remote_file, remote_mtimes[i], local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT,
+                CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            output = http_pull_file(*args,**kwds)
             #-- print the output string
             print(output, file=fid) if output else None
     else:

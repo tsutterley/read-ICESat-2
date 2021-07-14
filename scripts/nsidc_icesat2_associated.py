@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2021: set context for multiprocessing to fork child processes
+        added a file length check to validate downloaded files
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -131,7 +132,11 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         #-- find associated ICESat-2 data file
         #-- find matching files (for granule, release, version, track)
         colnames,collastmod,colerror=icesat2_toolkit.utilities.nsidc_list(PATH,
-            build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
+            build=False,
+            timeout=TIMEOUT,
+            parser=parser,
+            pattern=R1,
+            sort=True)
         #-- print if file was not found
         if not colnames:
             print(colerror)
@@ -144,16 +149,15 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             remote_files.append(posixpath.join(remote_dir,colname))
             local_files.append(os.path.join(local_dir,colname))
             remote_mtimes.append(remote_mtime)
-        #-- close request
-        req = None
 
     #-- download in series if PROCESSES = 0
     if (PROCESSES == 0):
         #-- download each associated ICESat-2 data file
         for i,input_file in enumerate(original_files):
             #-- download associated ICESat-2 files with NSIDC server
-            out=http_pull_file(remote_files[i],remote_mtimes[i],
-                local_files[i],TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
+            args = (remote_files[i],remote_mtimes[i],local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
+            out = http_pull_file(*args,**kwds)
             #-- print the output string
             print('{0}\n{1}'.format(input_file,out))
     else:
@@ -165,9 +169,9 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         output = []
         for i,input_file in enumerate(original_files):
             #-- download associated ICESat-2 files with NSIDC server
+            args = (remote_files[i],remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
-            out=pool.apply_async(multiprocess_sync,args=(remote_files[i],
-                remote_mtimes[i],local_files[i]),kwds=kwds)
+            out=pool.apply_async(multiprocess_sync,args=args,kwds=kwds)
             output.append('{0}\n{1}'.format(input_file,out))
         #-- start multiprocessing jobs
         #-- close the pool
@@ -200,6 +204,17 @@ def http_pull_file(remote_file,remote_mtime,local_file,
     output = '{0} -->\n\t{1}\n'.format(remote_file,local_file)
     #-- chunked transfer encoding size
     CHUNK = 16 * 1024
+    #-- attempt to download a file up to a set number of times
+    retry_download(remote_file, LOCAL=local_file, TIMEOUT=TIMEOUT,
+        RETRY=RETRY, CHUNK=CHUNK)
+    #-- keep remote modification time of file and local access time
+    os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
+    os.chmod(local_file, MODE)
+    #-- return the output string
+    return output
+
+#-- PURPOSE: Try downloading a file up to a set number of times
+def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
     #-- attempt to download up to the number of retries
     retry_counter = 0
     while (retry_counter < RETRY):
@@ -211,24 +226,24 @@ def http_pull_file(remote_file,remote_mtime,local_file,
             request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
             response=icesat2_toolkit.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
+            #-- get the length of the remote file
+            remote_length = int(response.headers['content-length'])
             #-- copy contents to file using chunked transfer encoding
             #-- transfer should work with ascii and binary data formats
-            with open(local_file, 'wb') as f:
+            with open(LOCAL, 'wb') as f:
                 shutil.copyfileobj(response, f, CHUNK)
+            local_length = os.path.getsize(LOCAL)
         except:
             pass
         else:
-            break
+            #-- check that downloaded file matches original length
+            if (local_length == remote_length):
+                break
         #-- add to retry counter
         retry_counter += 1
     #-- check if maximum number of retries were reached
     if (retry_counter == RETRY):
         raise TimeoutError('Maximum number of retries reached')
-    #-- keep remote modification time of file and local access time
-    os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-    os.chmod(local_file, MODE)
-    #-- return the output string
-    return output
 
 #-- Main program that calls nsidc_icesat2_associated()
 def main():

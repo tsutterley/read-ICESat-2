@@ -136,7 +136,11 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
     #-- read and parse request for subdirectories (find column names)
     remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-        build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
+        build=False,
+        timeout=TIMEOUT,
+        parser=parser,
+        pattern=R2,
+        sort=True)
     #-- for each remote subdirectory
     for sd in remote_sub:
         #-- local directory for product and subdirectory
@@ -166,21 +170,29 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             PATH = [HOST,'ATLAS',atl03_directory,sd]
             #-- find associated ATL03 files
             atl03s,lastmod,error=icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=TIMEOUT,parser=parser,pattern=R3,sort=True)
+                build=False,
+                timeout=TIMEOUT,
+                parser=parser,
+                pattern=R3,
+                sort=True)
             #-- remote and local versions of the file
             for atl03,remote_mtime in zip(atl03s,lastmod):
                 #-- sync ICESat-2 ATL03 files with NSIDC server
                 remote_dir = posixpath.join(HOST,'ATLAS',atl03_directory,sd)
                 remote_file = posixpath.join(remote_dir,atl03)
                 local_file = os.path.join(local_dir,atl03)
-                out = http_pull_file(remote_file, remote_mtime, local_file,
-                    LIST, CLOBBER)
+                #-- download ATL03 file
+                args = (remote_file, remote_mtime, local_file)
+                kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY,
+                    LIST=LIST, CLOBBER=CLOBBER)
+                out = http_pull_file(*args, **kwds)
                 print(out, file=fid) if out else None
                 #-- append ATL08 dragann classifications
                 PATH = [HOST,'ATLAS',atl08_directory,sd,atl08]
                 print(posixpath.join(*PATH), file=fid)
                 remote_buffer,_ = icesat2_toolkit.utilities.from_nsidc(PATH,
-                    build=False, timeout=TIMEOUT)
+                    build=False,
+                    timeout=TIMEOUT)
                 #-- for each beam in the ATL03 file
                 for gtx in find_HDF5_ATL03_beams(local_file):
                     #-- open ATL03 file in append mode

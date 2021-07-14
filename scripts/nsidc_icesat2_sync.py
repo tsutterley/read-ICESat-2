@@ -69,6 +69,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 07/2021: set context for multiprocessing to fork child processes
         added option to compare checksums in order to overwrite data
+        added a file length check to validate downloaded files
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -105,7 +106,6 @@ import builtins
 import posixpath
 import traceback
 import lxml.etree
-import numpy as np
 import multiprocessing as mp
 import icesat2_toolkit.utilities
 
@@ -188,7 +188,10 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=TIMEOUT,parser=parser,pattern=f.strip())
+                build=False,
+                timeout=TIMEOUT,
+                parser=parser,
+                pattern=f.strip())
             #-- print if file was not found
             if not names:
                 print(error,file=fid)
@@ -219,7 +222,11 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     regex_granule,RELEASE,regex_version,regex_suffix))
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                build=False,timeout=TIMEOUT,parser=parser,pattern=R2,sort=True)
+                build=False,
+                timeout=TIMEOUT,
+                parser=parser,
+                pattern=R2,
+                sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
                 print(error,file=fid)
@@ -239,7 +246,11 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 #-- find matching files (for granule, release, version, track)
                 names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
-                    build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
+                    build=False,
+                    timeout=TIMEOUT,
+                    parser=parser,
+                    pattern=R1,
+                    sort=True)
                 #-- print if file was not found
                 if not names:
                     print(error,file=fid)
@@ -310,6 +321,8 @@ def multiprocess_sync(*args, **kwds):
 #-- or if the checksums do not match between the files
 def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
     RETRY=1, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
+    #-- chunked transfer encoding size
+    CHUNK = 16 * 1024
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -319,16 +332,9 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
         #-- generate checksum hash for local file
         #-- open the local_file in binary read mode
         local_hash = icesat2_toolkit.utilities.get_hash(local_file)
-        #-- Create and submit request.
-        #-- There are a wide range of exceptions that can be thrown here
-        #-- including HTTPError and URLError.
-        request = icesat2_toolkit.utilities.urllib2.Request(remote_file)
-        response = icesat2_toolkit.utilities.urllib2.urlopen(request,
-            timeout=TIMEOUT)
-        #-- copy remote file contents to bytesIO object
-        remote_buffer = io.BytesIO(response.read())
-        remote_buffer.seek(0)
         #-- generate checksum hash for remote file
+        kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, CHUNK=CHUNK)
+        remote_buffer = retry_download(remote_file, **kwds)
         remote_hash = icesat2_toolkit.utilities.get_hash(remote_buffer)
         #-- compare checksums
         if (local_hash != remote_hash):
@@ -350,8 +356,6 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
         output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
         #-- if executing copy command (not only printing the files)
         if not LIST:
-            #-- chunked transfer encoding size
-            CHUNK = 16 * 1024
             #-- copy bytes or transfer file
             if CHECKSUM and os.access(local_file, os.F_OK):
                 #-- store bytes to file using chunked transfer encoding
@@ -359,7 +363,7 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
                 with open(local_file, 'wb') as f:
                     shutil.copyfileobj(remote_buffer, f, CHUNK)
             else:
-                retry_download(remote_file, local_file,
+                retry_download(remote_file, LOCAL=local_file,
                     TIMEOUT=TIMEOUT, RETRY=RETRY, CHUNK=CHUNK)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
@@ -368,7 +372,7 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
         return output
 
 #-- PURPOSE: Try downloading a file up to a set number of times
-def retry_download(remote_file, local_file, TIMEOUT=None, RETRY=1, CHUNK=0):
+def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
     #-- attempt to download up to the number of retries
     retry_counter = 0
     while (retry_counter < RETRY):
@@ -380,19 +384,36 @@ def retry_download(remote_file, local_file, TIMEOUT=None, RETRY=1, CHUNK=0):
             request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
             response=icesat2_toolkit.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
-            #-- copy contents to file using chunked transfer encoding
-            #-- transfer should work with ascii and binary data formats
-            with open(local_file, 'wb') as f:
-                shutil.copyfileobj(response, f, CHUNK)
+            #-- get the length of the remote file
+            remote_length = int(response.headers['content-length'])
+            #-- if copying to a local file
+            if LOCAL:
+                #-- copy contents to file using chunked transfer encoding
+                #-- transfer should work with ascii and binary data formats
+                with open(LOCAL, 'wb') as f:
+                    shutil.copyfileobj(response, f, CHUNK)
+                local_length = os.path.getsize(LOCAL)
+            else:
+                #-- copy remote file contents to bytesIO object
+                remote_buffer = io.BytesIO()
+                shutil.copyfileobj(response, remote_buffer, CHUNK)
+                local_length = remote_buffer.getbuffer().nbytes
         except:
             pass
         else:
-            break
+            #-- check that downloaded file matches original length
+            if (local_length == remote_length):
+                break
         #-- add to retry counter
         retry_counter += 1
     #-- check if maximum number of retries were reached
     if (retry_counter == RETRY):
         raise TimeoutError('Maximum number of retries reached')
+    #-- return the bytesIO object
+    if not LOCAL:
+        #-- rewind bytesIO object to start
+        remote_buffer.seek(0)
+        return remote_buffer
 
 #-- Main program that calls nsidc_icesat2_sync()
 def main():

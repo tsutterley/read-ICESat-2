@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (08/2021)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 08/2021: NSIDC no longer requires authentication headers
     Updated 07/2021: return Earthdata opener from build function
     Updated 03/2021: added sha1 option for retrieving file hashes
     Updated 01/2021: added username and password to ftp functions
@@ -416,7 +417,7 @@ def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
 #-- PURPOSE: "login" to NASA Earthdata with supplied credentials
 def build_opener(username, password, context=ssl.SSLContext(),
     password_manager=True, get_ca_certs=False, redirect=False,
-    authorization_header=True, urs='https://urs.earthdata.nasa.gov'):
+    authorization_header=False, urs='https://urs.earthdata.nasa.gov'):
     """
     build urllib opener for NASA Earthdata with supplied credentials
 

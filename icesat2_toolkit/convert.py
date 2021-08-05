@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (07/2021)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -21,6 +21,7 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 07/2021: comment for column number in yaml headers
     Updated 10/2020: added ascii output for ATL08
     Updated 08/2020: added output in pandas dataframe for ATL06 and ATL08
     Written 06/2020
@@ -263,7 +264,7 @@ class convert():
                         vattrs[v]['units'] = 'count'
                     else:
                         vattrs[v]['precision'] = 'double_precision'
-                    vattrs[v]['comments'] = 'column {0:d}'.format(i+1)
+                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
             elif (PRD == 'ATL08'):
                 # land and vegetation height
                 var = source[gtx]['land_segments']
@@ -291,7 +292,7 @@ class convert():
                         vattrs[v]['units'] = 'count'
                     else:
                         vattrs[v]['precision'] = 'double_precision'
-                    vattrs[v]['comments'] = 'column {0:d}'.format(i+1)
+                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
 
             # column stack of valid output segment values
             output = np.column_stack([values[v][valid] for v in vnames])
@@ -329,7 +330,7 @@ class convert():
             fid.write('\n  {0}:\n'.format('variables'))
             for v in vnames:
                 fid.write('    {0:22}:\n'.format(v))
-                for atn in ['precision','units','long_name','comments']:
+                for atn in ['precision','units','long_name','comment']:
                     atv = self.attributes_encoder(vattrs[v][atn])
                     fid.write('      {0:20}: {1}\n'.format(atn,atv))
             # end of header

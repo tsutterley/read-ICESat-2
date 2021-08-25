@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 u"""
-nsidc_icesat2_sync.py
-Written by Tyler Sutterley (07/2021)
+nsidc_icesat2_sync_s3.py
+Written by Tyler Sutterley (08/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
+    and transfers to an AWS S3 bucket using a local machine as pass through
 
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-
@@ -17,7 +18,7 @@ Add NSIDC_DATAPOOL_OPS to NASA Earthdata Applications
 https://urs.earthdata.nasa.gov/oauth/authorize?client_id=_JLuwMHxb2xX6NwYTb4dRA
 
 CALLING SEQUENCE:
-    python nsidc_icesat2_sync.py --user=<username> --release=001 ATL06
+    python nsidc_icesat2_sync_s3.py --user=<username> --release=001 ATL06
     where <username> is your NASA Earthdata username
 
 INPUTS:
@@ -35,8 +36,12 @@ COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: username for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for alternative authentication
-    -D X, --directory X: working data directory
-    -Y X, --year X: years to sync separated
+    --aws-access-key-id X: AWS Access Key ID
+    --aws-secret-access-key X: AWS Secret Key
+    --aws-region-name X: AWS Region Name
+    --s3-bucket-name X: AWS S3 Bucket Name
+    --s3-bucket-path X: AWS S3 Bucket Path
+    -Y X, --year X: years to sync
     -S X, --subdirectory X: specific subdirectories to sync
     -r X, --release X: ICESat-2 data release to sync
     -v X, --version X: ICESat-2 data version to sync
@@ -49,11 +54,7 @@ COMMAND LINE OPTIONS:
     -P X, --np X: Number of processes to use in file downloads
     -T X, --timeout X: Timeout in seconds for blocking operations
     -R X, --retry X: Connection retry attempts
-    -l, --log: output log of files downloaded
-    -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
-    --checksum: compare hashes to check if overwriting existing data
-    -M X, --mode X: Local permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -62,11 +63,14 @@ PYTHON DEPENDENCIES:
     lxml: Pythonic XML and HTML processing library using libxml2/libxslt
         https://lxml.de/
         https://github.com/lxml/lxml
+    boto3: Amazon Web Services (AWS) SDK for Python
+        https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
 
 PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Forked 08/2021 from nsidc_icesat2_sync.py
     Updated 07/2021: set context for multiprocessing to fork child processes
         added option to compare checksums in order to overwrite data
         added a file length check to validate downloaded files
@@ -96,10 +100,8 @@ from __future__ import print_function
 import sys
 import os
 import re
-import io
-import time
+import boto3
 import netrc
-import shutil
 import getpass
 import argparse
 import builtins
@@ -110,25 +112,24 @@ import multiprocessing as mp
 import icesat2_toolkit.utilities
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
-def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
-    TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
-    INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False,
-    LIST=False, PROCESSES=0, CLOBBER=False, CHECKSUM=False, MODE=0o775):
+def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
+    aws_region_name, s3_bucket_name, s3_bucket_path,
+    PRODUCTS, RELEASE, VERSIONS, GRANULES, TRACKS,
+    YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
+    INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1,
+    PROCESSES=0, CLOBBER=False):
 
-    #-- check if directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    #-- get aws session object
+    session = boto3.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=aws_region_name)
+    #-- get s3 object and bucket object
+    s3 = session.resource('s3')
+    bucket = s3.Bucket(s3_bucket_name)
 
-    #-- output of synchronized files
-    if LOG:
-        #-- format: NSIDC_IceBridge_sync_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ICESat-2 Data Sync Log ({0})'.format(today), file=fid)
-    else:
-        #-- standard output (terminal output)
-        fid = sys.stdout
-
+    #-- logging to standard output
+    fid = sys.stdout
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
 
@@ -157,10 +158,10 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         #-- Sync all available subdirectories for product
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
 
-    #-- build list of remote files, remote modification times and local files
+    #-- build list of remote files, remote modification times and AWS S3 files
     remote_files = []
     remote_mtimes = []
-    local_files = []
+    s3_files = []
     #-- build lists of files or use existing index file
     if INDEX:
         #-- read the index file, split at lines and remove all commented lines
@@ -178,13 +179,11 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             sd = '{0}.{1}.{2}'.format(YY,MM,DD)
             PATH = [HOST,'ATLAS',product_directory,sd]
             remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
-            #-- local directory for product and subdirectory
+            #-- AWS S3 directory for product and subdirectory
             if FLATTEN:
-                local_dir = os.path.expanduser(DIRECTORY)
+                s3_path = posixpath.expanduser(s3_bucket_path)
             else:
-                local_dir = os.path.join(DIRECTORY,product_directory,sd)
-            #-- check if data directory exists and recursively create if not
-            os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
+                s3_path = posixpath.join(s3_bucket_path,product_directory,sd)
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
@@ -198,9 +197,9 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 continue
             #-- add to lists
             for colname,remote_mtime in zip(names,lastmod):
-                #-- remote and local versions of the file
+                #-- remote and AWS S3 versions of the file
                 remote_files.append(posixpath.join(remote_dir,colname))
-                local_files.append(os.path.join(local_dir,colname))
+                s3_files.append(posixpath.join(s3_path,colname))
                 remote_mtimes.append(remote_mtime)
     else:
         #-- for each ICESat-2 product listed
@@ -233,14 +232,12 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 continue
             #-- for each remote subdirectory
             for sd in remote_sub:
-                #-- local directory for product and subdirectory
+                #-- AWS S3 directory for product and subdirectory
                 if FLATTEN:
-                    local_dir = os.path.expanduser(DIRECTORY)
+                    s3_path = posixpath.expanduser(s3_bucket_path)
                 else:
-                    local_dir = os.path.join(DIRECTORY,product_directory,sd)
+                    s3_path = posixpath.join(s3_bucket_path,product_directory,sd)
                 print("Building file list: {0}".format(sd), file=fid)
-                #-- check if data directory exists and recursively create if not
-                os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
                 PATH = [HOST,'ATLAS',product_directory,sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
@@ -257,9 +254,9 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     continue
                 #-- build lists of each ICESat-2 data file
                 for colname,remote_mtime in zip(names,lastmod):
-                    #-- remote and local versions of the file
+                    #-- remote and AWS S3 versions of the file
                     remote_files.append(posixpath.join(remote_dir,colname))
-                    local_files.append(os.path.join(local_dir,colname))
+                    s3_files.append(posixpath.join(s3_path,colname))
                     remote_mtimes.append(remote_mtime)
 
     #-- sync in series if PROCESSES = 0
@@ -267,9 +264,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         #-- sync each ICESat-2 data file
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
-            args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            args = (bucket,remote_file,remote_mtimes[i],s3_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, CLOBBER=CLOBBER)
             output = http_pull_file(*args, **kwds)
             #-- print the output string
             print(output, file=fid) if output else None
@@ -282,9 +278,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         out = []
         for i,remote_file in enumerate(remote_files):
             #-- sync ICESat-2 files with NSIDC server
-            args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            args = (bucket,remote_file,remote_mtimes[i],s3_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, CLOBBER=CLOBBER)
             out.append(pool.apply_async(multiprocess_sync,
                 args=args,kwds=kwds))
         #-- start multiprocessing jobs
@@ -297,11 +292,6 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         for output in out:
             temp = output.get()
             print(temp, file=fid) if temp else None
-
-    #-- close log file and set permissions level to MODE
-    if LOG:
-        fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(*args, **kwds):
@@ -316,63 +306,38 @@ def multiprocess_sync(*args, **kwds):
     else:
         return output
 
-#-- PURPOSE: pull file from a remote host checking if file exists locally
-#-- and if the remote file is newer than the local file
-#-- or if the checksums do not match between the files
-def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
-    RETRY=1, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
-    #-- chunked transfer encoding size
-    CHUNK = 16 * 1024
+#-- PURPOSE: pull file from a remote host checking if file exists on S3
+#-- and if the remote file is newer than the AWS S3 bucket file
+def http_pull_file(bucket, remote_file, remote_mtime, s3_file,
+    TIMEOUT=None, RETRY=1, CLOBBER=False):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
-    #-- check if local version of file exists
-        #-- check if local version of file exists
-    if CHECKSUM and os.access(local_file, os.F_OK):
-        #-- generate checksum hash for local file
-        #-- open the local_file in binary read mode
-        local_hash = icesat2_toolkit.utilities.get_hash(local_file)
-        #-- generate checksum hash for remote file
-        kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, CHUNK=CHUNK)
-        remote_buffer = retry_download(remote_file, **kwds)
-        remote_hash = icesat2_toolkit.utilities.get_hash(remote_buffer)
-        #-- compare checksums
-        if (local_hash != remote_hash):
-            TEST = True
-            OVERWRITE = ' (checksums: {0} {1})'.format(local_hash,remote_hash)
-    elif os.access(local_file, os.F_OK):
-        #-- check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
-        #-- if remote file is newer: overwrite the local file
-        if (remote_mtime > local_mtime):
-            TEST = True
-            OVERWRITE = ' (overwrite)'
-    else:
+    #-- check if s3 bucket version of file exists
+    try:
+        #-- check last modification time of s3 file
+        obj = bucket.Object(key=s3_file)
+        s3_mtime = obj.last_modified
+    except:
         TEST = True
         OVERWRITE = ' (new)'
-    #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
+    else:
+        #-- if remote file is newer: overwrite the s3 bucket file
+        if (remote_mtime > s3_mtime):
+            TEST = True
+            OVERWRITE = ' (overwrite)'
+    #-- if file does not exist on S3, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- output string for printing files transferred
-        output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
-        #-- if executing copy command (not only printing the files)
-        if not LIST:
-            #-- copy bytes or transfer file
-            if CHECKSUM and os.access(local_file, os.F_OK):
-                #-- store bytes to file using chunked transfer encoding
-                remote_buffer.seek(0)
-                with open(local_file, 'wb') as f:
-                    shutil.copyfileobj(remote_buffer, f, CHUNK)
-            else:
-                retry_download(remote_file, LOCAL=local_file,
-                    TIMEOUT=TIMEOUT, RETRY=RETRY, CHUNK=CHUNK)
-            #-- keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
+        output = '{0} -->\n\t{1}{2}\n'.format(remote_file,s3_file,OVERWRITE)
+        #-- copy bytes to s3 object
+        retry_download(remote_file, BUCKET=bucket, LOCAL=s3_file,
+            TIMEOUT=TIMEOUT, RETRY=RETRY)
         #-- return the output string
         return output
 
 #-- PURPOSE: Try downloading a file up to a set number of times
-def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
+def retry_download(remote_file, BUCKET=None, LOCAL=None, TIMEOUT=None, RETRY=1):
     #-- attempt to download up to the number of retries
     retry_counter = 0
     while (retry_counter < RETRY):
@@ -386,18 +351,10 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
                 timeout=TIMEOUT)
             #-- get the length of the remote file
             remote_length = int(response.headers['content-length'])
-            #-- if copying to a local file
-            if LOCAL:
-                #-- copy contents to file using chunked transfer encoding
-                #-- transfer should work with ascii and binary data formats
-                with open(LOCAL, 'wb') as f:
-                    shutil.copyfileobj(response, f, CHUNK)
-                local_length = os.path.getsize(LOCAL)
-            else:
-                #-- copy remote file contents to bytesIO object
-                remote_buffer = io.BytesIO()
-                shutil.copyfileobj(response, remote_buffer, CHUNK)
-                local_length = remote_buffer.getbuffer().nbytes
+            #-- upload file response to s3 bucket
+            BUCKET.upload_fileobj(response, LOCAL)
+            obj = BUCKET.Object(key=LOCAL)
+            local_length = obj.content_length
         except:
             pass
         else:
@@ -409,18 +366,14 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
     #-- check if maximum number of retries were reached
     if (retry_counter == RETRY):
         raise TimeoutError('Maximum number of retries reached')
-    #-- return the bytesIO object
-    if not LOCAL:
-        #-- rewind bytesIO object to start
-        remote_buffer.seek(0)
-        return remote_buffer
 
 #-- Main program that calls nsidc_icesat2_sync()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Acquires ICESat-2 datafiles from the National Snow and
-            Ice Data Center (NSIDC)
+        description="""Acquires ICESat-2 datafiles from the National Snow
+            and Ice Data Center (NSIDC) and transfers to an AWS S3 bucket
+            using a local machine as pass through
             """
     )
     #-- command line parameters
@@ -436,11 +389,22 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
-    #-- working data directory
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
+    #-- AWS credentials, bucket and path
+    parser.add_argument('--aws-access-key-id',
+        type=str, required=True,
+        help='AWS Access Key ID')
+    parser.add_argument('--aws-secret-access-key',
+        type=str, required=True,
+        help='AWS Secret Key')
+    parser.add_argument('--aws-region-name',
+        type=str, default='us-west-2',
+        help='AWS Region Name')
+    parser.add_argument('--s3-bucket-name',
+        type=str, required=True,
+        help='AWS S3 Bucket Name')
+    parser.add_argument('--s3-bucket-path',
+        type=str, default='',
+        help='AWS S3 Bucket Path')
     #-- years of data to sync
     parser.add_argument('--year','-Y',
         type=int, nargs='+',
@@ -451,7 +415,7 @@ def main():
         help='subdirectories of data to sync')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 Data Release')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',
@@ -497,26 +461,10 @@ def main():
     parser.add_argument('--retry','-R',
         type=int, default=5,
         help='Connection retry attempts')
-    #-- Output log file in form
-    #-- NSIDC_IceSat-2_sync_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
-    #-- sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
     #-- clobber will overwrite the existing data
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data')
-    parser.add_argument('--checksum',
-        default=False, action='store_true',
-        help='Compare hashes to check for overwriting existing data')
-    #-- permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
     args = parser.parse_args()
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
@@ -538,13 +486,14 @@ def main():
     #-- check internet connection before attempting to run program
     #-- check NASA earthdata credentials before attempting to run program
     if icesat2_toolkit.utilities.check_credentials():
-        nsidc_icesat2_sync(args.directory, args.products, args.release,
-            args.version, args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, REGION=args.region,
-            AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
-            PROCESSES=args.np, TIMEOUT=args.timeout, RETRY=args.retry,
-            LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
-            CHECKSUM=args.checksum, MODE=args.mode)
+        nsidc_icesat2_sync_s3(args.aws_access_key_id,
+            args.aws_secret_access_key, args.aws_region_name,
+            args.s3_bucket_name, args.s3_bucket_path,
+            args.products, args.release, args.version, args.granule,
+            args.track, YEARS=args.year, SUBDIRECTORY=args.subdirectory,
+            REGION=args.region, AUXILIARY=args.auxiliary, INDEX=args.index,
+            FLATTEN=args.flatten, PROCESSES=args.np, TIMEOUT=args.timeout,
+            RETRY=args.retry, CLOBBER=args.clobber)
 
 #-- run main program
 if __name__ == '__main__':

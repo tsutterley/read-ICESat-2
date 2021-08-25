@@ -44,6 +44,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/nsidc_icesat2_convert.md
     user_guide/nsidc_icesat2_dragann.md
     user_guide/nsidc_icesat2_sync.md
+    user_guide/nsidc_icesat2_sync_s3.md
     user_guide/scp_ICESat2_files.md
     user_guide/scp_scf_ICESat2_files.md
     user_guide/symbolic_ICESat2_files.md

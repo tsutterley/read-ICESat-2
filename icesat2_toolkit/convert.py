@@ -198,7 +198,7 @@ class convert():
         Convert a HDF5 file to beam-level ascii files copying reduced sets of data
         """
         # compile regular expression operator for extracting info from ICESat2 files
-        rx = re.compile(r'(processed)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
+        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file
@@ -349,7 +349,7 @@ class convert():
         Convert a HDF5 file to a pandas dataframe copying reduced sets of data
         """
         # compile regular expression operator for extracting info from ICESat2 files
-        rx = re.compile(r'(processed)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
+        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file

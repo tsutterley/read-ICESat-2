@@ -183,7 +183,7 @@ def main():
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
     DIRECTORY = os.path.dirname(args.file)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
-    rx = re.compile(r'(processed)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
+    rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
     #-- set the hemisphere flag based on ICESat-2 granule

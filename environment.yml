@@ -17,6 +17,7 @@ dependencies:
   - h5py>=2.9=mpi*
   - zarr
   - future
+  - boto3
   - lxml
   - paramiko
   - scp

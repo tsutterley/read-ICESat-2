@@ -44,8 +44,8 @@ COMMAND LINE OPTIONS:
     -U X, --user X: username for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for alternative authentication
     -D X, --directory X: working data directory
-    -Y X, --year X: years to sync separated by commas
-    -S X, --subdirectory X: subdirectories to sync separated by commas
+    -Y X, --year X: years to sync
+    -S X, --subdirectory X: specific subdirectories to sync
     -r X, --release X: ICESat-2 data release to sync
     -v X, --version X: ICESat-2 data version to sync
     -t X, --track X: ICESat-2 reference ground tracks to sync

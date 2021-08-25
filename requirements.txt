@@ -13,6 +13,7 @@ cartopy --no-binary=cartopy
 shapely
 fiona
 future
+boto3
 lxml
 paramiko
 scp

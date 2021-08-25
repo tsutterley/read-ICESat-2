@@ -182,7 +182,7 @@ def main():
     ATL03_dir = os.path.dirname(args.ATL03)
 
     #-- compile regular expression operator for extracting data from ATL03 files
-    rx1 = re.compile(r'(processed)?(ATL\d+)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})'
+    rx1 = re.compile(r'(processed_)?(ATL\d+)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     #-- universal variables
     #-- speed of light

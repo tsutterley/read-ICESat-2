@@ -46,6 +46,7 @@ This software is also dependent on other commonly used Python packages:
 - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
 - `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_
 - `future: Compatibility layer between Python 2 and Python 3 <http://python-future.org/>`_
+- `boto3: Amazon Web Services (AWS) SDK for Python <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_
 - `lxml: processing XML and HTML in Python <https://pypi.python.org/pypi/lxml>`_
 - `paramiko: Native Python SSHv2 protocol library <http://www.paramiko.org>`_
 - `scp: scp module for paramiko <https://github.com/jbardin/scp.py>`_

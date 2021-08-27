@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (05/2021)
+MPI_ICESat2_ATL03_histogram.py (08/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -75,6 +75,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 08/2021: update classify photons to match current GSFC version
     Updated 05/2021: add photon classifier based on GSFC YAPC algorithms
         move histogram fit operations into separate module
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
@@ -499,7 +500,7 @@ def main():
             i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
             #-- calculate photon event weights
             Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
-                h_win_width, i2, K=5, MIN_PH=5, MIN_XSPREAD=1.0,
+                h_win_width, i2, K=3, MIN_PH=3, MIN_XSPREAD=1.0,
                 MIN_HSPREAD=0.01, METHOD='linear')
         #-- photon event weights
         pe_weights = np.zeros((n_pe),dtype=np.float)

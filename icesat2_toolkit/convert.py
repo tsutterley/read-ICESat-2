@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (09/2021)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -21,6 +21,8 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 09/2021: added ground track and time to output dataframes
+        calculate a global reference point for ATL06/07/08 dataframes
     Updated 07/2021: comment for column number in yaml headers
     Updated 10/2020: added ascii output for ATL08
     Updated 08/2020: added output in pandas dataframe for ATL06 and ATL08
@@ -41,6 +43,8 @@ class convert():
     def __init__(self, filename=None, reformat=None):
         self.filename = filename
         self.reformat = reformat
+        # gps-based epoch for delta times #
+        self.atlas_sdp_epoch = np.datetime64('2018-01-01T00:00:00')
 
     # PURPOSE: wrapper function for converting HDF5 files to another type
     def file_converter(self, **kwds):
@@ -240,6 +244,9 @@ class convert():
 
         # for each valid beam within the HDF5 file
         for gtx in sorted(beams):
+            # extract variables and attributes for each variable
+            values = {}
+            vattrs = {}
             # create a column stack of valid output segment values
             if (PRD == 'ATL06'):
                 # land ice height
@@ -250,9 +257,7 @@ class convert():
                     'h_li','h_li_sigma']
                 vformat = ('{1:0.0f}{0}{2:0.9f}{0}{3:0.9f}{0}{4:0.9f}{0}'
                     '{5:0.9f}{0}{6:0.9f}')
-                # extract variables and attributes for each variable
-                values = {}
-                vattrs = {}
+                # for each output variable
                 for i,v in enumerate(vnames):
                     # convert data to numpy array for HDF5 compatibility
                     values[v] = np.copy(var[v][:])
@@ -278,9 +283,7 @@ class convert():
                 vformat = ('{1:0.0f}{0}{2:0.0f}{0}{3:0.9f}{0}{4:0.9f}{0}'
                     '{5:0.9f}{0}{6:0.9f}{0}{7:0.9f}{0}{8:0.9f}{0}{9:0.9f}{0}'
                     '{10:0.9f}')
-                # extract variables and attributes for each variable
-                values = {}
-                vattrs = {}
+                # for each output variable
                 for i,v in enumerate(vnames):
                     # convert data to numpy array for HDF5 compatibility
                     values[v] = np.copy(var[v][:])
@@ -388,6 +391,7 @@ class convert():
 
         # for each valid beam within the HDF5 file
         frames = []
+        gt = dict(gt1l=10,gt1r=20,gt2l=30,gt2r=40,gt3l=50,gt3r=60)
         for gtx in sorted(beams):
             # set variable parameters to read for specific products
             if (PRD == 'ATL06'):
@@ -396,7 +400,14 @@ class convert():
                 valid, = np.nonzero(var['h_li'][:] != var['h_li'].fillvalue)
                 # variables for the output dataframe
                 vnames = ['segment_id','delta_time','latitude','longitude',
-                    'h_li','h_li_sigma','atl06_quality_summary']
+                    'h_li','h_li_sigma','atl06_quality_summary',
+                    'fit_statistics/dh_fit_dx',
+                    'fit_statistics/dh_fit_dy',
+                    'fit_statistics/dh_fit_dx_sigma',
+                    'fit_statistics/n_fit_photons',
+                    'fit_statistics/h_expected_rms',
+                    'fit_statistics/h_robust_sprd',
+                    'fit_statistics/w_surface_window_final']
             elif (PRD == 'ATL08'):
                 # land and vegetation height
                 var = source[gtx]['land_segments']
@@ -417,9 +428,17 @@ class convert():
             for v in vnames:
                 values = np.copy(var[v][:])
                 data[posixpath.basename(v)] = values[valid]
+            # Generate Time Column
+            delta_time = (data['delta_time']*1e9).astype('timedelta64[ns]')
+            data['time'] = pandas.to_datetime(self.atlas_sdp_epoch+delta_time)
             # copy filename parameters
-            data['rgt'] = [TRK]*len(valid)
-            data['cycle'] = [CYCL]*len(valid)
+            data['rgt'] = [int(TRK)]*len(valid)
+            data['cycle'] = [int(CYCL)]*len(valid)
+            data['gt'] = [gt[gtx]]*len(valid)
+            # calculate global reference point
+            if PRD in ('ATL06','ATL07','ATL08'):
+                data['global_ref_pt'] = 6*1387*data[VARIABLE_PATH[-1]] + \
+                    6*(data['rgt']-1) + (data['gt']/10)
             # copy beam-level attributes
             attrs = ['groundtrack_id','atlas_spot_number','atlas_beam_type',
                 'sc_orientation','atmosphere_profile','atlas_pce']

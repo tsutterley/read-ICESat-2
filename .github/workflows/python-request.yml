@@ -52,7 +52,7 @@ jobs:
         make clean
         cd ${GITHUB_WORKSPACE}
         pip install --upgrade pip
-        pip install --upgrade setuptools
+        pip install --upgrade setuptools==58.0
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
         export CPLUS_INCLUDE_PATH=/usr/include/gdal
         export C_INCLUDE_PATH=/usr/include/gdal

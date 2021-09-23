@@ -21,11 +21,36 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
+      env:
+        JOBS: 2
+        PROJ_VERSION: 8.0.1
+        PROJ_DATUMGRID_VERSION: 1.8
+        PROJ_NETWORK: ON
+        SQLITE3_CFLAGS: "-I/usr/local/include"
+        SQLITE3_LIBS: "-L/usr/local/lib -lsqlite3"
       run: |
         sudo apt-get update
-        sudo apt-get install openmpi-bin mpi-default-bin openmpi-doc \
-            libopenmpi-dev gdal-bin libgdal-dev libproj-dev proj-data \
-            proj-bin libgeos-dev libhdf5-openmpi-dev libxml2-dev libxslt1-dev
+        sudo apt-get install openmpi-bin mpi-default-bin openmpi-doc libopenmpi-dev
+        sudo apt-get install gdal-bin libgdal-dev libgeos-dev libhdf5-openmpi-dev
+        sudo apt-get install libstdc++6 libxml2-dev libxslt1-dev libsqlite3-dev
+        cd ${RUNNER_TEMP}
+        wget -q https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz
+        wget -q http://download.osgeo.org/proj/proj-datumgrid-${PROJ_DATUMGRID_VERSION}.zip
+        tar -xzf proj-${PROJ_VERSION}.tar.gz
+        unzip proj-datumgrid-${PROJ_DATUMGRID_VERSION}.zip -d proj-${PROJ_VERSION}/data/
+        cd proj-${PROJ_VERSION}
+        mkdir build
+        cd build
+        sudo cmake \
+            -DPYTHON_EXECUTABLE=/usr/local/bin/python3 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=true \
+            -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
+        sudo cmake --build .
+        sudo make --quiet --jobs=${JOBS}
+        sudo make --quiet install
+        make clean
+        cd ${GITHUB_WORKSPACE}
         pip install --upgrade pip
         pip install --upgrade setuptools
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
@@ -35,6 +60,7 @@ jobs:
         export CC=mpicc
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+        pip install git+https://github.com/SciTools/cartopy.git
         pip install .
     - name: Lint with flake8
       run: |
@@ -71,7 +97,7 @@ jobs:
     - name: Install dependencies
       run: |
         brew install open-mpi
-        brew install proj@7
+        brew install proj
         brew install geos
         brew install gdal
         brew unlink hdf5
@@ -85,11 +111,12 @@ jobs:
         export CC=mpicc
         export HDF5_MPI="ON"
         export HDF5_DIR=/usr/local/opt/hdf5-mpi
-        export LDFLAGS="-L/usr/local/opt/proj@7/lib"
-        export CPPFLAGS="-I/usr/local/opt/proj@7/include"
+        export LDFLAGS="-L/usr/local/opt/proj/lib"
+        export CPPFLAGS="-I/usr/local/opt/proj/include"
         export ACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1
-        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/opt/proj@7/lib/pkgconfig"
+        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/opt/proj/lib/pkgconfig"
         pip install git+https://github.com/h5py/h5py.git
+        pip install git+https://github.com/SciTools/cartopy.git
         pip install .
     - name: Lint with flake8
       run: |

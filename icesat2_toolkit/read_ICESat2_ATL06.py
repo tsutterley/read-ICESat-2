@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL06.py (02/2021)
+read_ICESat2_ATL06.py (10/2021)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
     ATTRIBUTES: read HDF5 attributes for groups and variables
     HISTOGRAM: read ATL06 residual_histogram variables
     QUALITY: read ATL06 segment_quality variables
-    VERBOSE: output information about input ATL06 file
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -17,6 +16,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
     Updated 07/2020: added function docstrings
@@ -31,11 +31,12 @@ import os
 import io
 import re
 import h5py
+import logging
 import numpy as np
 
 #-- PURPOSE: read ICESat-2 ATL06 HDF5 data files
-def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False, QUALITY=False,
-    VERBOSE=False):
+def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
+    QUALITY=False, **kwargs):
     """
     Reads ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
@@ -48,7 +49,6 @@ def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False, QUALITY=False,
     ATTRIBUTES: read HDF5 attributes for groups and variables
     HISTOGRAM: read ATL06 residual_histogram variables
     QUALITY: read ATL06 segment_quality variables
-    VERBOSE: output information about input ATL06 file
 
     Returns
     -------
@@ -63,9 +63,8 @@ def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False, QUALITY=False,
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL06 variables and attributes
     IS2_atl06_mds = {}
@@ -236,7 +235,7 @@ def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False, QUALITY=False,
     return (IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams)
 
 #-- PURPOSE: find valid beam groups within ICESat-2 ATL06 HDF5 data files
-def find_HDF5_ATL06_beams(FILENAME):
+def find_HDF5_ATL06_beams(FILENAME, **kwargs):
     """
     Find valid beam groups within ICESat-2 ATL06 (Land Ice Along-Track
     Height Product) data files
@@ -271,7 +270,7 @@ def find_HDF5_ATL06_beams(FILENAME):
     return IS2_atl06_beams
 
 #-- PURPOSE: read ICESat-2 ATL06 HDF5 data files for beam variables
-def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
+def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
     for a specific beam
@@ -292,7 +291,6 @@ def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
     ATTRIBUTES: read HDF5 attributes for groups and variables
     HISTOGRAM: read ATL06 residual_histogram variables
     QUALITY: read ATL06 segment_quality variables
-    VERBOSE: output information about input ATL06 file
 
     Returns
     -------
@@ -306,9 +304,8 @@ def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL06 variables and attributes
     IS2_atl06_mds = {}

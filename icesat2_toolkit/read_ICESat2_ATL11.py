@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL11.py (03/2021)
+read_ICESat2_ATL11.py (10/2021)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -9,7 +9,6 @@ OPTIONS:
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
     SUBSETTING: read ATL11 subsetting variables
-    VERBOSE: output information about input ATL11 file
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -19,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: added function for reading only pair level variables
         simplified group reads to iterate within a try/except statement
         added keyword argument to explicitly define groups to read
@@ -32,11 +32,12 @@ import os
 import io
 import re
 import h5py
+import logging
 import numpy as np
 
 #-- PURPOSE: read ICESat-2 ATL11 HDF5 data files
 def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
-    REFERENCE=False, CROSSOVERS=False, SUBSETTING=False, VERBOSE=False):
+    REFERENCE=False, CROSSOVERS=False, SUBSETTING=False, **kwargs):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
 
@@ -51,7 +52,6 @@ def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
     SUBSETTING: read ATL11 subsetting variables
-    VERBOSE: output information about input ATL11 file
 
     Returns
     -------
@@ -66,9 +66,8 @@ def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL11 variables and attributes
     IS2_atl11_mds = {}
@@ -195,7 +194,7 @@ def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     return (IS2_atl11_mds,IS2_atl11_attrs,IS2_atl11_pairs)
 
 #-- PURPOSE: find valid beam pair groups within ICESat-2 ATL11 HDF5 data files
-def find_HDF5_ATL11_pairs(FILENAME):
+def find_HDF5_ATL11_pairs(FILENAME, **kwargs):
     """
     Find valid beam pair groups within ICESat-2 ATL11 (Annual Land Ice Height)
     data files
@@ -231,7 +230,7 @@ def find_HDF5_ATL11_pairs(FILENAME):
 #-- PURPOSE: read ICESat-2 ATL11 HDF5 data files for a specific beam pair
 def read_HDF5_ATL11_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     ATTRIBUTES=False, REFERENCE=False, CROSSOVERS=False,
-    SUBSETTING=False, VERBOSE=False):
+    SUBSETTING=False, **kwargs):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
     for a specific beam pair
@@ -251,7 +250,6 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     REFERENCE: read ATL11 reference surface variables
     CROSSOVERS: read ATL11 crossover height variables
     SUBSETTING: read ATL11 subsetting variables
-    VERBOSE: output information about input ATL11 file
 
     Returns
     -------
@@ -265,9 +263,8 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL11 variables and attributes
     IS2_atl11_mds = {}

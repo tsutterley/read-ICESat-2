@@ -55,7 +55,7 @@ if gdal_output[3]:
     install_requires[gdal_index] = 'gdal=={0}'.format(gdal_output[3])
 
 setup(
-    name='read-ICESat-2',
+    name='icesat2-toolkit',
     version=version,
     description=description,
     long_description=long_description,

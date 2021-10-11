@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_convert.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 Acquires ICESat-2 datafiles from NSIDC and directly converts to
     zarr datafiles or rechunked HDF5 files
@@ -83,6 +83,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
@@ -109,6 +110,7 @@ import io
 import netrc
 import shutil
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -132,14 +134,15 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
 
     #-- output of synchronized files
     if LOG:
-        #-- format: NSIDC_IceBridge_sync_2002-04-01.log
+        #-- format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ICESat-2 Data Sync Log ({0})'.format(today), file=fid)
+        LOGFILE = 'NSIDC_ICESat-2_sync_{0}.log'.format(today)
+        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+            level=logging.INFO)
+        logging.info('ICESat-2 Data Convert Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
-        fid = sys.stdout
+        logging.basicConfig(level=logging.INFO)
 
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
@@ -204,7 +207,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 pattern=f.strip())
             #-- print if file was not found
             if not names:
-                print(error,file=fid)
+                logging.critical(error)
                 continue
             #-- add to lists
             for colname,remote_mtime in zip(names,lastmod):
@@ -215,7 +218,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
     else:
         #-- for each ICESat-2 product listed
         for p in PRODUCTS:
-            print('PRODUCT={0}'.format(p), file=fid)
+            logging.info('PRODUCT={0}'.format(p))
             #-- get directories from remote directory
             product_directory = '{0}.{1}'.format(p,RELEASE)
             PATH = [HOST,'ATLAS',product_directory]
@@ -231,7 +234,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
-                print(error,file=fid)
+                logging.critical(error)
                 continue
             #-- for each remote subdirectory
             for sd in remote_sub:
@@ -254,7 +257,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                     sort=True)
                 #-- print if file was not found
                 if not names:
-                    print(error,file=fid)
+                    logging.critical(error)
                     continue
                 #-- build lists of each ICESat-2 data file
                 for colname,remote_mtime in zip(names,lastmod):
@@ -273,7 +276,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
             output = http_pull_file(*args,**kwds)
             #-- print the output string
-            print(output, file=fid) if output else None
+            logging.info(output) if output else None
     else:
         #-- set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -296,11 +299,10 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         #-- print the output string
         for output in out:
             temp = output.get()
-            print(temp, file=fid) if temp else None
+            logging.info(temp) if temp else None
 
     #-- close log file and set permissions level to MODE
     if LOG:
-        fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
@@ -311,7 +313,7 @@ def multiprocess_sync(*args, **kwds):
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
-        print('process id {0:d} failed'.format(os.getpid()))
+        logging.critical('process id {0:d} failed'.format(os.getpid()))
         traceback.print_exc()
     else:
         return output
@@ -426,7 +428,7 @@ def main():
         help='subdirectories of data to run')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 Data Release')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -56,6 +56,7 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -71,6 +72,7 @@ import h5py
 import netrc
 import shutil
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -93,14 +95,15 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
 
     #-- output of synchronized files
     if LOG:
-        #-- format: NSIDC_IceBridge_sync_2002-04-01.log
+        #-- format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NSIDC_IceSat-2_sync_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ICESat-2 Data Sync Log ({0})'.format(today), file=fid)
+        LOGFILE = 'NSIDC_ICESat-2_sync_{0}.log'.format(today)
+        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+            level=logging.INFO)
+        logging.info('ICESat-2 DRAGANN Sync Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
-        fid = sys.stdout
+        logging.basicConfig(level=logging.INFO)
 
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
@@ -157,7 +160,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
         #-- print if file was not found
         if not atl08s:
-            print(error,file=fid)
+            logging.critical(error)
             continue
         #-- build lists of each ICESat-2 data file
         for i,atl08 in enumerate(atl08s):
@@ -186,10 +189,10 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                 kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY,
                     LIST=LIST, CLOBBER=CLOBBER)
                 out = http_pull_file(*args, **kwds)
-                print(out, file=fid) if out else None
+                logging.info(out) if out else None
                 #-- append ATL08 dragann classifications
                 PATH = [HOST,'ATLAS',atl08_directory,sd,atl08]
-                print(posixpath.join(*PATH), file=fid)
+                logging.info(posixpath.join(*PATH))
                 remote_buffer,_ = icesat2_toolkit.utilities.from_nsidc(PATH,
                     build=False,
                     timeout=TIMEOUT)
@@ -231,7 +234,6 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
 
     #-- close log file and set permissions level to MODE
     if LOG:
-        fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
@@ -386,7 +388,7 @@ def main():
         help='subdirectories of data to run')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 Data Release')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',

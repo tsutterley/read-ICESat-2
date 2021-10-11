@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_ice_shelves.py
-Written by Tyler Sutterley (06/2021)
+Written by Tyler Sutterley (10/2021)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: added BedMachine v4 floating ice for Greenland
     Updated 05/2021: print full path of output filename
     Updated 02/2021: use size of array to add to any valid check
@@ -61,6 +62,7 @@ import os
 import re
 import h5py
 import pyproj
+import logging
 import datetime
 import argparse
 import shapefile
@@ -85,11 +87,11 @@ ice_shelf_reference['S'] = 'https://doi.org/10.5067/AXE4121732AD'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
-    print('Rank {0:d} of {1:d}'.format(rank+1,size))
-    print('module name: {0}'.format(__name__))
+    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
+    logging.info('module name: {0}'.format(__name__))
     if hasattr(os, 'getppid'):
-        print('parent process: {0:d}'.format(os.getppid()))
-    print('process id: {0:d}'.format(os.getpid()))
+        logging.info('parent process: {0:d}'.format(os.getppid()))
+    logging.info('process id: {0:d}'.format(os.getpid()))
 
 #-- PURPOSE: set the hemisphere of interest based on the granule
 def set_hemisphere(GRANULE):
@@ -169,11 +171,14 @@ def main():
         help='permissions mode of output files')
     args = parser.parse_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- output module information for process
-    if args.verbose:
-        info(comm.rank,comm.size)
-    if args.verbose and (comm.rank==0):
-        print('{0} -->'.format(args.file))
+    info(comm.rank,comm.size)
+    if (comm.rank == 0):
+        logging.info('{0} -->'.format(args.file))
 
     #-- Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -425,8 +430,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
-        if args.verbose:
-            print('\t{0}'.format(output_file))
+        logging.info('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs, CLOBBER=True,
             INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl06_fill,

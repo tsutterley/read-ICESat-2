@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (02/2021)
+read_ICESat2_ATL03.py (10/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
     Updated 09/2020: map ATL09 to ATL03 using delta times
@@ -32,11 +33,12 @@ import os
 import io
 import re
 import h5py
+import logging
 import numpy as np
 import scipy.interpolate
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files
-def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
 
@@ -47,7 +49,6 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     Keyword arguments
     -----------------
     ATTRIBUTES: read file, group and variable attributes
-    VERBOSE: output information about top-level HDF5 groups
 
     Returns
     -------
@@ -62,9 +63,8 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL03 variables and attributes
     IS2_atl03_mds = {}
@@ -245,7 +245,7 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     return (IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams)
 
 #-- PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
-def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True):
+def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True, **kwargs):
     """
     Reads ICESat-2 ATL09 Atmospheric Characteristics data files
 
@@ -258,7 +258,6 @@ def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True):
     Keyword arguments
     -----------------
     ATTRIBUTES: read file, group and variable attributes
-    VERBOSE: output information about top-level HDF5 groups
 
     Returns
     -------
@@ -315,7 +314,7 @@ def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True):
     return (IS2_atl09_mds,IS2_atl09_attrs)
 
 #-- PURPOSE: find valid beam groups within ICESat-2 ATL03 HDF5 data files
-def find_HDF5_ATL03_beams(FILENAME):
+def find_HDF5_ATL03_beams(FILENAME, **kwargs):
     """
     Find valid beam groups within ICESat-2 ATL03 Global Geolocated Photons
     data files
@@ -352,7 +351,7 @@ def find_HDF5_ATL03_beams(FILENAME):
     return IS2_atl03_beams
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files for main level variables
-def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
     for only the main-level variables and not the beam-level data
@@ -364,7 +363,6 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     Keyword arguments
     -----------------
     ATTRIBUTES: read file, group and variable attributes
-    VERBOSE: output information about top-level HDF5 groups
 
     Returns
     -------
@@ -379,9 +377,8 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL03 variables and attributes
     IS2_atl03_mds = {}
@@ -507,7 +504,7 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     return (IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams)
 
 #-- PURPOSE: read ICESat-2 ATL03 HDF5 data files for beam variables
-def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
+def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
     for a specific beam
@@ -526,7 +523,6 @@ def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
     Keyword arguments
     -----------------
     ATTRIBUTES: read file, group and variable attributes
-    VERBOSE: output information about top-level HDF5 groups
 
     Returns
     -------
@@ -540,9 +536,8 @@ def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, VERBOSE=False):
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL03 variables and attributes
     IS2_atl03_mds = {}

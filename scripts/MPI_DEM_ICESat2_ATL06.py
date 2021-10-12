@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
@@ -95,6 +96,7 @@ import uuid
 import h5py
 import fiona
 import pyproj
+import logging
 import tarfile
 import datetime
 import argparse
@@ -121,11 +123,11 @@ elevation_tile_index['REMA'] = 'REMA_Tile_Index_Rel1.1.zip'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
-    print('Rank {0:d} of {1:d}'.format(rank+1,size))
-    print('module name: {0}'.format(__name__))
+    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
+    logging.info('module name: {0}'.format(__name__))
     if hasattr(os, 'getppid'):
-        print('parent process: {0:d}'.format(os.getppid()))
-    print('process id: {0:d}'.format(os.getpid()))
+        logging.info('parent process: {0:d}'.format(os.getppid()))
+    logging.info('process id: {0:d}'.format(os.getpid()))
 
 #-- PURPOSE: set the DEM model to interpolate based on the input granule
 def set_DEM_model(GRANULE):
@@ -356,11 +358,14 @@ def main():
         help='permissions mode of output files')
     args = parser.parse_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- output module information for process
-    if args.verbose:
-        info(comm.rank,comm.size)
-    if args.verbose and (comm.rank==0):
-        print('{0} -->'.format(args.file))
+    info(comm.rank,comm.size)
+    if (comm.rank == 0):
+        logging.info('{0} -->'.format(args.file))
 
     #-- read data from input file
     #-- Open the HDF5 file for reading
@@ -789,8 +794,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
-        if args.verbose:
-            print('\t{0}'.format(output_file))
+        logging.info('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),

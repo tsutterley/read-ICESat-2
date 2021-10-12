@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_scf_ICESat2_files.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (10/2021)
 Copies ICESat-2 HDF5 files from the SCF server to a remote host using the
     SCF-authorized local computer as a proxy server
 
@@ -40,6 +40,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 07/2019: using Python3 compliant division.  regex for file versions
@@ -105,7 +106,7 @@ def main():
         help='ICESat-2 data product to copy')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 data release to copy')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',
@@ -196,16 +197,20 @@ def main():
     scf_client_ftp = scf_client.open_sftp()
     #-- verbosity settings
     if args.verbose or args.list:
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-        print('{0}@{1} --> {2}@{3}\n'.format(
-            scf_kwds['username'],scf_kwds['hostname'],
-            client_kwds['username'],client_kwds['hostname']))
+        logging.getLogger("paramiko").setLevel(logging.INFO)
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.CRITICAL)
+    #-- print username for scf and remote client
+    logging.info('{0}@{1} --> {2}@{3}\n'.format(
+        scf_kwds['username'],scf_kwds['hostname'],
+        client_kwds['username'],client_kwds['hostname']))
 
     #-- run program
     scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, args.remote,
         args.scf_incoming, args.scf_outgoing, args.product, args.release,
-        args.version, args.granule, args.cycle, args.track, CLOBBER=args.clobber,
-        VERBOSE=args.verbose, LIST=args.list, MODE=args.mode)
+        args.version, args.granule, args.cycle, args.track,
+        CLOBBER=args.clobber, LIST=args.list, MODE=args.mode)
 
     #-- close the secure FTP server
     client_ftp.close()
@@ -217,7 +222,7 @@ def main():
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
     scf_incoming, scf_outgoing, PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES,
-    TRACKS, CLOBBER=False, VERBOSE=False, LIST=False, MODE=0o775):
+    TRACKS, CLOBBER=False, LIST=False, MODE=0o775):
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
@@ -243,7 +248,7 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
         remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
         #-- pull file from scf to remote
         scp_pull_file(client_ftp, scf_client_ftp, f, remote_path, scf_outgoing,
-            CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
+            CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
 
 #-- PURPOSE: recursively create directories on remote server
 def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
@@ -258,7 +263,7 @@ def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
 #-- and if the remote file is newer than the local file
 #-- set the permissions mode of the local transferred file to MODE
 def scp_pull_file(client_ftp, scf_client_ftp, transfer_file, remote_dir,
-    scf_outgoing, CLOBBER=False, VERBOSE=False, LIST=False, MODE=0o775):
+    scf_outgoing, CLOBBER=False, LIST=False, MODE=0o775):
     #-- remote and scf outgoing versions of file
     remote_file = os.path.join(remote_dir,transfer_file)
     outgoing_file = posixpath.join(scf_outgoing,transfer_file)
@@ -279,9 +284,8 @@ def scp_pull_file(client_ftp, scf_client_ftp, transfer_file, remote_dir,
         OVERWRITE = 'new'
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        if VERBOSE or LIST:
-            print('{0} --> '.format(outgoing_file))
-            print('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
+        logging.info('{0} --> '.format(outgoing_file))
+        logging.info('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
         #-- if not only listing files
         if not LIST:
             #-- load scf file contents to BytesIO object

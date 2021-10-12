@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (08/2021)
+MPI_ICESat2_ATL03_histogram.py (10/2021)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -75,6 +75,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 08/2021: update classify photons to match current GSFC version
     Updated 05/2021: add photon classifier based on GSFC YAPC algorithms
         move histogram fit operations into separate module
@@ -107,6 +108,7 @@ import sys
 import os
 import re
 import h5py
+import logging
 import argparse
 import datetime
 import numpy as np
@@ -124,11 +126,11 @@ from yapc.classify_photons import classify_photons
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
-    print('Rank {0:d} of {1:d}'.format(rank+1,size))
-    print('module name: {0}'.format(__name__))
+    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
+    logging.info('module name: {0}'.format(__name__))
     if hasattr(os, 'getppid'):
-        print('parent process: {0:d}'.format(os.getppid()))
-    print('process id: {0:d}'.format(os.getpid()))
+        logging.info('parent process: {0:d}'.format(os.getppid()))
+    logging.info('process id: {0:d}'.format(os.getpid()))
 
 #-- PURPOSE: reads ICESat-2 ATL03 and ATL09 HDF5 files
 #-- and computes heights over segments using the decomposition of histograms
@@ -174,11 +176,14 @@ def main():
         help='permissions mode of output files')
     args = parser.parse_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- output module information for process
-    if args.verbose:
-        info(comm.rank,comm.size)
-    if args.verbose and (comm.rank==0):
-        print('{0} -->'.format(args.ATL03))
+    info(comm.rank,comm.size)
+    if (comm.rank == 0):
+        logging.info('{0} -->'.format(args.ATL03))
     #-- directory setup
     ATL03_dir = os.path.dirname(args.ATL03)
 
@@ -277,7 +282,7 @@ def main():
 
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl03_beams):
-        print(gtx) if args.verbose and (comm.rank == 0) else None
+        logging.info(gtx) if (comm.rank == 0) else None
         #-- beam type (weak versus strong) for time
         atlas_beam_type = fileID[gtx].attrs['atlas_beam_type'].decode('utf-8')
         n_pixels = 16.0 if (atlas_beam_type == "strong") else 4.0
@@ -1314,7 +1319,7 @@ def main():
         #-- extract and interpolate atmospheric parameters from ATL09
         dtime = fileID[gtx]['geolocation']['delta_time'][:]
         IS2_atl09_mds,IS2_atl09_attrs = read_HDF5_ATL09(args.ATL09, pfl,
-            dtime, ATTRIBUTES=True, VERBOSE=args.verbose, COMM=comm)
+            dtime, ATTRIBUTES=True, COMM=comm)
 
         #-- segment fit across-track slopes
         Distributed_dH_across = np.ma.zeros((n_seg),fill_value=fill_value)
@@ -2420,18 +2425,18 @@ def main():
             output_file=os.path.join(ATL03_dir,file_format.format(*fargs))
         #-- write to HDF5 file
         HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm,
-            VERBOSE=args.verbose, INPUT=[args.ATL03,args.ATL09],
-            FILL_VALUE=IS2_atl03_fill, CLOBBER=True, FILENAME=output_file)
+            INPUT=[args.ATL03,args.ATL09], FILL_VALUE=IS2_atl03_fill,
+            CLOBBER=True, FILENAME=output_file)
         #-- change the permissions level to MODE
         os.chmod(output_file, args.mode)
     #-- close the input ATL03 file
     fileID.close()
 
 #-- PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
-def read_HDF5_ATL09(FILENAME, pfl, D, ATTRIBUTES=True, VERBOSE=False, COMM=None):
+def read_HDF5_ATL09(FILENAME, pfl, D, ATTRIBUTES=True, COMM=None):
     #-- Open the HDF5 file for reading
     fileID = h5py.File(FILENAME, 'r', driver='mpio', comm=COMM)
-    print(FILENAME) if VERBOSE and (COMM.rank == 0) else None
+    logging.info(FILENAME) if (COMM.rank == 0) else None
 
     #-- allocate python dictionaries for ICESat-2 ATL09 variables and attributes
     IS2_atl09_mds = {}
@@ -2483,7 +2488,7 @@ def read_HDF5_ATL09(FILENAME, pfl, D, ATTRIBUTES=True, VERBOSE=False, COMM=None)
 
 #-- PURPOSE: outputting the reduced and corrected ICESat-2 data to HDF5
 def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
-    FILENAME='', FILL_VALUE=None, CLOBBER=True, VERBOSE=False):
+    FILENAME='', FILL_VALUE=None, CLOBBER=True):
     #-- setting HDF5 clobber attribute
     if CLOBBER:
         clobber = 'w'
@@ -2492,7 +2497,7 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
 
     #-- open output HDF5 file
     fileID = h5py.File(FILENAME, clobber)#, driver='mpio', comm=COMM)
-    print(FILENAME) if VERBOSE and (COMM.rank == 0) else None
+    logging.info(FILENAME) if (COMM.rank == 0) else None
 
     #-- create HDF5 records
     h5 = {}

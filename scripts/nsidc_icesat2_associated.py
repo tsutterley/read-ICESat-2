@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     server that is associated with an input file
@@ -56,6 +56,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: set context for multiprocessing to fork child processes
         added a file length check to validate downloaded files
     Updated 05/2021: added options for connection timeout and retry attempts
@@ -79,6 +80,7 @@ import re
 import netrc
 import shutil
 import getpass
+import logging
 import builtins
 import argparse
 import traceback
@@ -94,6 +96,8 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
 
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
+    #-- logging to standard output
+    logging.basicConfig(level=logging.INFO)
 
     #-- remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
@@ -139,7 +143,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             sort=True)
         #-- print if file was not found
         if not colnames:
-            print(colerror)
+            logging.critical(colerror)
             continue
         #-- add to lists
         for colname,remote_mtime in zip(colnames,collastmod):
@@ -159,7 +163,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
             out = http_pull_file(*args,**kwds)
             #-- print the output string
-            print('{0}\n{1}'.format(input_file,out))
+            logging.info('{0}\n{1}'.format(input_file,out))
     else:
         #-- set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -181,7 +185,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         pool.join()
         #-- print the output string
         for out in output:
-            print(out.get())
+            logging.info(out.get())
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(*args, **kwds):
@@ -191,7 +195,7 @@ def multiprocess_sync(*args, **kwds):
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
-        print('process id {0:d} failed'.format(os.getpid()))
+        logging.critical('process id {0:d} failed'.format(os.getpid()))
         traceback.print_exc()
     else:
         return output

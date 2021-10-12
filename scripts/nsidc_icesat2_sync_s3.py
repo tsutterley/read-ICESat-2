@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync_s3.py
-Written by Tyler Sutterley (08/2021)
+Written by Tyler Sutterley (10/2021)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     and transfers to an AWS S3 bucket using a local machine as pass through
@@ -70,6 +70,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Forked 08/2021 from nsidc_icesat2_sync.py
     Updated 07/2021: set context for multiprocessing to fork child processes
         added option to compare checksums in order to overwrite data
@@ -103,6 +104,7 @@ import re
 import boto3
 import netrc
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -129,7 +131,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     bucket = s3.Bucket(s3_bucket_name)
 
     #-- logging to standard output
-    fid = sys.stdout
+    logging.basicConfig(level=logging.INFO)
+
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
 
@@ -193,7 +196,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                 pattern=f.strip())
             #-- print if file was not found
             if not names:
-                print(error,file=fid)
+                logging.critical(error)
                 continue
             #-- add to lists
             for colname,remote_mtime in zip(names,lastmod):
@@ -204,7 +207,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     else:
         #-- for each ICESat-2 product listed
         for p in PRODUCTS:
-            print('PRODUCT={0}'.format(p), file=fid)
+            logging.info('PRODUCT={0}'.format(p))
             #-- get directories from remote directory
             product_directory = '{0}.{1}'.format(p,RELEASE)
             PATH = [HOST,'ATLAS',product_directory]
@@ -228,7 +231,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                 sort=True)
             #-- print if subdirectory was not found
             if not remote_sub:
-                print(error,file=fid)
+                logging.critical(error)
                 continue
             #-- for each remote subdirectory
             for sd in remote_sub:
@@ -237,7 +240,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                     s3_path = posixpath.expanduser(s3_bucket_path)
                 else:
                     s3_path = posixpath.join(s3_bucket_path,product_directory,sd)
-                print("Building file list: {0}".format(sd), file=fid)
+                logging.info("Building file list: {0}".format(sd))
                 #-- find ICESat-2 data files
                 PATH = [HOST,'ATLAS',product_directory,sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
@@ -250,7 +253,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                     sort=True)
                 #-- print if file was not found
                 if not names:
-                    print(error,file=fid)
+                    logging.critical(error)
                     continue
                 #-- build lists of each ICESat-2 data file
                 for colname,remote_mtime in zip(names,lastmod):
@@ -268,7 +271,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
             kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, CLOBBER=CLOBBER)
             output = http_pull_file(*args, **kwds)
             #-- print the output string
-            print(output, file=fid) if output else None
+            logging.info(output) if output else None
     else:
         #-- set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -291,7 +294,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
         #-- print the output string
         for output in out:
             temp = output.get()
-            print(temp, file=fid) if temp else None
+            logging.info(temp) if temp else None
 
 #-- PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(*args, **kwds):
@@ -301,7 +304,7 @@ def multiprocess_sync(*args, **kwds):
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
-        print('process id {0:d} failed'.format(os.getpid()))
+        logging.critical('process id {0:d} failed'.format(os.getpid()))
         traceback.print_exc()
     else:
         return output

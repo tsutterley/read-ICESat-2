@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL12.py (02/2021)
+read_ICESat2_ATL12.py (10/2021)
 Read ICESat-2 ATL12 (Ocean Surface Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
     Updated 07/2020: added function docstrings
@@ -22,10 +23,11 @@ import os
 import io
 import re
 import h5py
+import logging
 import numpy as np
 
 #-- PURPOSE: read ICESat-2 ATL12 HDF5 data files
-def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, VERBOSE=False):
+def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL12 (Ocean Surface Height) data files
 
@@ -36,7 +38,6 @@ def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, VERBOSE=False):
     Keyword arguments
     -----------------
     ATTRIBUTES: read HDF5 attributes for groups and variables
-    VERBOSE: output information about input ATL12 file
 
     Returns
     -------
@@ -51,9 +52,8 @@ def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, VERBOSE=False):
         fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
 
     #-- Output HDF5 file information
-    if VERBOSE:
-        print(fileID.filename)
-        print(list(fileID.keys()))
+    logging.info(fileID.filename)
+    logging.info(list(fileID.keys()))
 
     #-- allocate python dictionaries for ICESat-2 ATL12 variables and attributes
     IS2_atl12_mds = {}

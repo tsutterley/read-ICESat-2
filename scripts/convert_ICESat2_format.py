@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 convert_ICESat2_format.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 10/2020: using argparse to set parameters. added verbose keyword
@@ -68,6 +69,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import argparse
 import traceback
 import multiprocessing as mp
@@ -78,6 +80,10 @@ import icesat2_toolkit.convert
 def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     TRACKS, YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None,
     PROCESSES=0, CLOBBER=False, VERBOSE=False, MODE=0o775):
+
+    #-- create logger
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- regular expression operator for finding files of a particular granule
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
@@ -103,7 +109,7 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     hdf5_file_list = []
     #-- for each ICESat-2 product listed
     for p in PRODUCTS:
-        print('PRODUCT={0}'.format(p))
+        logging.info('PRODUCT={0}'.format(p))
         #-- local file directory
         ddir = os.path.join(DIRECTORY,'{0}.{1}'.format(p,RELEASE))
         subdirectories = [sd for sd in os.listdir(ddir) if R2.match(sd)]
@@ -125,7 +131,7 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             output = convert_HDF5(f,FORMAT=FORMAT,CHUNKS=CHUNKS,
                 CLOBBER=CLOBBER,MODE=MODE)
             #-- print the output string
-            print(output) if VERBOSE else None
+            logging.info(output)
     else:
         #-- set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -147,7 +153,7 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         pool.join()
         #-- print the output string
         for out in output:
-            print(out.get()) if VERBOSE else None
+            logging.info(out.get())
 
 #-- PURPOSE: wrapper for running conversion program in multiprocessing mode
 def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
@@ -159,7 +165,7 @@ def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
-        print('process id {0:d} failed'.format(os.getpid()))
+        logging.critical('process id {0:d} failed'.format(os.getpid()))
         traceback.print_exc()
     else:
         return output
@@ -242,7 +248,7 @@ def main():
         help='subdirectories of data to run')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 Data Release')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',

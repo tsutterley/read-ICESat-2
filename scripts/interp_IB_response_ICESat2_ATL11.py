@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_IB_response_ICESat2_ATL11.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 Calculates and interpolates inverse-barometer responses to times and
     locations of ICESat-2 ATL11 annual land ice height data
     This data will be interpolated for all valid points
@@ -46,6 +46,7 @@ REFERENCES:
         Rev. A, 84 pp., (1994)
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: print full path of output filename
     Updated 03/2021: spatially subset sea level pressure maps to conserve memory
         additionally calculate conventional IB response using an average MSLP
@@ -58,6 +59,7 @@ import os
 import re
 import h5py
 import pyproj
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -201,6 +203,10 @@ def ncdf_pressure(FILENAMES,VARNAME,TIMENAME,LATNAME,MEAN,OCEAN,INDICES,AREA):
 def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
     DENSITY=None, CROSSOVERS=False, VERBOSE=False, MODE=0o775):
 
+    #-- create logger
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup for reanalysis model
     ddir = os.path.join(base_dir,MODEL)
     #-- set model specific parameters
@@ -250,7 +256,7 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
         proj4_params = 'epsg:4326'
 
     #-- read data from FILE
-    print('{0} -->'.format(os.path.basename(FILE))) if VERBOSE else None
+    logging.info('{0} -->'.format(os.path.basename(FILE)))
     IS2_atl11_mds,IS2_atl11_attrs,IS2_atl11_pairs = read_HDF5_ATL11(FILE,
         ATTRIBUTES=True, CROSSOVERS=CROSSOVERS)
     DIRECTORY = os.path.dirname(FILE)
@@ -752,7 +758,7 @@ def interp_IB_response_ICESat2(base_dir, FILE, MODEL, RANGE=None,
     file_format = '{0}_{1}_IB_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
     output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information
-    print('\t{0}'.format(output_file)) if VERBOSE else None
+    logging.info('\t{0}'.format(output_file))
     HDF5_ATL11_corr_write(IS2_atl11_corr, IS2_atl11_corr_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE), CROSSOVERS=CROSSOVERS,
         FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,

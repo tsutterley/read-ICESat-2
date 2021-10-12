@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL03_RGI.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
@@ -80,6 +81,7 @@ import os
 import re
 import io
 import h5py
+import logging
 import zipfile
 import datetime
 import argparse
@@ -92,11 +94,11 @@ import icesat2_toolkit.time
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
-    print('Rank {0:d} of {1:d}'.format(rank+1,size))
-    print('module name: {0}'.format(__name__))
+    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
+    logging.info('module name: {0}'.format(__name__))
     if hasattr(os, 'getppid'):
-        print('parent process: {0:d}'.format(os.getppid()))
-    print('process id: {0:d}'.format(os.getpid()))
+        logging.info('parent process: {0:d}'.format(os.getppid()))
+    logging.info('process id: {0:d}'.format(os.getpid()))
 
 #-- PURPOSE: load zip file containing Randolph Glacier Inventory shapefiles
 def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
@@ -192,11 +194,14 @@ def main():
         help='permissions mode of output files')
     args = parser.parse_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- output module information for process
-    if args.verbose:
-        info(comm.rank,comm.size)
-    if args.verbose and (comm.rank==0):
-        print('{0} -->'.format(args.file))
+    info(comm.rank,comm.size)
+    if (comm.rank == 0):
+        logging.info('{0} -->'.format(args.file))
 
     #-- Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -419,8 +424,7 @@ def main():
         file_format='{0}_RGI{1}_{2}_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
         output_file=os.path.join(DIRECTORY,file_format.format(*fargs))
         #-- print file information
-        if args.verbose:
-            print('\t{0}'.format(output_file))
+        logging.info('\t{0}'.format(output_file))
         #-- write to output HDF5 file
         HDF5_ATL03_mask_write(IS2_atl03_mask, IS2_atl03_mask_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),

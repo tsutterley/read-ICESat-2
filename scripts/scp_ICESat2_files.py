@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (10/2021)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 09/2019: sort subdirectories.
@@ -102,7 +103,7 @@ def main():
         help='ICESat-2 data product to copy')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 data release to copy')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',
@@ -171,14 +172,19 @@ def main():
     client_ftp = client.open_sftp()
     #-- verbosity settings
     if args.verbose or args.list:
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-        print('{0}@{1}:\n'.format(client_kwds['username'],client_kwds['hostname']))
+        logging.getLogger("paramiko").setLevel(logging.INFO)
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.CRITICAL)
+    #-- print username for remote client
+    logging.info('{0}@{1}:\n'.format(client_kwds['username'],
+        client_kwds['hostname']))
 
     #-- run program
     scp_ICESat2_files(client, client_ftp, args.directory, args.remote,
         args.product, args.release, args.version, args.granule, args.cycle,
         args.track, PUSH=args.push, LIST=args.list, CLOBBER=args.clobber,
-        VERBOSE=args.verbose, MODE=args.mode)
+        MODE=args.mode)
 
     #-- close the secure FTP server
     client_ftp.close()
@@ -218,7 +224,7 @@ def attempt_login(**client_kwds):
             kwds.pop('password')
             return client
         #-- retry with new password
-        print('Authentication Failed (Attempt {0:d})'.format(attempts))
+        logging.critical('Authentication Failed (Attempt {0:d})'.format(attempts))
         tryagain = builtins.input('Try Different Password? (Y/N): ') in ('Y','y')
         #-- add attempt
         attempts += 1
@@ -227,7 +233,7 @@ def attempt_login(**client_kwds):
 
 #-- PURPOSE: copies ICESat-2 HDF5 files between a remote host and a local host
 def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
-    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False, VERBOSE=False,
+    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
     PUSH=False, LIST=False, MODE=0o775):
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
@@ -261,7 +267,7 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
                 remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
                 #-- push file from local to remote
                 scp_push_file(client, client_ftp, fi, local_dir, remote_path,
-                    CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
+                    CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
     else:
         #-- find all remote subdirectories
         SUBDIRECTORY = [s for s in client_ftp.listdir(REMOTE) if rx1.match(s)]
@@ -278,7 +284,7 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
                     os.makedirs(local_dir, MODE)
                 #-- push file from local to remote
                 scp_pull_file(client, client_ftp, fi, local_dir, remote_path,
-                    CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
+                    CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
 
 #-- PURPOSE: recursively create directories on remote server
 def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
@@ -293,7 +299,7 @@ def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
 #-- and if the local file is newer than the remote file (reprocessed)
 #-- set the permissions mode of the remote transferred file to MODE
 def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
-    CLOBBER=False, VERBOSE=False, LIST=False, MODE=0o775):
+    CLOBBER=False, LIST=False, MODE=0o775):
     #-- local and remote versions of file
     local_file = os.path.join(local_dir,transfer_file)
     remote_file = posixpath.join(remote_dir,transfer_file)
@@ -312,9 +318,8 @@ def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     #-- if file does not exist remotely, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        if VERBOSE or LIST:
-            print('{0} --> '.format(local_file))
-            print('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
+        logging.info('{0} --> '.format(local_file))
+        logging.info('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
         #-- if not only listing files
         if not LIST:
             #-- copy local files to remote server
@@ -327,7 +332,7 @@ def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
 #-- and if the remote file is newer than the local file (reprocessed)
 #-- set the permissions mode of the local transferred file to MODE
 def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
-    CLOBBER=False, VERBOSE=False, LIST=False, MODE=0o775):
+    CLOBBER=False, LIST=False, MODE=0o775):
     #-- local and remote versions of file
     local_file = os.path.join(local_dir,transfer_file)
     remote_file = posixpath.join(remote_dir,transfer_file)
@@ -346,9 +351,8 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        if VERBOSE or LIST:
-            print('{0} --> '.format(remote_file))
-            print('\t{0} ({1})\n'.format(local_file,OVERWRITE))
+        logging.info('{0} --> '.format(remote_file))
+        logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
         #-- if not only listing files
         if not LIST:
             #-- copy local files from remote server

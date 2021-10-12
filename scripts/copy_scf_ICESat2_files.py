@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (10/2020)
+Written by Tyler Sutterley (10/2021)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
         https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
     Updated 07/2019: using python3 compliant division
@@ -99,7 +100,7 @@ def main():
         help='ICESat-2 data product to copy')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 data release to copy')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',
@@ -175,14 +176,19 @@ def main():
     client_ftp = client.open_sftp()
     #-- verbosity settings
     if args.verbose or args.list:
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-        print('{0}@{1}:\n'.format(scf_kwds['username'],scf_kwds['hostname']))
+        logging.getLogger("paramiko").setLevel(logging.INFO)
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.CRITICAL)
+    #-- print username for scf
+    logging.info('{0}@{1}:\n'.format(scf_kwds['username'],
+        scf_kwds['hostname']))
 
     #-- run SCF copy program
     copy_scf_files(client, client_ftp, args.directory, args.scf_incoming,
         args.scf_outgoing, args.product, args.release, args.version,
         args.granule, args.cycle, args.track, CLOBBER=args.clobber,
-        VERBOSE=args.verbose, LIST=args.list, MODE=args.mode)
+        LIST=args.list, MODE=args.mode)
 
     #-- close the secure FTP server
     client_ftp.close()
@@ -192,7 +198,7 @@ def main():
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
     PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
-    VERBOSE=False, LIST=False, MODE=0o775):
+     LIST=False, MODE=0o775):
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
@@ -217,13 +223,13 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
         #-- pull file from remote to local
         scp_pull_file(client, client_ftp, f, local_dir, scf_outgoing,
-            CLOBBER=CLOBBER, VERBOSE=VERBOSE, LIST=LIST, MODE=MODE)
+            CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
 #-- set the permissions mode of the local transferred file to MODE
 def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
-    CLOBBER=False, VERBOSE=False, LIST=False, MODE=0o775):
+    CLOBBER=False, LIST=False, MODE=0o775):
     #-- local and remote versions of file
     local_file = os.path.join(local_dir,transfer_file)
     remote_file = posixpath.join(remote_dir,transfer_file)
@@ -244,9 +250,8 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        if VERBOSE or LIST:
-            print('{0} --> '.format(remote_file))
-            print('\t{0} ({1})\n'.format(local_file,OVERWRITE))
+        logging.info('{0} --> '.format(remote_file))
+        logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
         #-- if not only listing files
         if not LIST:
             #-- copy local files from remote server

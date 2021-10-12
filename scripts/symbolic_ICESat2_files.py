@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (11/2020)
+Written by Tyler Sutterley (10/2021)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -24,6 +24,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 11/2020: add exception for FileExistsError to skip files
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
@@ -34,6 +35,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import argparse
 import numpy as np
 
@@ -70,7 +72,7 @@ def main():
         help='ICESat-2 data product to create symbolic links')
     #-- ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='003',
+        type=str, default='004',
         help='ICESat-2 data release to create symbolic links')
     #-- ICESat-2 data version
     parser.add_argument('--version','-v',
@@ -108,14 +110,18 @@ def main():
         help='permissions mode of output directories')
     args = parser.parse_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- run program
     symbolic_ICESat2_files(args.directory, args.scf_incoming, args.scf_outgoing,
         args.product, args.release, args.version, args.granule, args.cycle,
-        args.track, VERBOSE=args.verbose, MODE=args.mode)
+        args.track, MODE=args.mode)
 
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
-    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, VERBOSE=False, MODE=0o775):
+    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, MODE=0o775):
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,10) if not np.any(CYCLES) else CYCLES
@@ -147,9 +153,8 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
             continue
         else:
             #-- print original and symbolic link of file
-            if VERBOSE:
-                args = (os.path.join(scf_outgoing,f),os.path.join(local_dir,f))
-                print('{0} -->\n\t{1}'.format(*args))
+            args = (os.path.join(scf_outgoing,f),os.path.join(local_dir,f))
+            logging.info('{0} -->\n\t{1}'.format(*args))
 
 #-- run main program
 if __name__ == '__main__':

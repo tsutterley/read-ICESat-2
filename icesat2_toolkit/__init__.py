@@ -17,6 +17,7 @@ Documentation is available at https://read-icesat-2.readthedocs.io
 import icesat2_toolkit.fit
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+import icesat2_toolkit.version
 from icesat2_toolkit.convert import convert
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03, \
@@ -28,3 +29,5 @@ from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07, \
 from icesat2_toolkit.read_ICESat2_ATL11 import read_HDF5_ATL11
 from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12, \
     find_HDF5_ATL12_beams
+# get version number
+__version__ = icesat2_toolkit.version.version

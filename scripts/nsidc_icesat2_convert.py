@@ -137,7 +137,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         #-- format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NSIDC_ICESat-2_sync_{0}.log'.format(today)
-        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
         logging.info('ICESat-2 Data Convert Log ({0})'.format(today))
     else:

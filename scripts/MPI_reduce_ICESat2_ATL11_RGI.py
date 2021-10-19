@@ -60,6 +60,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
     Updated 02/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 01/2021: time utilities for converting times from JD and to decimal
@@ -83,6 +84,7 @@ from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 import icesat2_toolkit.time
+import icesat2_toolkit.utilities
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -160,8 +162,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Create masks for reducing ICESat-2 ATL11 annual land
             ice height data to the Randolph Glacier Inventory (RGI)
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),

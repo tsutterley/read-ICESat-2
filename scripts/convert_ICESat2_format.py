@@ -57,6 +57,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        added parsing for converting file lines to arguments
     Updated 07/2021: set context for multiprocessing to fork child processes
     Updated 01/2021: generalized to output either zarr or rechunked HDF5
     Updated 10/2020: using argparse to set parameters. added verbose keyword
@@ -74,6 +75,7 @@ import argparse
 import traceback
 import multiprocessing as mp
 import icesat2_toolkit.convert
+import icesat2_toolkit.utilities
 
 #-- PURPOSE: convert the ICESat-2 elevation data from HDF5 to zarr
 #-- or rechunked HDF5 formats
@@ -215,8 +217,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Converts ICESat-2 HDF5 datafiles to zarr or
             rechunked HDF5 datafiles
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- ICESat-2 Products
     PRODUCTS = {}
     PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'

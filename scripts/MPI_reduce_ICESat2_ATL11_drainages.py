@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
     Updated 02/2021: use size of array to add to any valid check
         replaced numpy bool/int to prevent deprecation warnings
@@ -62,6 +63,7 @@ from mpi4py import MPI
 from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 import icesat2_toolkit.time
+import icesat2_toolkit.utilities
 
 #-- IMBIE-2 Drainage basins
 IMBIE_basin_file = {}
@@ -146,8 +148,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Create masks for reducing ICESat-2 ATL11 annual land
             ice height data into IMBIE-2 drainage regions
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),

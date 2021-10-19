@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
     Written 03/2021
 """
@@ -55,6 +56,7 @@ import datetime
 import numpy as np
 import sklearn.neighbors
 import icesat2_toolkit.time
+import icesat2_toolkit.utilities
 from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07
 
 #-- PURPOSE: set the hemisphere of interest based on the granule
@@ -606,8 +608,11 @@ def main():
         description="""Interpolates AVISO sea level anomalies, absolute
             dynamic topography and mean dynamic topography to ICESat-2
             ATL07 sea ice height data
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',

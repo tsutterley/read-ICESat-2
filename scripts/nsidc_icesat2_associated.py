@@ -191,12 +191,12 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
 def multiprocess_sync(*args, **kwds):
     try:
         output = http_pull_file(*args, **kwds)
-    except:
+    except Exception as e:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
         logging.critical('process id {0:d} failed'.format(os.getpid()))
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
     else:
         return output
 

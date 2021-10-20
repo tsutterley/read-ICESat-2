@@ -47,6 +47,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
     Updated 03/2021: spatially subset sea level pressure maps to conserve memory
         additionally calculate conventional IB response using an average MSLP
@@ -69,6 +70,7 @@ import numpy as np
 import collections
 import scipy.interpolate
 import icesat2_toolkit.time
+import icesat2_toolkit.utilities
 from icesat2_toolkit.read_ICESat2_ATL11 import read_HDF5_ATL11
 
 #-- PURPOSE: compress complete list values into a set of ranges
@@ -945,8 +947,11 @@ def main():
         description="""Calculates and interpolates inverse-barometer
             responses to times and locations of ICESat-2 ATL11 annual
             land ice height data
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',

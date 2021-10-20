@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        add parser for converting file lines to arguments
     Updated 08/2021: NSIDC no longer requires authentication headers
     Updated 07/2021: return Earthdata opener from build function
     Updated 03/2021: added sha1 option for retrieving file hashes
@@ -117,6 +118,21 @@ def url_split(s):
     elif head in ('', posixpath.sep):
         return tail,
     return url_split(head) + (tail,)
+
+#-- PURPOSE: convert file lines to arguments
+def convert_arg_line_to_args(arg_line):
+    """
+    Convert file lines to arguments
+
+    Arguments
+    ---------
+    arg_line: line string containing a single argument and/or comments
+    """
+    # remove commented lines and after argument comments
+    for arg in re.sub(r'\#(.*?)$',r'',arg_line).split():
+        if not arg.strip():
+            continue
+        yield arg
 
 #-- PURPOSE: returns the Unix timestamp value for a formatted date string
 def get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S'):

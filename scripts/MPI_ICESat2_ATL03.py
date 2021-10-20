@@ -43,6 +43,8 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        do not use possible TEP photons in photon classification calculation
+        added parsing for converting file lines to arguments
     Updated 08/2021: update classify photons to match current GSFC version
     Updated 05/2021: add photon classifier based on GSFC YAPC algorithms
         move surface fit operations into separate module
@@ -82,6 +84,7 @@ import sklearn.cluster
 from mpi4py import MPI
 import icesat2_toolkit.fit
 import icesat2_toolkit.time
+import icesat2_toolkit.utilities
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 from yapc.classify_photons import classify_photons
 
@@ -103,8 +106,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Read ICESat-2 ATL03 and ATL09 data files to calculate
             average segment surfaces
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
     #-- command line parameters
     #-- first file listed contains the ATL03 file
     #-- second file listed is the associated ATL09 file
@@ -412,11 +418,22 @@ def main():
 
         #-- iterate over ATLAS major frames
         photon_mframes = fileID[gtx]['heights']['pce_mframe_cnt'][:].copy()
+        #-- background ATLAS group variables are based upon 50-shot summations
+        #-- PCE Major Frames are based upon 200-shot summations
         pce_mframe_cnt = fileID[gtx]['bckgrd_atlas']['pce_mframe_cnt'][:].copy()
+        #-- find unique major frames and their indices within background ATLAS group
+        #-- (there will 4 background ATLAS time steps for nearly every major frame)
         unique_major_frames,unique_index = np.unique(pce_mframe_cnt,return_index=True)
+        #-- number of unique major frames in granule for beam
         major_frame_count = len(unique_major_frames)
+        #-- height of each telemetry band for a major frame
         tlm_height_band1 = fileID[gtx]['bckgrd_atlas']['tlm_height_band1'][:].copy()
         tlm_height_band2 = fileID[gtx]['bckgrd_atlas']['tlm_height_band2'][:].copy()
+        #-- flag denoting photon events as possible TEP
+        if (int(RL) < 4):
+            isTEP = np.any((fileID[gtx]['heights']['signal_conf_ph'][:]==-2),axis=1)
+        else:
+            isTEP = (fileID[gtx]['heights']['quality_ph'][:] == 3)
         #-- photon event weights
         Distributed_Weights = np.zeros((n_pe),dtype=np.float64)
         #-- run for each major frame (distributed over comm.size # of processes)
@@ -425,9 +442,11 @@ def main():
             idx = unique_index[iteration]
             #-- sum of 2 telemetry band widths for major frame
             h_win_width = tlm_height_band1[idx] + tlm_height_band2[idx]
-            #-- photon indices for major frame (buffered by 1 on each side)
+            #-- photon indices for major frame (buffered by 1 frame on each side)
+            #-- do not use possible TEP photons in photon classification
             i1, = np.nonzero((photon_mframes >= unique_major_frames[iteration]-1) &
-                (photon_mframes <= unique_major_frames[iteration]+1))
+                (photon_mframes <= unique_major_frames[iteration]+1) &
+                np.logical_not(isTEP))
             #-- indices for the major frame within the buffered window
             i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
             #-- calculate photon event weights
@@ -441,6 +460,11 @@ def main():
         Distributed_Weights = None
         #-- wait for all distributed processes to finish for beam
         comm.Barrier()
+
+        #-- photon event weights scaled to a single byte
+        weight_ph = np.array(255*pe_weights,dtype=np.uint8)
+        #-- verify photon event weights
+        np.clip(weight_ph, 0, 255, out=weight_ph)
 
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
@@ -500,7 +524,7 @@ def main():
                 #-- indices of TEP classified photons
                 ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
                 #-- photon event weights from photon classifier
-                segment_weights = pe_weights[idx:idx+cnt]
+                segment_weights = weight_ph[idx:idx+cnt]
                 snr_norm = np.max(segment_weights)
                 #-- photon event signal-to-noise ratio from photon classifier
                 photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)

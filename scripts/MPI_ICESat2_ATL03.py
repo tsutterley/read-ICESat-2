@@ -461,6 +461,11 @@ def main():
         #-- wait for all distributed processes to finish for beam
         comm.Barrier()
 
+        #-- photon event weights scaled to a single byte
+        weight_ph = np.array(255*pe_weights,dtype=np.uint8)
+        #-- verify photon event weights
+        np.clip(weight_ph, 0, 255, out=weight_ph)
+
         #-- iterate over valid ATL03 segments
         #-- in ATL03 1-based indexing: invalid == 0
         #-- here in 0-based indexing: invalid == -1
@@ -519,7 +524,7 @@ def main():
                 #-- indices of TEP classified photons
                 ice_sig_tep_pe, = np.nonzero(ice_sig_conf == -2)
                 #-- photon event weights from photon classifier
-                segment_weights = pe_weights[idx:idx+cnt]
+                segment_weights = weight_ph[idx:idx+cnt]
                 snr_norm = np.max(segment_weights)
                 #-- photon event signal-to-noise ratio from photon classifier
                 photon_snr = np.array(100.0*segment_weights/snr_norm,dtype=int)

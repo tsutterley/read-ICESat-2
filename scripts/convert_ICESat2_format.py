@@ -163,12 +163,12 @@ def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
     try:
         output = convert_HDF5(hdf5_file,FORMAT=FORMAT,CHUNKS=CHUNKS,
             CLOBBER=CLOBBER,MODE=MODE)
-    except:
+    except Exception as e:
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
         logging.critical('process id {0:d} failed'.format(os.getpid()))
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
     else:
         return output
 

@@ -226,6 +226,23 @@ General Methods
         ``X_atc``: segment center in along-track x-coordinates
 
 
+.. method:: icesat2_toolkit.fit.segment_mean(var)
+
+    Calculate the average value from two segments with possible invalid values
+
+    Arguments:
+
+        ``var``: segment variable to compute average
+
+    Keyword arguments:
+
+        ``fill_value``: replacement fill value for averages
+
+    Returns:
+
+        ``ave``: average value of two segments
+
+
 .. method:: icesat2_toolkit.fit.calc_first_photon_bias(temporal_residuals, n_pulses, n_pixels, dead_time, dt, METHOD='direct', ITERATE=20)
 
     Estimate mean and median first photon bias corrections using segment fit residuals [Smith2019]_

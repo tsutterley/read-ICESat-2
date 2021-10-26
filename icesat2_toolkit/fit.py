@@ -726,6 +726,27 @@ def fit_geolocation(var, distance_along_X, X_atc):
     # return the fitted geolocation
     return beta_mat[0]
 
+# PURPOSE: calculate the average value from two segments
+def segment_mean(var, **kwargs):
+    """
+    Calculate the average value from two segments with possible invalid values
+    """
+    # verify that data is masked array
+    if not isinstance(var, np.ma.MaskedArray):
+        var = np.ma.array(var)
+    # set default keyword arguments
+    kwargs.setdefault('fill_value',var.fill_value)
+    # verify mask is set for fill values or nan points
+    var.mask = ((var.data == var.fill_value) | np.isnan(var.data))
+    # update and replace fill values
+    var.data[var.mask] = var.fill_value
+    # calculate segment means
+    ave = np.ma.mean([var[0:-1],var[1:]],axis=0)
+    # update and replace fill values
+    ave.fill_value = kwargs['fill_value']
+    ave.data[ave.mask] = ave.fill_value
+    return ave
+
 # PURPOSE: estimate mean and median first photon bias corrections
 def calc_first_photon_bias(temporal_residuals,n_pulses,n_pixels,dead_time,dt,
     METHOD='direct',ITERATE=20):

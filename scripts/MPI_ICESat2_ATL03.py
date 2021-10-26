@@ -454,6 +454,13 @@ def main():
         for iteration in range(comm.rank, major_frame_count, comm.size):
             #-- background atlas index for iteration
             idx = unique_index[iteration]
+            #-- photon indices for major frame (buffered by 1 frame on each side)
+            #-- do not use possible TEP photons in photon classification
+            i1, = np.nonzero((photon_mframes >= unique_major_frames[iteration]-1) &
+                (photon_mframes <= unique_major_frames[iteration]+1) &
+                np.logical_not(isTEP))
+            #-- indices for the major frame within the buffered window
+            i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
             #-- sum of telemetry band widths for major frame
             h_win_width = 0.0
             #-- check that each telemetry band is close to DEM
@@ -464,13 +471,6 @@ def main():
                     (dem_h[i1[i2]] <= (tlm_top[b][idx]+tlm_buffer))):
                     #-- add telemetry height to window width
                     h_win_width += tlm_height[b][idx]
-            #-- photon indices for major frame (buffered by 1 frame on each side)
-            #-- do not use possible TEP photons in photon classification
-            i1, = np.nonzero((photon_mframes >= unique_major_frames[iteration]-1) &
-                (photon_mframes <= unique_major_frames[iteration]+1) &
-                np.logical_not(isTEP))
-            #-- indices for the major frame within the buffered window
-            i2, = np.nonzero(photon_mframes[i1] == unique_major_frames[iteration])
             #-- calculate photon event weights
             Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
                 h_win_width, i2, K=3, min_ph=3, min_xspread=1.0,
@@ -987,8 +987,8 @@ def main():
             recvbuf=[Segment_Longitude[gtx], MPI.DOUBLE], op=MPI.SUM)
         #-- latitude of fit photons
         Segment_Latitude[gtx] = np.zeros((n_seg),fill_value=fill_value)
-        comm.Allreduce(sendbuf=[Distributed_Latitude MPI.DOUBLE], \
-            recvbuf=[Segment_Latitude[gtx] MPI.DOUBLE], op=MPI.SUM)
+        comm.Allreduce(sendbuf=[Distributed_Latitude, MPI.DOUBLE], \
+            recvbuf=[Segment_Latitude[gtx], MPI.DOUBLE], op=MPI.SUM)
         Distributed_Latitude = None
         #-- number of photons in fit
         Segment_N_Fit[gtx] = np.ma.zeros((n_seg),fill_value=-1,dtype=int)

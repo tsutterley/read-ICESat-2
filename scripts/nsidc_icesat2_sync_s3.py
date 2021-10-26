@@ -468,7 +468,7 @@ def main():
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
     #-- get authentication

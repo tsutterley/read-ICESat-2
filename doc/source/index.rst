@@ -67,8 +67,10 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/MPI_ICESat2_ATL03_histogram.md
     user_guide/MPI_reduce_ICESat2_ATL03_RGI.md
     user_guide/MPI_reduce_ICESat2_ATL06_drainages.md
+    user_guide/MPI_reduce_ICESat2_ATL06_grounded.md
     user_guide/MPI_reduce_ICESat2_ATL06_ice_shelves.md
     user_guide/MPI_reduce_ICESat2_ATL06_RGI.md
     user_guide/MPI_reduce_ICESat2_ATL11_drainages.md
+    user_guide/MPI_reduce_ICESat2_ATL11_grounded.md
     user_guide/MPI_reduce_ICESat2_ATL11_ice_shelves.md
     user_guide/MPI_reduce_ICESat2_ATL11_RGI.md

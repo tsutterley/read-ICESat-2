@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_grounded.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (11/2021)
 
 Create masks for reducing ICESat-2 data into grounded ice regions
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working Data Directory
+    -A X, --area X: Area in square kilometers for minimum polygon size
     -B X, --buffer X: Distance in kilometers to buffer grounded ice mask
     -V, --verbose: Output information about each created file
     -M X, --mode X: Permission mode of directories and files created
@@ -39,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2021: add option for minimum area threshold for polygons
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 06/2021: replace GIMP with BedMachine v4 for Greenland
@@ -104,7 +106,7 @@ def set_hemisphere(GRANULE):
     return projection_flag
 
 #-- PURPOSE: load the polygon object for the region of interest
-def load_grounded(base_dir, BUFFER, HEM):
+def load_grounded_ice(base_dir, BUFFER, HEM, AREA=0.0):
     #-- read grounded ice polylines from shapefile (using splat operator)
     region_shapefile = os.path.join(base_dir,*grounded_file[HEM])
     shape_input = shapefile.Reader(region_shapefile)
@@ -118,7 +120,8 @@ def load_grounded(base_dir, BUFFER, HEM):
         #-- iterate through shape entities and attributes to find GR attributes
         indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'GR')]
     else:
-        indices = [i for i,a in enumerate(shape_attributes)]
+        #-- iterate through shape entities and attributes to find valid areas
+        indices = [i for i,a in enumerate(shape_attributes) if (a[1] >= AREA)]
     #-- for each grounded ice indice
     for i in indices:
         #-- extract Polar-Stereographic coordinates for record
@@ -132,6 +135,8 @@ def load_grounded(base_dir, BUFFER, HEM):
             poly_list.append(list(zip(points[p1:p2,0],points[p1:p2,1])))
         #-- convert poly_list into Polygon object with holes
         poly_obj = Polygon(poly_list[0],poly_list[1:])
+        if (poly_obj.area < (AREA*1e6)):
+            continue
         #-- buffer polygon object and add to total polygon dictionary object
         poly_dict[shape_attributes[i][0]] = poly_obj.buffer(BUFFER*1e3)
     #-- return the polygon object and the input file name
@@ -161,6 +166,11 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
+    #-- area in square kilometers for minimum grounded ice
+    #-- (0.0 = all polygons)
+    parser.add_argument('--area','-A',
+        type=float, default=0.0,
+        help='Area in square kilometers for minimum polygon size')
     #-- buffer in kilometers for extracting grounded ice (0.0 = exact)
     parser.add_argument('--buffer','-B',
         type=float, default=0.0,
@@ -203,7 +213,8 @@ def main():
     #-- read data on rank 0
     if (comm.rank == 0):
         #-- read shapefile and create shapely polygon objects
-        poly_dict,_ = load_grounded(args.directory,args.buffer,HEM)
+        poly_dict,_ = load_grounded_ice(args.directory, args.buffer,
+            HEM, AREA=args.area)
     else:
         #-- create empty object for dictionary of shapely objects
         poly_dict = None

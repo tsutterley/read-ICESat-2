@@ -192,7 +192,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, CROSSOVERS=False, VERBOSE=False,
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
-    #-- read data from FILE
+    #-- read data from input file
     logging.info('{0} -->'.format(os.path.basename(FILE)))
     IS2_atl11_mds,IS2_atl11_attrs,IS2_atl11_pairs = read_HDF5_ATL11(FILE,
         ATTRIBUTES=True, CROSSOVERS=CROSSOVERS)
@@ -233,7 +233,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, CROSSOVERS=False, VERBOSE=False,
     crs2 = pyproj.CRS.from_string(EPSG[HEM])
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
 
-      #-- number of GPS seconds between the GPS epoch
+    #-- number of GPS seconds between the GPS epoch
     #-- and ATLAS Standard Data Product (SDP) epoch
     atlas_sdp_gps_epoch = IS2_atl11_mds['ancillary_data']['atlas_sdp_gps_epoch']
 

@@ -1,7 +1,7 @@
 MPI_reduce_ICESat2_ATL11_RGI.py
 ===============================
 
-- Create masks for reducing ICESat-2 data to the [Randolph Glacier Inventory](https://www.glims.org/RGI/rgi60_dl.html)
+- Create masks for reducing ICESat-2 ATL11 data to the [Randolph Glacier Inventory](https://www.glims.org/RGI/rgi60_dl.html)
 
 #### Calling Sequence
 ```bash

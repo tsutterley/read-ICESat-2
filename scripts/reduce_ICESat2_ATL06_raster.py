@@ -1,61 +1,47 @@
 #!/usr/bin/env python
 u"""
-MPI_reduce_ICESat2_ATL06_ice_shelves.py
+reduce_ICESat2_ATL06_raster.py
 Written by Tyler Sutterley (11/2021)
 
-Create masks for reducing ICESat-2 data into regions of floating ice shelves
+Create masks for reducing ICESat-2 ATL06 data using raster imagery
 
 COMMAND LINE OPTIONS:
-    -D X, --directory X: Working Data Directory
-    -B X, --buffer X: Distance in kilometers to buffer ice shelves mask
+    -R X, --raster X: Input raster file
+    -F X, --format X: Input raster file format
+        netCDF4
+        HDF5
+        geotiff
+    -v X, --variables X: variable names of data in HDF5 or netCDF4 file
+        x, y and data variable names
+    -P X, --projection X: spatial projection as EPSG code or PROJ4 string
+        4326: latitude and longitude coordinates on WGS84 reference ellipsoid
+    -O X, --output X: Output mask file name
     -V, --verbose: Output information about each created file
     -M X, --mode X: Permission mode of directories and files created
-
-REQUIRES MPI PROGRAM
-    MPI: standardized and portable message-passing system
-        https://www.open-mpi.org/
-        http://mpitutorial.com/
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
         https://numpy.org
         https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
-    mpi4py: MPI for Python
-        http://pythonhosted.org/mpi4py/
-        http://mpi4py.readthedocs.org/en/stable/
+    scipy: Scientific Tools for Python
+        https://docs.scipy.org/doc/
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
         https://h5py.org
-        http://docs.h5py.org/en/stable/mpi.html
-    shapely: PostGIS-ish operations outside a database context for Python
-        http://toblerity.org/shapely/index.html
-    pyshp: Python read/write support for ESRI Shapefile format
-        https://github.com/GeospatialPython/pyshp
+    netCDF4: Python interface to the netCDF C library
+         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+    gdal: Pythonic interface to the Geospatial Data Abstraction Library (GDAL)
+        https://pypi.python.org/pypi/GDAL/
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
+    read_ICESat2_ATL06.py: reads ICESat-2 land ice along-track height data files
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
-    Updated 11/2021: use delta time as output dimension for HDF5 variables
-    Updated 10/2021: using python logging for handling verbose output
-        added parsing for converting file lines to arguments
-    Updated 06/2021: added BedMachine v4 floating ice for Greenland
-    Updated 05/2021: print full path of output filename
-    Updated 02/2021: use size of array to add to any valid check
-        replaced numpy bool/int to prevent deprecation warnings
-    Updated 01/2021: time utilities for converting times from JD and to decimal
-    Updated 12/2020: H5py deprecation warning change to use make_scale
-    Updated 10/2020: using argparse to set parameters.  update pyproj transforms
-    Updated 08/2020: using convert delta time function to convert to Julian days
-    Updated 10/2019: changing Y/N flags to True/False
-    Updated 09/2019: using pyproj for coordinate conversions
-    Updated 05/2019: check if beam exists in a try except else clause
-    Updated 04/2019: check if subsetted beam contains land ice data
-    Updated 02/2019: shapely updates for python3 compatibility
-    Written 01/2018
+    Written 11/2021
 """
 from __future__ import print_function
 
@@ -65,165 +51,140 @@ import re
 import h5py
 import pyproj
 import logging
-import datetime
 import argparse
-import shapefile
+import datetime
+import warnings
 import numpy as np
-from mpi4py import MPI
-from shapely.geometry import MultiPoint, Polygon
-from icesat2_toolkit.convert_delta_time import convert_delta_time
+import collections
+import scipy.spatial
+import scipy.interpolate
+import icesat2_toolkit.spatial
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+from icesat2_toolkit.convert_delta_time import convert_delta_time
+from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
+warnings.filterwarnings("ignore")
 
-#-- regional ice shelf files
-ice_shelf_file = {}
-ice_shelf_file['N'] = ['BedMachineGreenlandFloatingv4.shp']
-ice_shelf_file['S'] = ['IceBoundaries_Antarctica_v02.shp']
-#-- description and reference for each ice shelf file
-ice_shelf_description = {}
-ice_shelf_description['N'] = ('IceBridge BedMachine Greenland, Version 4')
-ice_shelf_description['S'] = ('MEaSUREs Antarctic Boundaries for IPY 2007-2009 '
-    'from Satellite Radar, Version 2')
-ice_shelf_reference = {}
-ice_shelf_reference['N'] = 'https://doi.org/10.5067/VLJ5YXKCNGXO'
-ice_shelf_reference['S'] = 'https://doi.org/10.5067/AXE4121732AD'
-
-#-- PURPOSE: keep track of MPI threads
-def info(rank, size):
-    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
-    logging.info('module name: {0}'.format(__name__))
-    if hasattr(os, 'getppid'):
-        logging.info('parent process: {0:d}'.format(os.getppid()))
-    logging.info('process id: {0:d}'.format(os.getpid()))
-
-#-- PURPOSE: set the hemisphere of interest based on the granule
-def set_hemisphere(GRANULE):
-    if GRANULE in ('10','11','12'):
-        projection_flag = 'S'
-    elif GRANULE in ('03','04','05'):
-        projection_flag = 'N'
-    return projection_flag
-
-#-- PURPOSE: load the polygon object for the region of interest
-def load_ice_shelves(base_dir, BUFFER, HEM):
-    #-- read ice shelves polylines from shapefile (using splat operator)
-    region_shapefile = os.path.join(base_dir,*ice_shelf_file[HEM])
-    shape_input = shapefile.Reader(region_shapefile)
-    #-- reading regional shapefile
-    shape_entities = shape_input.shapes()
-    shape_attributes = shape_input.records()
-    #-- python dictionary of polygon objects
-    poly_dict = {}
-    #-- find floating ice indices within shapefile
-    if (HEM == 'S'):
-        #-- iterate through shape entities and attributes to find FL attributes
-        indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'FL')]
+#-- PURPOSE: try to get the projection information for the input file
+def get_projection(attributes, PROJECTION):
+    #-- coordinate reference system string from file
+    try:
+        crs = pyproj.CRS.from_string(attributes['projection'])
+    except (ValueError,pyproj.exceptions.CRSError):
+        pass
     else:
-        indices = [i for i,a in enumerate(shape_attributes)]
-    #-- for each floating ice indice
-    for i in indices:
-        #-- extract Polar-Stereographic coordinates for record
-        points = np.array(shape_entities[i].points)
-        #-- shape entity can have multiple parts
-        parts = shape_entities[i].parts
-        parts.append(len(points))
-        #-- list object for x,y coordinates (exterior and holes)
-        poly_list = []
-        for p1,p2 in zip(parts[:-1],parts[1:]):
-            poly_list.append(list(zip(points[p1:p2,0],points[p1:p2,1])))
-        #-- convert poly_list into Polygon object with holes
-        poly_obj = Polygon(poly_list[0],poly_list[1:])
-        #-- buffer polygon object and add to total polygon dictionary object
-        poly_dict[shape_attributes[i][0]] = poly_obj.buffer(BUFFER*1e3)
-    #-- return the polygon object and the input file name
-    return poly_dict, region_shapefile
+        return crs
+    #-- EPSG projection code
+    try:
+        crs = pyproj.CRS.from_string("epsg:{0:d}".format(int(PROJECTION)))
+    except (ValueError,pyproj.exceptions.CRSError):
+        pass
+    else:
+        return crs
+    #-- coordinate reference system string
+    try:
+        crs = pyproj.CRS.from_string(PROJECTION)
+    except (ValueError,pyproj.exceptions.CRSError):
+        pass
+    else:
+        return crs
+    #-- no projection can be made
+    raise pyproj.exceptions.CRSError
 
-#-- PURPOSE: read ICESat-2 data from NSIDC or MPI_ICESat2_ATL03.py
-#-- reduce to ice shelves (possibly buffered)
-def main():
-    #-- start MPI communicator
-    comm = MPI.COMM_WORLD
+#-- PURPOSE: find a valid Delaunay triangulation for coordinates x0 and y0
+#-- http://www.qhull.org/html/qhull.htm#options
+#-- Attempt 1: standard qhull options Qt Qbb Qc Qz
+#-- Attempt 2: rescale and center the inputs with option QbB
+#-- Attempt 3: joggle the inputs to find a triangulation with option QJ
+#-- if no passing triangulations: exit with empty list
+def find_valid_triangulation(x0,y0,max_points=1e6):
+    #-- don't attempt triangulation if there are a large number of points
+    if (len(x0) > max_points):
+        #-- if too many points: set triangle as an empty list
+        logging.info('Too many points for triangulation')
+        return (None,[])
 
-    #-- Read the system arguments listed after the program
-    parser = argparse.ArgumentParser(
-        description="""Create masks for reducing ICESat-2 data into floating
-            ice shelf regions
-            """,
-        fromfile_prefix_chars="@"
-    )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
-    #-- command line parameters
-    parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='ICESat-2 ATL06 file to run')
-    #-- working data directory for ice shelf shapefiles
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
-    #-- buffer in kilometers for extracting ice shelves (0.0 = exact)
-    parser.add_argument('--buffer','-B',
-        type=float, default=0.0,
-        help='Distance in kilometers to buffer ice shelves mask')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+    #-- Attempt 1: try with standard options Qt Qbb Qc Qz
+    #-- Qt: triangulated output, all facets will be simplicial
+    #-- Qbb: scale last coordinate to [0,m] for Delaunay triangulations
+    #-- Qc: keep coplanar points with nearest facet
+    #-- Qz: add point-at-infinity to Delaunay triangulation
+
+    #-- Attempt 2 in case of qhull error from Attempt 1 try Qt Qc QbB
+    #-- Qt: triangulated output, all facets will be simplicial
+    #-- Qc: keep coplanar points with nearest facet
+    #-- QbB: scale input to unit cube centered at the origin
+
+    #-- Attempt 3 in case of qhull error from Attempt 2 try QJ QbB
+    #-- QJ: joggle input instead of merging facets
+    #-- QbB: scale input to unit cube centered at the origin
+
+    #-- try each set of qhull_options
+    points = np.concatenate((x0[:,None],y0[:,None]),axis=1)
+    for i,opt in enumerate(['Qt Qbb Qc Qz','Qt Qc QbB','QJ QbB']):
+        logging.info('qhull option: {0}'.format(opt))
+        try:
+            triangle = scipy.spatial.Delaunay(points.data, qhull_options=opt)
+        except scipy.spatial.qhull.QhullError:
+            pass
+        else:
+            return (i+1,triangle)
+
+    #-- if still errors: set triangle as an empty list
+    return (None,[])
+
+#-- PURPOSE: read ICESat-2 land ice data (ATL06) from NSIDC
+#-- reduce to a masked region using raster imagery
+def reduce_ICESat2_ATL06_raster(FILE,
+    MASK=None,
+    FORMAT=None,
+    VARIABLES=[],
+    OUTPUT=None,
+    PROJECTION=None,
+    VERBOSE=False,
+    MODE=0o775):
 
     #-- create logger
-    loglevel = logging.INFO if args.verbose else logging.CRITICAL
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
-    #-- output module information for process
-    info(comm.rank,comm.size)
-    if (comm.rank == 0):
-        logging.info('{0} -->'.format(args.file))
-
-    #-- Open the HDF5 file for reading
-    fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
+    #-- read data from input file
+    logging.info('{0} -->'.format(os.path.basename(FILE)))
+    IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = read_HDF5_ATL06(FILE,
+        ATTRIBUTES=True)
+    DIRECTORY = os.path.dirname(FILE)
     #-- extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
-    #-- set the hemisphere flag based on ICESat-2 granule
-    HEM = set_hemisphere(GRN)
-    #-- pyproj transformer for converting lat/lon to polar stereographic
-    EPSG = dict(N=3413,S=3031)
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
+
+    #-- read raster image for spatial coordinates and data
+    dinput = icesat2_toolkit.spatial.from_file(MASK, FORMAT,
+        xname=VARIABLES[0], yname=VARIABLES[1], varname=VARIABLES[2])
+    #-- raster extents
+    xmin,xmax,ymin,ymax = np.copy(dinput['attributes']['extent'])
+    #-- check that x and y are strictly increasing
+    if (np.sign(dinput['attributes']['spacing'][0]) == -1):
+        dinput['x'] = dinput['x'][::-1]
+        dinput['data'] = dinput['data'][:,::-1]
+    if (np.sign(dinput['attributes']['spacing'][1]) == -1):
+        dinput['y'] = dinput['y'][::-1]
+        dinput['data'] = dinput['data'][::-1,:]
+    #-- find valid points within mask
+    indy,indx = np.nonzero(dinput['data'])
+    #-- check that input points are within convex hull of valid model points
+    gridx,gridy = np.meshgrid(dinput['x'],dinput['y'])
+    v,triangle = find_valid_triangulation(gridx[indy,indx],gridy[indy,indx])
+    #-- create an interpolator for input raster data
+    logging.info('Building Spline Interpolator')
+    SPL = scipy.interpolate.RectBivariateSpline(dinput['x'], dinput['y'],
+        dinput['data'].T, kx=1, ky=1)
+
+    #-- convert projection from input coordinates (EPSG) to data coordinates
     crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
-    crs2 = pyproj.CRS.from_string("epsg:{0:d}".format(EPSG[HEM]))
+    crs2 = get_projection(dinput['attributes'], PROJECTION)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
-
-    #-- read data on rank 0
-    if (comm.rank == 0):
-        #-- read shapefile and create shapely polygon objects
-        poly_dict,_ = load_ice_shelves(args.directory,args.buffer,HEM)
-    else:
-        #-- create empty object for dictionary of shapely objects
-        poly_dict = None
-
-    #-- Broadcast Shapely polygon objects
-    poly_dict = comm.bcast(poly_dict, root=0)
-    #-- combined validity check for all beams
-    valid_check = False
-
-    #-- read each input beam within the file
-    IS2_atl06_beams = []
-    for gtx in [k for k in fileID.keys() if bool(re.match(r'gt\d[lr]',k))]:
-        #-- check if subsetted beam contains land ice data
-        try:
-            fileID[gtx]['land_ice_segments']['segment_id']
-        except KeyError:
-            pass
-        else:
-            IS2_atl06_beams.append(gtx)
+    logging.info(crs2.to_proj4())
 
     #-- copy variables for outputting to HDF5 file
     IS2_atl06_mask = {}
@@ -237,10 +198,10 @@ def main():
     IS2_atl06_mask_attrs['ancillary_data'] = {}
     for key in ['atlas_sdp_gps_epoch']:
         #-- get each HDF5 variable
-        IS2_atl06_mask['ancillary_data'][key] = fileID['ancillary_data'][key][:]
+        IS2_atl06_mask['ancillary_data'][key] = IS2_atl06_mds['ancillary_data'][key]
         #-- Getting attributes of group and included variables
         IS2_atl06_mask_attrs['ancillary_data'][key] = {}
-        for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
+        for att_name,att_val in IS2_atl06_attrs['ancillary_data'][key].items():
             IS2_atl06_mask_attrs['ancillary_data'][key][att_name] = att_val
 
     #-- for each input beam within the file
@@ -252,58 +213,34 @@ def main():
         IS2_atl06_mask_attrs[gtx] = dict(land_ice_segments={})
 
         #-- number of segments
-        segment_id = fileID[gtx]['land_ice_segments']['segment_id'][:]
-        n_seg, = fileID[gtx]['land_ice_segments']['segment_id'].shape
-        #-- invalid value for beam
-        fv = fileID[gtx]['land_ice_segments']['h_li'].fillvalue
-        #-- check if there are less segments than processes
-        if (n_seg < comm.Get_size()):
-            continue
+        val = IS2_atl06_mds[gtx]['land_ice_segments']
+        n_seg = len(val['segment_id'])
 
-        #-- define indices to run for specific process
-        ind = np.arange(comm.Get_rank(), n_seg, comm.Get_size(), dtype=int)
+        #-- convert latitude/longitude to raster image projection
+        X,Y = transformer.transform(val['longitude'], val['latitude'])
 
-        #-- extract delta time
-        delta_time = fileID[gtx]['land_ice_segments']['delta_time'][:].copy()
-        #-- extract lat/lon
-        longitude = fileID[gtx]['land_ice_segments']['longitude'][:].copy()
-        latitude = fileID[gtx]['land_ice_segments']['latitude'][:].copy()
-        #-- convert lat/lon to polar stereographic
-        X,Y = transformer.transform(longitude[ind], latitude[ind])
-        #-- convert reduced x and y to shapely multipoint object
-        xy_point = MultiPoint(np.c_[X, Y])
+        #-- check where points are within complex hull of triangulation
+        #-- or within the bounds of the input raster image
+        if v:
+            interp_points = np.concatenate((X[:,None],Y[:,None]),axis=1)
+            valid = (triangle.find_simplex(interp_points) >= 0)
+        else:
+            valid = (X >= xmin) & (X <= xmax) & (Y >= ymin) & (Y <= ymax)
 
-        #-- calculate mask for each ice shelf in the dictionary
-        associated_map = {}
-        for key,poly_obj in poly_dict.items():
-            #-- create distributed intersection map for calculation
-            distributed_map = np.zeros((n_seg),dtype=bool)
-            #-- create empty intersection map array for receiving
-            associated_map[key] = np.zeros((n_seg),dtype=bool)
-            #-- finds if points are encapsulated (within ice shelf)
-            int_test = poly_obj.intersects(xy_point)
-            if int_test:
-                #-- extract intersected points
-                int_map = list(map(poly_obj.intersects,xy_point))
-                int_indices, = np.nonzero(int_map)
-                #-- set distributed_map indices to True for intersected points
-                distributed_map[ind[int_indices]] = True
-            #-- communicate output MPI matrices between ranks
-            #-- operation is a logical "or" across the elements.
-            comm.Allreduce(sendbuf=[distributed_map, MPI.BOOL], \
-                recvbuf=[associated_map[key], MPI.BOOL], op=MPI.LOR)
-            distributed_map = None
-        #-- wait for all processes to finish calculation
-        comm.Barrier()
+        #-- interpolate raster mask to points
+        interp_mask = np.zeros((n_seg),dtype=bool)
+        #-- skip beam interpolation if no data within bounds of raster image
+        if np.any(valid):
+            interp_mask[valid] = SPL.ev(X[valid], Y[valid])
 
         #-- group attributes for beam
-        IS2_atl06_mask_attrs[gtx]['Description'] = fileID[gtx].attrs['Description']
-        IS2_atl06_mask_attrs[gtx]['atlas_pce'] = fileID[gtx].attrs['atlas_pce']
-        IS2_atl06_mask_attrs[gtx]['atlas_beam_type'] = fileID[gtx].attrs['atlas_beam_type']
-        IS2_atl06_mask_attrs[gtx]['groundtrack_id'] = fileID[gtx].attrs['groundtrack_id']
-        IS2_atl06_mask_attrs[gtx]['atmosphere_profile'] = fileID[gtx].attrs['atmosphere_profile']
-        IS2_atl06_mask_attrs[gtx]['atlas_spot_number'] = fileID[gtx].attrs['atlas_spot_number']
-        IS2_atl06_mask_attrs[gtx]['sc_orientation'] = fileID[gtx].attrs['sc_orientation']
+        IS2_atl06_mask_attrs[gtx]['Description'] = IS2_atl06_attrs[gtx]['Description']
+        IS2_atl06_mask_attrs[gtx]['atlas_pce'] = IS2_atl06_attrs[gtx]['atlas_pce']
+        IS2_atl06_mask_attrs[gtx]['atlas_beam_type'] = IS2_atl06_attrs[gtx]['atlas_beam_type']
+        IS2_atl06_mask_attrs[gtx]['groundtrack_id'] = IS2_atl06_attrs[gtx]['groundtrack_id']
+        IS2_atl06_mask_attrs[gtx]['atmosphere_profile'] = IS2_atl06_attrs[gtx]['atmosphere_profile']
+        IS2_atl06_mask_attrs[gtx]['atlas_spot_number'] = IS2_atl06_attrs[gtx]['atlas_spot_number']
+        IS2_atl06_mask_attrs[gtx]['sc_orientation'] = IS2_atl06_attrs[gtx]['sc_orientation']
         #-- group attributes for land_ice_segments
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['Description'] = ("The land_ice_segments group "
             "contains the primary set of derived products. This includes geolocation, height, and "
@@ -316,7 +253,7 @@ def main():
 
         #-- geolocation, time and segment ID
         #-- delta time
-        IS2_atl06_mask[gtx]['land_ice_segments']['delta_time'] = delta_time
+        IS2_atl06_mask[gtx]['land_ice_segments']['delta_time'] = val['delta_time'].copy()
         IS2_atl06_fill[gtx]['land_ice_segments']['delta_time'] = None
         IS2_atl06_dims[gtx]['land_ice_segments']['delta_time'] = None
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time'] = {}
@@ -333,7 +270,7 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['coordinates'] = \
             "segment_id latitude longitude"
         #-- latitude
-        IS2_atl06_mask[gtx]['land_ice_segments']['latitude'] = latitude
+        IS2_atl06_mask[gtx]['land_ice_segments']['latitude'] = val['latitude'].copy()
         IS2_atl06_fill[gtx]['land_ice_segments']['latitude'] = None
         IS2_atl06_dims[gtx]['land_ice_segments']['latitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude'] = {}
@@ -348,7 +285,7 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['coordinates'] = \
             "segment_id delta_time longitude"
         #-- longitude
-        IS2_atl06_mask[gtx]['land_ice_segments']['longitude'] = longitude
+        IS2_atl06_mask[gtx]['land_ice_segments']['longitude'] = val['longitude'].copy()
         IS2_atl06_fill[gtx]['land_ice_segments']['longitude'] = None
         IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude'] = {}
@@ -363,7 +300,7 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['coordinates'] = \
             "segment_id delta_time latitude"
         #-- segment ID
-        IS2_atl06_mask[gtx]['land_ice_segments']['segment_id'] = segment_id
+        IS2_atl06_mask[gtx]['land_ice_segments']['segment_id'] = val['segment_id']
         IS2_atl06_fill[gtx]['land_ice_segments']['segment_id'] = None
         IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id'] = {}
@@ -387,60 +324,38 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['data_rate'] = ("Data within this group "
             "are stored at the land_ice_segments segment rate.")
 
-        #-- for each valid ice shelf
-        combined_map = np.zeros((n_seg),dtype=bool)
-        valid_keys = np.array([k for k,v in associated_map.items() if v.any()])
-        valid_check |= (np.size(valid_keys) > 0)
-        for key in valid_keys:
-            #-- add to combined map for output of total ice shelf mask
-            combined_map += associated_map[key]
-            #-- output mask for ice shelf to HDF5
-            IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][key] = associated_map[key]
-            IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'][key] = None
-            IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][key] = ['delta_time']
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key] = {}
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = "referenceInformation"
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['description'] = ('Mask calculated '
-                'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['reference'] = ice_shelf_reference[HEM]
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['source'] = args.buffer
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['coordinates'] = \
-                "../segment_id ../delta_time ../latitude ../longitude"
-
-        #-- combined ice shelf mask
-        IS2_atl06_mask[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = combined_map
-        IS2_atl06_fill[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = ['delta_time']
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf'] = {}
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['contentType'] = "referenceInformation"
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['long_name'] = 'Ice Shelf Mask'
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['description'] = ('Mask calculated '
-            'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['reference'] = ice_shelf_reference[HEM]
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['source'] = args.buffer
-        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['ice_shelf']['coordinates'] = \
+        #-- output mask to HDF5
+        IS2_atl06_mask[gtx]['land_ice_segments']['subsetting']['mask'] = interp_mask.copy()
+        IS2_atl06_fill[gtx]['land_ice_segments']['subsetting']['mask'] = None
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting']['mask'] = ['delta_time']
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask'] = {}
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['contentType'] = \
+            "referenceInformation"
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['long_name'] = 'Mask'
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['description'] = \
+            'Mask calculated using raster image'
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['source'] = \
+            os.path.basename(MASK)
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
 
-        #-- wait for all processes to finish calculation
-        comm.Barrier()
 
-    #-- parallel h5py I/O does not support compression filters at this time
-    if (comm.rank == 0) and valid_check:
-        #-- output HDF5 files with ice shelf masks
-        fargs = (PRD,'ICE_SHELF_MASK',YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
+    #-- use default output file name and path
+    if OUTPUT:
+        output_file = os.path.expanduser(OUTPUT)
+    else:
+        fargs = (PRD,'MASK',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
-        #-- print file information
-        logging.info('\t{0}'.format(output_file))
-        #-- write to output HDF5 file
-        HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs, CLOBBER=True,
-            INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl06_fill,
-            FILENAME=output_file)
-        #-- change the permissions mode
-        os.chmod(output_file, args.mode)
-    #-- close the input file
-    fileID.close()
+    #-- print file information
+    logging.info('\t{0}'.format(output_file))
+    #-- write to output HDF5 file
+    HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs,
+        CLOBBER=True, INPUT=os.path.basename(FILE),
+        FILL_VALUE=IS2_atl06_fill, DIMENSIONS=IS2_atl06_dims,
+        FILENAME=output_file)
+    #-- change the permissions mode
+    os.chmod(output_file, MODE)
 
 #-- PURPOSE: outputting the masks for ICESat-2 data to HDF5
 def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
@@ -494,6 +409,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
             #-- Defining the HDF5 dataset variables
             val = '{0}/{1}/{2}'.format(gtx,'land_ice_segments',k)
             if fillvalue:
+                print(k)
                 h5[gtx]['land_ice_segments'][k] = fileID.create_dataset(val,
                     np.shape(v), data=v, dtype=v.dtype, fillvalue=fillvalue,
                     compression='gzip')
@@ -602,6 +518,61 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
     #-- Closing the HDF5 file
     fileID.close()
+
+#-- Main program that calls reduce_ICESat2_ATL06_raster()
+def main():
+    #-- Read the system arguments listed after the program
+    parser = argparse.ArgumentParser(
+        description="""Create masks for reducing ICESat-2 data
+            using raster imagery
+            """,
+        fromfile_prefix_chars="@"
+    )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
+    #-- command line parameters
+    parser.add_argument('file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='ICESat-2 ATL06 file to run')
+    #-- use default output file name
+    parser.add_argument('--output','-O',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Name and path of output file')
+    #-- input raster file and file format
+    parser.add_argument('--raster','-R',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Input raster file')
+    parser.add_argument('--format','-F',
+        type=str, default='geotiff', choices=('netCDF4','HDF5','geotiff'),
+        help='Input raster file format')
+    #-- variable names of data in HDF5 or netCDF4 file
+    parser.add_argument('--variables','-v',
+        type=str, nargs='+', default=['x','y','data'],
+        help='Variable names of data in HDF5 or netCDF4 files')
+    #-- spatial projection (EPSG code or PROJ4 string)
+    parser.add_argument('--projection','-P',
+        type=str, default='4326',
+        help='Spatial projection as EPSG code or PROJ4 string')
+    #-- verbosity settings
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the local files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='permissions mode of output files')
+    args,_ = parser.parse_known_args()
+
+    #-- run raster mask program with parameters
+    reduce_ICESat2_ATL06_raster(args.file,
+        MASK=args.raster,
+        FORMAT=args.format,
+        VARIABLES=args.variables,
+        PROJECTION=args.projection,
+        OUTPUT=args.output,
+        VERBOSE=args.verbose,
+        MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

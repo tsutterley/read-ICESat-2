@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_drainages.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (11/2021)
 
 Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
 
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2021: use delta time as output dimension for HDF5 variables
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
@@ -329,7 +330,7 @@ def main():
         #-- delta time
         IS2_atl06_mask[gtx]['land_ice_segments']['delta_time'] = delta_time
         IS2_atl06_fill[gtx]['land_ice_segments']['delta_time'] = None
-        IS2_atl06_fill[gtx]['land_ice_segments']['delta_time'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['delta_time'] = None
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['units'] = "seconds since 2018-01-01"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['long_name'] = "Elapsed GPS seconds"
@@ -346,7 +347,7 @@ def main():
         #-- latitude
         IS2_atl06_mask[gtx]['land_ice_segments']['latitude'] = latitude
         IS2_atl06_fill[gtx]['land_ice_segments']['latitude'] = None
-        IS2_atl06_fill[gtx]['land_ice_segments']['latitude'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['latitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['units'] = "degrees_north"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['contentType'] = "physicalMeasurement"
@@ -361,7 +362,7 @@ def main():
         #-- longitude
         IS2_atl06_mask[gtx]['land_ice_segments']['longitude'] = longitude
         IS2_atl06_fill[gtx]['land_ice_segments']['longitude'] = None
-        IS2_atl06_fill[gtx]['land_ice_segments']['longitude'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['units'] = "degrees_east"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['contentType'] = "physicalMeasurement"
@@ -376,7 +377,7 @@ def main():
         #-- segment ID
         IS2_atl06_mask[gtx]['land_ice_segments']['segment_id'] = segment_id
         IS2_atl06_fill[gtx]['land_ice_segments']['segment_id'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = None
+        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['units'] = "1"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['contentType'] = "referenceInformation"
@@ -390,6 +391,8 @@ def main():
 
         #-- subsetting variables
         IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'] = {}
+        IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'] = {}
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['Description'] = ("The subsetting group "
             "contains parameters used to reduce land ice segments to specific regions of interest.")
@@ -403,7 +406,7 @@ def main():
             #-- output mask to HDF5
             IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][key] = associated_map[key]
             IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'][key] = None
-            IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][key] = ['segment_id']
+            IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][key] = ['delta_time']
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key] = {}
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = \
                 "referenceInformation"

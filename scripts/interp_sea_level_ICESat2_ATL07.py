@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_sea_level_ICESat2_ATL07.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (11/2021)
 Interpolates sea level anomalies (sla), absolute dynamic topography (adt) and
     mean dynamic topography (mdt) to times and locations of ICESat-2 ATL07 data
 
@@ -37,6 +37,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2021: hemisphere flags based on ATL07 hemisphere code
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
@@ -59,12 +60,13 @@ import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07
 
-#-- PURPOSE: set the hemisphere of interest based on the granule
-def set_hemisphere(GRANULE):
-    if GRANULE in ('10','11','12'):
-        projection_flag = 'S'
-    elif GRANULE in ('03','04','05'):
+#-- PURPOSE: set the hemisphere of interest based on ATL07 hemisphere code
+#-- HH Hemisphere code. Northern Hemisphere = 01, Southern Hemisphere = 02
+def set_hemisphere(HH):
+    if (HH == '01'):
         projection_flag = 'N'
+    elif (HH == '02'):
+        projection_flag = 'S'
     return projection_flag
 
 #-- PURPOSE: interpolates to coordinates with inverse distance weighting
@@ -186,7 +188,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
-    #-- read data from input_file
+    #-- read data from input file
     logging.info('{0} -->'.format(os.path.basename(FILE)))
     IS2_atl07_mds,IS2_atl07_attrs,IS2_atl07_beams = read_HDF5_ATL07(FILE,
         ATTRIBUTES=True)
@@ -195,7 +197,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
     rx = re.compile(r'(processed_)?(ATL\d{2})-(\d{2})_(\d{4})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
     SUB,PRD,HMN,YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX=rx.findall(FILE).pop()
-    #-- set the hemisphere flag based on ICESat-2 granule
+    #-- set the hemisphere flag based on ATL07 hemisphere code
     HEM = set_hemisphere(HMN)
 
     #-- HDF5 file attributes
@@ -248,6 +250,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
         IS2_atl07_corr_attrs['ancillary_data'][key] = {}
         for att_name,att_val in IS2_atl07_attrs['ancillary_data'][key].items():
             IS2_atl07_corr_attrs['ancillary_data'][key][att_name] = att_val
+
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl07_beams):
         #-- output data dictionaries for beam
@@ -419,7 +422,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
                 "../height_segment_id ../delta_time ../latitude ../longitude"
 
     #-- output HDF5 files with interpolated sea level data
-    fargs = (PRD,HEM,'AVISO_SEA_LEVEL',YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX)
+    fargs = (PRD,HMN,'AVISO_SEA_LEVEL',YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX)
     file_format = '{0}-{1}_{2}_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
     output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     #-- print file information

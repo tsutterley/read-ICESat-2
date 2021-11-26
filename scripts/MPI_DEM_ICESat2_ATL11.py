@@ -50,6 +50,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
+    convert_delta_time.py: converts from delta time into Julian and year-decimal
     time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
 

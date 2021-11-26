@@ -21,8 +21,10 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libproj-dev proj-data proj-bin libgeos-dev
-        sudo apt-get install libhdf5-dev libxml2-dev libxslt1-dev
+        sudo apt-get install libproj-dev proj-data proj-bin
+        sudo apt-get install gdal-bin libgdal-dev libgeos-dev
+        sudo apt-get install libhdf5-openmpi-dev libnetcdf-dev
+        sudo apt-get install libstdc++6 libxml2-dev libxslt1-dev libsqlite3-dev
         pip install --upgrade pip
         pip install --upgrade setuptools
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi

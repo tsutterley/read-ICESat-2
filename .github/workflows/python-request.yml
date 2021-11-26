@@ -31,7 +31,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install openmpi-bin mpi-default-bin openmpi-doc libopenmpi-dev
-        sudo apt-get install gdal-bin libgdal-dev libgeos-dev libhdf5-openmpi-dev
+        sudo apt-get install gdal-bin libgdal-dev libgeos-dev
+        sudo apt-get install libhdf5-openmpi-dev libnetcdf-dev
         sudo apt-get install libstdc++6 libxml2-dev libxslt1-dev libsqlite3-dev
         cd ${RUNNER_TEMP}
         wget -q https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz
@@ -51,6 +52,8 @@ jobs:
         sudo make --quiet install
         make clean
         cd ${GITHUB_WORKSPACE}
+        sudo ldconfig --verbose
+        sudo projsync --system-directory --all
         pip install --upgrade pip
         pip install --upgrade setuptools==58.0
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
@@ -102,6 +105,7 @@ jobs:
         brew install gdal
         brew unlink hdf5
         brew install hdf5-mpi
+        brew install netcdf
         brew install libxml2
         brew install libxslt
         brew install pkg-config

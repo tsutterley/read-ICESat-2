@@ -1,7 +1,7 @@
 MPI_reduce_ICESat2_ATL06_ice_shelves.py
 =======================================
 
-- Create masks for reducing ICESat-2 data into floating ice shelves
+- Create masks for reducing ICESat-2 ATL06 data into floating ice shelves
 - [IceBridge BedMachine Greenland, Version 4](https://doi.org/10.5067/VLJ5YXKCNGXO)
 - [MEaSUREs Antarctic Boundaries for IPY 2007-2009](https://doi.org/10.5067/AXE4121732AD)
 

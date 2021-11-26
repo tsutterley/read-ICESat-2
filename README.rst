@@ -153,6 +153,7 @@ Dependencies
  - `scipy: Scientific Tools for Python <https://docs.scipy.org/doc/>`_
  - `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
  - `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <http://h5py.org>`_
+ - `netCDF4: Python interface to the netCDF C library <https://unidata.github.io/netcdf4-python/>`_
  - `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_
  - `pandas: Python Data Analysis Library <https://pandas.pydata.org/>`_
  - `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_

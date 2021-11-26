@@ -204,7 +204,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
-    #-- read data from input_file
+    #-- read data from input file
     logging.info('{0} -->'.format(os.path.basename(FILE)))
     IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = read_HDF5_ATL06(FILE,
         ATTRIBUTES=True)
@@ -266,6 +266,7 @@ def interp_sea_level_ICESat2(base_dir, FILE, VERBOSE=False, MODE=0o775):
         IS2_atl06_corr_attrs['ancillary_data'][key] = {}
         for att_name,att_val in IS2_atl06_attrs['ancillary_data'][key].items():
             IS2_atl06_corr_attrs['ancillary_data'][key][att_name] = att_val
+
     #-- for each input beam within the file
     for gtx in sorted(IS2_atl06_beams):
         #-- output data dictionaries for beam

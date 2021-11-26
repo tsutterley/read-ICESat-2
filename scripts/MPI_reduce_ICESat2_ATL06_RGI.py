@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_RGI.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (11/2021)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2021: use delta time as output dimension for HDF5 variables
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
@@ -341,7 +342,7 @@ def main():
         #-- delta time
         IS2_atl06_mask[gtx]['land_ice_segments']['delta_time'] = delta_time
         IS2_atl06_fill[gtx]['land_ice_segments']['delta_time'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['delta_time'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['delta_time'] = None
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['units'] = "seconds since 2018-01-01"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['delta_time']['long_name'] = "Elapsed GPS seconds"
@@ -358,7 +359,7 @@ def main():
         #-- latitude
         IS2_atl06_mask[gtx]['land_ice_segments']['latitude'] = latitude
         IS2_atl06_fill[gtx]['land_ice_segments']['latitude'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['latitude'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['latitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['units'] = "degrees_north"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['latitude']['contentType'] = "physicalMeasurement"
@@ -373,7 +374,7 @@ def main():
         #-- longitude
         IS2_atl06_mask[gtx]['land_ice_segments']['longitude'] = longitude
         IS2_atl06_fill[gtx]['land_ice_segments']['longitude'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['units'] = "degrees_east"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['longitude']['contentType'] = "physicalMeasurement"
@@ -388,7 +389,7 @@ def main():
         #-- segment ID
         IS2_atl06_mask[gtx]['land_ice_segments']['segment_id'] = segment_id
         IS2_atl06_fill[gtx]['land_ice_segments']['segment_id'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = None
+        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['units'] = "1"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['segment_id']['contentType'] = "referenceInformation"
@@ -412,7 +413,7 @@ def main():
         key = RGI_NAME.replace('_',' ')
         IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'][RGI_NAME] = associated_map
         IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'][RGI_NAME] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][RGI_NAME] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][RGI_NAME] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][RGI_NAME] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][RGI_NAME]['contentType'] = "referenceInformation"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][RGI_NAME]['long_name'] = '{0} Mask'.format(key)
@@ -427,7 +428,7 @@ def main():
         #-- output RGI identifier
         IS2_atl06_mask[gtx]['land_ice_segments']['subsetting']['RGIId'] = associated_RGIId
         IS2_atl06_fill[gtx]['land_ice_segments']['subsetting']['RGIId'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting']['RGIId'] = ['segment_id']
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting']['RGIId'] = ['delta_time']
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['RGIId'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['RGIId']['contentType'] = "referenceInformation"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['RGIId']['long_name'] = "RGI Identifier"

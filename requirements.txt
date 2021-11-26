@@ -2,6 +2,7 @@ numpy
 scipy
 mpi4py
 h5py --no-binary=h5py
+netCDF4
 zarr
 gdal
 pandas

@@ -175,6 +175,23 @@ RUN wget -q https://support.hdfgroup.org/ftp/HDF5/current/src/hdf5-${HDF5_VERSIO
     make --quiet install && \
     make clean
 
+ENV NETCDF_VERSION=4.8.1
+ENV CFLAGS="-fPIC -lcurl"
+ENV CPPFLAGS="-I/usr/local/include"
+ENV LDFLAGS="-L/usr/local/lib"
+RUN --no-check-certificate https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_VERSION}.tar.gz && \
+    tar -xvzf v${NETCDF_VERSION}.tar.gz && \
+    cd netcdf-c-${NETCDF_VERSION} && \
+    ./configure --quiet \
+        --enable-parallel-tests \
+        --enable-netcdf-4 \
+        --enable-nczarr \
+        --enable-shared \
+        --prefix=/usr/local && \
+    make --quiet --jobs=${JOBS} && \
+    make --quiet install && \
+    make clean
+
 ENV GEOS_VERSION=3.9.1
 RUN wget -q https://download.osgeo.org/geos/geos-${GEOS_VERSION}.tar.bz2 && \
     tar -xjf geos-${GEOS_VERSION}.tar.bz2 && \

@@ -254,7 +254,6 @@ def reduce_ICESat2_ATL10_raster(FILE,
             if np.any(valid):
                 interp_mask[valid] = SPL.ev(X[valid], Y[valid])
 
-            #-- geolocation, time and segment ID
             #-- delta time
             IS2_atl10_mask[gtx][group]['delta_time'] = val['delta_time'].copy()
             IS2_atl10_fill[gtx][group]['delta_time'] = None

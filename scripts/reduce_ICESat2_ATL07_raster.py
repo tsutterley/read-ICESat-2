@@ -35,7 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
-    read_ICESat2_ATL07.py: reads ICESat-2 land ice along-track height data files
+    read_ICESat2_ATL07.py: reads ICESat-2 sea ice height data files
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
@@ -55,7 +55,6 @@ import argparse
 import datetime
 import warnings
 import numpy as np
-import collections
 import scipy.spatial
 import scipy.interpolate
 import icesat2_toolkit.spatial
@@ -133,7 +132,7 @@ def find_valid_triangulation(x0,y0,max_points=1e6):
     #-- if still errors: set triangle as an empty list
     return (None,[])
 
-#-- PURPOSE: read ICESat-2 land ice data (ATL07) from NSIDC
+#-- PURPOSE: read ICESat-2 sea ice data (ATL07) from NSIDC
 #-- reduce to a masked region using raster imagery
 def reduce_ICESat2_ATL07_raster(FILE,
     MASK=None,
@@ -493,7 +492,7 @@ def HDF5_ATL07_mask_write(IS2_atl07_mask, IS2_atl07_attrs, INPUT=None,
     fileID.attrs['featureType'] = 'trajectory'
     fileID.attrs['title'] = 'ATLAS/ICESat-2 L3A Sea Ice Height'
     fileID.attrs['summary'] = ('Subsetting masks for sea ice segments needed '
-        'to interpret and assess the quality of land height estimates.')
+        'to interpret and assess the quality of the height estimates.')
     fileID.attrs['description'] = ('The data set (ATL07) contains along-track '
         'heights for sea ice and open water leads (at varying length scales) '
         'relative to the WGS84 ellipsoid (ITRF2014 reference frame) after '

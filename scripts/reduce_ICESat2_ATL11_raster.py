@@ -462,7 +462,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['title'] = 'ATLAS/ICESat-2 Land Ice Height'
     fileID.attrs['summary'] = ('Subsetting masks and geophysical parameters '
         'for land ice segments needed to interpret and assess the quality '
-        'of annual land height estimates.')
+        'of the height estimates.')
     fileID.attrs['description'] = ('Land ice parameters for each beam pair. '
         'All parameters are calculated for the same along-track increments '
         'for each beam pair and repeat.')

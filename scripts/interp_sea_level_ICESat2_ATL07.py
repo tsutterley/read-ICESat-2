@@ -539,7 +539,7 @@ def HDF5_ATL07_corr_write(IS2_atl07_corr, IS2_atl07_attrs, INPUT=None,
     fileID.attrs['featureType'] = 'trajectory'
     fileID.attrs['title'] = 'ATLAS/ICESat-2 L3A Sea Ice Height'
     fileID.attrs['summary'] = ('Estimates of the sea ice correction parameters '
-        'needed to interpret and assess the quality of sea height estimates.')
+        'needed to interpret and assess the quality of the height estimates.')
     fileID.attrs['description'] = ('The data set (ATL07) contains along-track '
         'heights for sea ice and open water leads (at varying length scales) '
         'relative to the WGS84 ellipsoid (ITRF2014 reference frame) after '

@@ -27,6 +27,8 @@ from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06, \
     find_HDF5_ATL06_beams, read_HDF5_ATL06_beam
 from icesat2_toolkit.read_ICESat2_ATL07 import read_HDF5_ATL07, \
     find_HDF5_ATL07_beams
+from icesat2_toolkit.read_ICESat2_ATL10 import read_HDF5_ATL10, \
+    find_HDF5_ATL10_beams
 from icesat2_toolkit.read_ICESat2_ATL11 import read_HDF5_ATL11
 from icesat2_toolkit.read_ICESat2_ATL12 import read_HDF5_ATL12, \
     find_HDF5_ATL12_beams

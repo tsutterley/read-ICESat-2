@@ -28,6 +28,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/read_ICESat2_ATL03.md
     user_guide/read_ICESat2_ATL06.md
     user_guide/read_ICESat2_ATL07.md
+    user_guide/read_ICESat2_ATL10.md
     user_guide/read_ICESat2_ATL11.md
     user_guide/read_ICESat2_ATL12.md
     user_guide/spatial.rst
@@ -77,4 +78,5 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/MPI_reduce_ICESat2_ATL11_RGI.md
     user_guide/reduce_ICESat2_ATL06_raster.md
     user_guide/reduce_ICESat2_ATL07_raster.md
+    user_guide/reduce_ICESat2_ATL10_raster.md
     user_guide/reduce_ICESat2_ATL11_raster.md

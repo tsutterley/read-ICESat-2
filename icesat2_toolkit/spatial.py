@@ -27,8 +27,13 @@ import uuid
 import h5py
 import logging
 import netCDF4
+import warnings
 import numpy as np
-import osgeo.gdal, osgeo.osr
+try:
+    import osgeo.gdal, osgeo.osr
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("GDAL not available")
 
 def case_insensitive_filename(filename):
     """

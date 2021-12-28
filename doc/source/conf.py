@@ -53,6 +53,7 @@ master_doc = 'index'
 
 # -- Configuration options ---------------------------------------------------
 autosummary_generate = True
+numfig = True
 
 # -- Options for HTML output -------------------------------------------------
 

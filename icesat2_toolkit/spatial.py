@@ -652,3 +652,68 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     #-- area scaling
     scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
     return scale
+
+#-- PURPOSE: check a specified 2D point is inside a specified 2D polygon
+def inside_polygon(x, y, xpts, ypts, threshold=0.01):
+    """
+    Indicates whether a specified 2D point is inside a specified 2D polygon
+
+    Inputs:
+        x: x coordinates of the 2D point(s) to check.
+        y: y coordinates of the 2D point(s) to check.
+        xpts: The x coordinates of the 2D polygon.
+        ypts: The y coordinates of the 2D polygon.
+
+    Options:
+        threshold: minimum angle for checking if inside polygon
+
+    Returns:
+        flag: True for points within polygon, False for points outside polygon
+    """
+    #-- create numpy arrays for 2D points
+    x = np.atleast_1d(x)
+    y = np.atleast_1d(y)
+    nn = len(x)
+    #-- create numpy arrays for polygon points
+    xpts = np.array(xpts)
+    ypts = np.array(ypts)
+    #-- check dimensions of polygon points
+    if (xpts.ndim != 1):
+        raise ValueError('X coordinates of polygon not a vector.')
+    if (ypts.ndim != 1):
+        raise ValueError('Y coordinates of polygon not a vector.')
+    if (len(xpts) != len(ypts)):
+        raise ValueError('Incompatable vector dimensions.')
+    #-- maximum possible number of vertices in polygon
+    N = len(xpts)
+    #-- Close the polygon if not already closed
+    if not np.isclose(xpts[-1],xpts[0]) and not np.isclose(ypts[-1],ypts[0]):
+        xpts = np.concatenate((xpts,[xpts[0]]),axis=0)
+        ypts = np.concatenate((ypts,[ypts[0]]),axis=0)
+    else:
+        #-- remove 1 from number of vertices
+        N -= 1
+    #-- Calculate dot and cross products of points to neighboring polygon points
+    i = np.arange(N)
+    X1 = np.dot(xpts[i][:,np.newaxis],np.ones((1,nn))) - \
+        np.dot(np.ones((N,1)),x[np.newaxis,:])
+    Y1 = np.dot(ypts[i][:,np.newaxis],np.ones((1,nn))) - \
+        np.dot(np.ones((N,1)),y[np.newaxis,:])
+    X2 = np.dot(xpts[i+1][:,np.newaxis],np.ones((1,nn))) - \
+        np.dot(np.ones((N,1)),x[np.newaxis,:])
+    Y2 = np.dot(ypts[i+1][:,np.newaxis],np.ones((1,nn))) - \
+        np.dot(np.ones((N,1)),y[np.newaxis,:])
+    #-- Dot-product
+    dp = X1*X2 + Y1*Y2
+    #-- Cross-product
+    cp = X1*Y2 - Y1*X2
+    #-- Calculate tangent of the angle between the two nearest adjacent points
+    theta = np.arctan2(cp,dp)
+    #-- If point is outside polygon then summation over all possible
+    #-- angles will equal a small number (e.g. 0.01)
+    flag = np.where(np.abs(np.sum(theta,axis=0)) > threshold, True, False)
+    # Make a scalar value if there was only one input value
+    if (nn == 1):
+        return flag[0]
+    else:
+        return flag

@@ -37,6 +37,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     read_ICESat2_ATL11.py: reads ICESat-2 annual land ice height data files
     convert_delta_time.py: converts from delta time into Julian and year-decimal
+    spatial.py: utilities for reading and writing spatial data
     time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
 

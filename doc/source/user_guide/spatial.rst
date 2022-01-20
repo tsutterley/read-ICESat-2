@@ -239,3 +239,22 @@ General Methods
     Returns:
 
         ``scale``: area scaling factors at input latitudes
+
+.. method:: icesat2_toolkit.spatial.inside_polygon(x, y, xpts, ypts, threshold=0.01)
+
+    Indicates whether a specified 2D point is inside a specified 2D polygon
+
+    Arguments:
+
+        ``x``: x coordinates of the 2D point(s) to check
+        ``y``: y coordinates of the 2D point(s) to check
+        ``xpts``: x coordinates of the 2D polygon
+        ``ypts``: y coordinates of the 2D polygon
+
+    Keyword arguments:
+
+        ``threshold``: minimum angle for checking if inside polygon
+
+    Returns:
+
+        ``flag``: True for points within polygon, False for points outside polygon

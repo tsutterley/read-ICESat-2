@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (01/2022)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -21,6 +21,7 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 01/2022: added ascii and dataframe outputs for ATL07
     Updated 09/2021: added ground track and time to output dataframes
         calculate a global reference point for ATL06/07/08 dataframes
     Updated 07/2021: comment for column number in yaml headers
@@ -63,9 +64,11 @@ class convert():
         elif self.reformat in ('csv','txt'):
             # output reduced files to ascii formats
             self.HDF5_to_ascii(**kwds)
-        elif self.reformat in ('dataframe'):
+        elif self.reformat in ('dataframe',):
             # output reduced files to pandas dataframe
             return self.HDF5_to_dataframe(**kwds)
+        else:
+            raise ValueError('Unknown format {0}'.format(self.reformat))
 
     # PURPOSE: convert the HDF5 file to zarr copying all file data
     def HDF5_to_zarr(self, **kwds):
@@ -202,7 +205,7 @@ class convert():
         Convert a HDF5 file to beam-level ascii files copying reduced sets of data
         """
         # compile regular expression operator for extracting info from ICESat2 files
-        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
+        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{2})?_(\d{4})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file
@@ -270,6 +273,41 @@ class convert():
                     else:
                         vattrs[v]['precision'] = 'double_precision'
                     vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
+            elif (PRD == 'ATL07'):
+                # sea ice height
+                var = source[gtx]['sea_ice_segments']
+                valid, = np.nonzero(var['heights/height_segment_quality'][:] == 1)
+                # variables for the output ascii file
+                vnames = ['height_segment_id','delta_time',
+                    'latitude','longitude','seg_dist_x',
+                    'heights/height_segment_height',
+                    'heights/height_segment_confidence',
+                    'heights/height_segment_type',
+                    'heights/height_segment_ssh_flag',
+                    'heights/height_segment_w_gaussian',
+                    'stats/photon_rate','stats/cloud_flag_asr',
+                    'geophysical/height_segment_lpe',
+                    'geophysical/height_segment_mss',
+                    'geophysical/height_segment_ocean',
+                    'geophysical/height_segment_ib']
+                vformat = ('{1:0.0f}{0}{2:0.9f}{0}{3:0.9f}{0}{4:0.9f}{0}'
+                    '{5:0.9f}{0}{6:0.9f}{0}{7:0.9f}{0}{8:0.0f}{0}{9:0.0f}{0}'
+                    '{10:0.9f}{0}{11:0.9f}{0}{12:0.0f}{0}{13:0.9f}{0}'
+                    '{14:0.9f}{0}{15:0.9f}{0}{16:0.9f}')
+                # for each output variable
+                for i,v in enumerate(vnames):
+                    # convert data to numpy array for HDF5 compatibility
+                    values[v] = np.copy(var[v][:])
+                    # extract attributes
+                    vattrs[v] = {atn:atv for atn,atv in var[v].attrs.items()}
+                    # add precision attributes for ascii yaml header
+                    if v in ('height_segment_id','heights/height_segment_type',
+                             'heights/height_segment_ssh_flag',
+                             'stats/cloud_flag_asr'):
+                        vattrs[v]['precision'] = 'integer'
+                    else:
+                        vattrs[v]['precision'] = 'double_precision'
+                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
             elif (PRD == 'ATL08'):
                 # land and vegetation height
                 var = source[gtx]['land_segments']
@@ -332,7 +370,7 @@ class convert():
             # print variable descriptions to YAML header
             fid.write('\n  {0}:\n'.format('variables'))
             for v in vnames:
-                fid.write('    {0:22}:\n'.format(v))
+                fid.write('    {0:22}:\n'.format(posixpath.basename(v)))
                 for atn in ['precision','units','long_name','comment']:
                     atv = self.attributes_encoder(vattrs[v][atn])
                     fid.write('      {0:20}: {1}\n'.format(atn,atv))
@@ -352,7 +390,7 @@ class convert():
         Convert a HDF5 file to a pandas dataframe copying reduced sets of data
         """
         # compile regular expression operator for extracting info from ICESat2 files
-        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{{2}})?_(\d{4})(\d{2})(\d{2})'
+        rx = re.compile(r'(processed_)?(ATL\d+)(-\d{2})?_(\d{4})(\d{2})(\d{2})'
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file
@@ -408,6 +446,23 @@ class convert():
                     'fit_statistics/h_expected_rms',
                     'fit_statistics/h_robust_sprd',
                     'fit_statistics/w_surface_window_final']
+            elif (PRD == 'ATL07'):
+                # sea ice height
+                var = source[gtx]['sea_ice_segments']
+                valid, = np.nonzero(var['heights/height_segment_quality'][:] == 1)
+                # variables for the output ascii file
+                vnames = ['height_segment_id','seg_dist_x','delta_time',
+                    'latitude','longitude',
+                    'heights/height_segment_height',
+                    'heights/height_segment_confidence',
+                    'heights/height_segment_type',
+                    'heights/height_segment_ssh_flag',
+                    'heights/height_segment_w_gaussian',
+                    'stats/photon_rate','stats/cloud_flag_asr',
+                    'geophysical/height_segment_lpe',
+                    'geophysical/height_segment_mss',
+                    'geophysical/height_segment_ocean',
+                    'geophysical/height_segment_ib']
             elif (PRD == 'ATL08'):
                 # land and vegetation height
                 var = source[gtx]['land_segments']
@@ -432,9 +487,9 @@ class convert():
             delta_time = (data['delta_time']*1e9).astype('timedelta64[ns]')
             data['time'] = pandas.to_datetime(self.atlas_sdp_epoch+delta_time)
             # copy filename parameters
-            data['rgt'] = [int(TRK)]*len(valid)
-            data['cycle'] = [int(CYCL)]*len(valid)
-            data['gt'] = [gt[gtx]]*len(valid)
+            data['rgt'] = np.array([int(TRK)]*len(valid))
+            data['cycle'] = np.array([int(CYCL)]*len(valid))
+            data['gt'] = np.array([gt[gtx]]*len(valid))
             # calculate global reference point
             if PRD in ('ATL06','ATL07','ATL08'):
                 data['global_ref_pt'] = 6*1387*data[VARIABLE_PATH[-1]] + \

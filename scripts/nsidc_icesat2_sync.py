@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (02/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -42,6 +42,7 @@ COMMAND LINE OPTIONS:
     -v X, --version X: ICESat-2 data version to sync
     -t X, --track X: ICESat-2 reference ground tracks to sync
     -g X, --granule X: ICESat-2 granule regions to sync
+    -c X, --cycle=X: ICESat-2 cycles to sync
     -n X, --region X: ICESat-2 Named Region (ATL14/ATL15)
     -a X, --auxiliary: Sync ICESat-2 auxiliary files for each HDF5 file
     -I X, --index X: Input index of ICESat-2 files to sync
@@ -67,6 +68,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: set context for multiprocessing to fork child processes
         added option to compare checksums in order to overwrite data
@@ -113,9 +115,10 @@ import icesat2_toolkit.utilities
 
 #-- PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
-    TRACKS, YEARS=None, SUBDIRECTORY=None, REGION=None, AUXILIARY=False,
-    INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1, LOG=False,
-    LIST=False, PROCESSES=0, CLOBBER=False, CHECKSUM=False, MODE=0o775):
+    TRACKS, YEARS=None, SUBDIRECTORY=None, CYCLES=None, REGION=None,
+    AUXILIARY=False, INDEX=None, FLATTEN=False, TIMEOUT=None, RETRY=1,
+    LOG=False, LIST=False, PROCESSES=0, CLOBBER=False, CHECKSUM=False,
+    MODE=0o775):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -140,12 +143,19 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     HOST = 'https://n5eil01u.ecs.nsidc.org'
     #-- regular expression operator for finding files of a particular granule
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
-    regex_suffix = '(.*?)' if AUXILIARY else '(h5|nc)'
+    if TRACKS:
+        regex_track = r'|'.join(['{0:04d}'.format(T) for T in TRACKS])
+    else:
+        regex_track = r'\d{4}'
+    if CYCLES:
+        regex_cycle = r'|'.join(['{0:02d}'.format(C) for C in CYCLES])
+    else:
+        regex_cycle = r'\d{2}'
+    regex_granule = r'|'.join(['{0:02d}'.format(G) for G in GRANULES])
+    regex_version = r'|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_suffix = r'(.*?)' if AUXILIARY else r'(h5|nc)'
     default_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
+        r'(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{6}$')
     ATL11_pattern = r'({0})_({1})({2})_(\d{{2}})(\d{{2}})_({3})_({4})(.*?).{5}$'
     ATL1415_pattern = r'({0})_({1})_(\d{{2}})(\d{{2}})_({3})_({4})(.*?).{5}$'
 
@@ -187,8 +197,6 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 local_dir = os.path.expanduser(DIRECTORY)
             else:
                 local_dir = os.path.join(DIRECTORY,product_directory,sd)
-            #-- check if data directory exists and recursively create if not
-            os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
             #-- find ICESat-2 data file to get last modified time
             #-- find matching files (for granule, release, version, track)
             names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
@@ -223,7 +231,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     RELEASE,regex_version,regex_suffix))
             else:
                 R1 = re.compile(default_pattern.format(p,regex_track,
-                    regex_granule,RELEASE,regex_version,regex_suffix))
+                    regex_cycle,regex_granule,RELEASE,regex_version,
+                    regex_suffix))
             #-- read and parse request for subdirectories (find column names)
             remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
                 build=False,
@@ -243,8 +252,6 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 else:
                     local_dir = os.path.join(DIRECTORY,product_directory,sd)
                 logging.info("Building file list: {0}".format(sd))
-                #-- check if data directory exists and recursively create if not
-                os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
                 #-- find ICESat-2 data files
                 PATH = [HOST,'ATLAS',product_directory,sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
@@ -324,6 +331,9 @@ def multiprocess_sync(*args, **kwds):
 #-- or if the checksums do not match between the files
 def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
     RETRY=1, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
+    #-- check if data directory exists and recursively create if not
+    local_dir = os.path.dirname(local_file)
+    os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
     #-- chunked transfer encoding size
     CHUNK = 16 * 1024
     #-- if file exists in file system: check if remote file is newer
@@ -466,6 +476,10 @@ def main():
         metavar='GRANULE', type=int, nargs='+',
         choices=range(1,15), default=range(1,15),
         help='ICESat-2 Granule Region')
+    #-- ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+', default=None,
+        help='ICESat-2 orbital cycles to sync')
     #-- ICESat-2 ATL14 and 15 named regions
     ATL1415_regions = ['AA','AK','CN','CS','GL','IC','SV','RU']
     region.add_argument('--region','-n',
@@ -543,11 +557,11 @@ def main():
     if icesat2_toolkit.utilities.check_credentials():
         nsidc_icesat2_sync(args.directory, args.products, args.release,
             args.version, args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, REGION=args.region,
-            AUXILIARY=args.auxiliary, INDEX=args.index, FLATTEN=args.flatten,
-            PROCESSES=args.np, TIMEOUT=args.timeout, RETRY=args.retry,
-            LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
-            CHECKSUM=args.checksum, MODE=args.mode)
+            SUBDIRECTORY=args.subdirectory, CYCLES=args.cycle,
+            REGION=args.region, AUXILIARY=args.auxiliary, INDEX=args.index,
+            FLATTEN=args.flatten, PROCESSES=args.np, TIMEOUT=args.timeout,
+            RETRY=args.retry, LOG=args.log, LIST=args.list,
+            CLOBBER=args.clobber, CHECKSUM=args.checksum, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

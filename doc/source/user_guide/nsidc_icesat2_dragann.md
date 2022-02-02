@@ -22,6 +22,7 @@ python nsidc_icesat2_dragann.py --user <username> --directory <outgoing> \
 - `-v X`, `--version X:` ICESat-2 data version to sync
 - `-t X`, `--track X`: ICESat-2 reference ground tracks to sync
 - `-g X`, `--granule X`: ICESat-2 granule regions to sync
+- `-c X`, `--cycle X`: ICESat-2 orbital cycles to sync
 - `-F`, `--flatten`: Do not create subdirectories
 - `-M X`, `--mode X`: Local permissions mode of the directories and files synced
 - `-T X`, `--timeout X`: Timeout in seconds for blocking operations

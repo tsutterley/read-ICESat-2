@@ -22,6 +22,7 @@ python nsidc_icesat2_sync.py --user <username> --directory <outgoing> \
 - `-v X`, `--version X:` ICESat-2 data version to sync
 - `-t X`, `--track X`: ICESat-2 reference ground tracks to sync
 - `-g X`, `--granule X`: ICESat-2 granule regions to sync
+- `-c X`, `--cycle X`: ICESat-2 orbital cycles to sync
 - `-n X`, `--region X`: ICESat-2 Named Region to sync for ATL14/ATL15
 - `-a`, `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file
 - `-I X, --index X`: Input index of ICESat-2 files to sync

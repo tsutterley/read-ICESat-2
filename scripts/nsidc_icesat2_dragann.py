@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (02/2022)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -32,6 +32,7 @@ COMMAND LINE OPTIONS:
     -v X, --version X: ICESat-2 data version to sync
     -t X, --track X: ICESat-2 reference ground tracks to sync
     -g X, --granule X: ICESat-2 granule regions to sync
+    -c X, --cycle=X: ICESat-2 cycles to sync
     -F, --flatten: Do not create subdirectories
     -T X, --timeout X: Timeout in seconds for blocking operations
     -R X, --retry X: Connection retry attempts
@@ -56,6 +57,7 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
+    Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added options for connection timeout and retry attempts
     Updated 04/2021: set a default netrc file and check access
@@ -87,7 +89,7 @@ from icesat2_toolkit.read_ICESat2_ATL03 import find_HDF5_ATL03_beams
 #-- PURPOSE: sync ATL03 geolocated photon height products and appends the
 #-- ATL08 DRAGANN classifications from NSIDC
 def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
-    YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None, FLATTEN=False,
+    YEARS=None, SUBDIRECTORY=None, CYCLES=None, FLATTEN=False,
     TIMEOUT=None, RETRY=1, LOG=False, LIST=False, CLOBBER=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
@@ -112,12 +114,19 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     HOST = 'https://n5eil01u.ecs.nsidc.org'
     #-- regular expression operator for finding files of a particular granule
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
-    regex_suffix = '(h5)'
+    if TRACKS:
+        regex_track = r'|'.join(['{0:04d}'.format(T) for T in TRACKS])
+    else:
+        regex_track = r'\d{4}'
+    if CYCLES:
+        regex_cycle = r'|'.join(['{0:02d}'.format(C) for C in CYCLES])
+    else:
+        regex_cycle = r'\d{2}'
+    regex_granule = r'|'.join(['{0:02d}'.format(G) for G in GRANULES])
+    regex_version = r'|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_suffix = r'(h5)'
     remote_regex_pattern=(r'({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).{5}$')
+        r'(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{6}$')
     #-- regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         #-- Sync particular subdirectories for product
@@ -135,7 +144,8 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     atl08_directory = '{0}.{1}'.format('ATL08',RELEASE)
     PATH = [HOST,'ATLAS',atl08_directory]
     #-- compile regular expression operator
-    args=('ATL08',regex_track,regex_granule,RELEASE,regex_version,regex_suffix)
+    args = ('ATL08',regex_track,regex_cycle,regex_granule,RELEASE,
+          regex_version,regex_suffix)
     R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
     #-- read and parse request for subdirectories (find column names)
     remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
@@ -151,8 +161,6 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             local_dir = os.path.expanduser(DIRECTORY)
         else:
             local_dir = os.path.join(DIRECTORY,atl03_directory,sd)
-        #-- check if data directory exists and recursively create if not
-        os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
         #-- find ICESat-2 data files
         PATH = [HOST,'ATLAS',atl08_directory,sd]
         #-- find matching files (for granule, release, version, track)
@@ -168,7 +176,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX,SFX = \
                 R1.findall(atl08).pop()
             #-- compile regular expression operator
-            args = ('ATL03',TRK,GRAN,RL,regex_version,regex_suffix)
+            args = ('ATL03',TRK,CYCL,GRAN,RL,regex_version,regex_suffix)
             R3 = re.compile(remote_regex_pattern.format(*args))
             PATH = [HOST,'ATLAS',atl03_directory,sd]
             #-- find associated ATL03 files
@@ -184,6 +192,9 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                 remote_dir = posixpath.join(HOST,'ATLAS',atl03_directory,sd)
                 remote_file = posixpath.join(remote_dir,atl03)
                 local_file = os.path.join(local_dir,atl03)
+                #-- recursively create data directory if not existing
+                if not os.path.exists(local_dir):
+                    os.makedirs(local_dir,MODE)
                 #-- download ATL03 file
                 args = (remote_file, remote_mtime, local_file)
                 kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY,
@@ -399,6 +410,10 @@ def main():
         metavar='REGION', type=int, nargs='+',
         choices=range(1,15), default=range(1,15),
         help='ICESat-2 Granule Region')
+    #-- ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+', default=None,
+        help='ICESat-2 orbital cycles to sync')
     #-- ICESat-2 reference ground tracks
     parser.add_argument('--track','-t',
         metavar='RGT', type=int, nargs='+',
@@ -457,9 +472,10 @@ def main():
     if icesat2_toolkit.utilities.check_credentials():
         nsidc_icesat2_dragann(args.directory, args.release, args.version,
             args.granule, args.track, YEARS=args.year,
-            SUBDIRECTORY=args.subdirectory, FLATTEN=args.flatten,
-            TIMEOUT=args.timeout, RETRY=args.retry, LOG=args.log,
-            LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+            SUBDIRECTORY=args.subdirectory, CYCLES=args.cycle,
+            FLATTEN=args.flatten, TIMEOUT=args.timeout, RETRY=args.retry,
+            LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

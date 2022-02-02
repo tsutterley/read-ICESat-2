@@ -75,6 +75,15 @@ General Methods
         ``value``: number to be rounded
 
 
+.. method:: icesat2_toolkit.utilities.ceil(value)
+
+    Rounds a number upward to its nearest integer
+
+    Arguments:
+
+        ``value``: number to be rounded upward
+
+
 .. method:: icesat2_toolkit.utilities.copy(source, destination, verbose=False, move=False)
 
     Copy or move a file with all system information
@@ -307,3 +316,31 @@ General Methods
         ``remote_buffer``: BytesIO representation of file
 
         ``response_error``: notification for response error
+
+
+.. method:: icesat2_toolkit.utilities.cmr(product=None,release=None,cycles=None,tracks=None,granules=None,verbose=False,fid=sys.stdout):
+
+    Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
+
+    Keyword arguments:
+
+        ``product``: ICESat-2 data product to query
+
+        ``release``: ICESat-2 data release to query
+
+        ``cycles``: List of 91-day orbital cycle strings to query
+
+        ``tracks``: List of Reference Ground Track (RGT) strings to query
+
+        ``granules``: List of ICESat-2 granule region strings to query
+
+        ``verbose``: print file transfer information
+
+        ``fid``: open file object to print if verbose
+
+    Returns
+
+      ``producer_granule_ids``: list of ICESat-2 granules
+
+      ``granule_urls``: list of ICESat-2 granule urls from NSIDC
+

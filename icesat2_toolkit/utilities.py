@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (02/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 02/2022: add NASA Common Metadata Repository (CMR) queries
     Updated 10/2021: using python logging for handling verbose output
         add parser for converting file lines to arguments
     Updated 08/2021: NSIDC no longer requires authentication headers
@@ -33,6 +34,7 @@ import os
 import re
 import io
 import ssl
+import json
 import netrc
 import ftplib
 import shutil
@@ -41,6 +43,8 @@ import socket
 import inspect
 import hashlib
 import logging
+import datetime
+import warnings
 import posixpath
 import lxml.etree
 import calendar,time
@@ -164,6 +168,17 @@ def even(value):
     value: number to be rounded
     """
     return 2*int(value//2)
+
+#-- PURPOSE: rounds a number upward to its nearest integer
+def ceil(value):
+    """
+    Rounds a number upward to its nearest integer
+
+    Arguments
+    ---------
+    value: number to be rounded upward
+    """
+    return -int(-value//1)
 
 #-- PURPOSE: make a copy of a file with all system information
 def copy(source, destination, verbose=False, move=False):
@@ -649,3 +664,298 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         #-- return the bytesIO object
         remote_buffer.seek(0)
         return (remote_buffer,None)
+
+#-- PURPOSE: build formatted query string for ICESat-2 release
+def query_release(release):
+    """
+    Build formatted query string for ICESat-2 release
+
+    Arguments
+    ---------
+    release: ICESat-2 data release to query
+
+    Returns
+    -------
+    query_params: formatted string for CMR queries
+    """
+    if release is None:
+        return ''
+    #-- maximum length of version in CMR queries
+    desired_pad_length = 3
+    if len(str(release)) > desired_pad_length:
+        raise RuntimeError('Release string too long: "{0}"'.format(release))
+    #-- Strip off any leading zeros
+    release = str(release).lstrip('0')
+    query_params = ''
+    while len(release) <= desired_pad_length:
+        padded_release = release.zfill(desired_pad_length)
+        query_params += '&version={0}'.format(padded_release)
+        desired_pad_length -= 1
+    return query_params
+
+#-- PURPOSE: check if the submitted cycles are valid
+def cycles(cycle):
+    """
+    Check if the submitted cycles are valid
+
+    Arguments
+    ---------
+    cycle: ICESat-2 orbital cycle
+    """
+    #-- string length of cycles in granules
+    cycle_length = 2
+    #-- number of GPS seconds between the GPS epoch and ATLAS SDP epoch
+    atlas_sdp_gps_epoch = 1198800018.0
+    #-- number of GPS seconds since the GPS epoch for first ATLAS data point
+    atlas_gps_start_time = atlas_sdp_gps_epoch + 24710205.39202261
+    epoch1 = datetime.datetime(1980, 1, 6, 0, 0, 0)
+    epoch2 = datetime.datetime(1970, 1, 1, 0, 0, 0)
+    #-- get the total number of seconds since the start of ATLAS and now
+    delta_time_epochs = (epoch2 - epoch1).total_seconds()
+    atlas_UNIX_start_time = atlas_gps_start_time - delta_time_epochs
+    present_time = datetime.datetime.now().timestamp()
+    #-- divide total time by cycle length to get the maximum number of orbital cycles
+    ncycles = ceil((present_time - atlas_UNIX_start_time) / (86400 * 91))
+    all_cycles = [str(c + 1).zfill(cycle_length) for c in range(ncycles)]
+    if cycle is None:
+        return ["??"]
+    else:
+        if isinstance(cycle, (str,int)):
+            assert int(cycle) > 0, "Cycle number must be positive"
+            cycle_list = [str(cycle).zfill(cycle_length)]
+        elif isinstance(cycle, list):
+            cycle_list = []
+            for c in cycle:
+                assert int(c) > 0, "Cycle number must be positive"
+                cycle_list.append(str(c).zfill(cycle_length))
+        else:
+            raise TypeError("Please enter the cycle number as a list or string")
+        #-- check if user-entered cycle is outside of currently available range
+        if not set(all_cycles) & set(cycle_list):
+            warnings.filterwarnings("always")
+            warnings.warn("Listed cycle is not presently available")
+        return cycle_list
+
+#-- PURPOSE: check if the submitted RGTs are valid
+def tracks(track):
+    """
+    Check if the submitted RGTs are valid
+
+    Arguments
+    ---------
+    track: ICESat-2 reference ground track (RGT)
+    """
+    #-- string length of RGTs in granules
+    track_length = 4
+    #-- total number of ICESat-2 satellite RGTs is 1387
+    all_tracks = [str(tr + 1).zfill(track_length) for tr in range(1387)]
+    if track is None:
+        return ["????"]
+    else:
+        if isinstance(track, (str,int)):
+            assert int(track) > 0, "Reference Ground Track must be positive"
+            track_list = [str(track).zfill(track_length)]
+        elif isinstance(track, list):
+            track_list = []
+            for t in track:
+                assert int(t) > 0, "Reference Ground Track must be positive"
+                track_list.append(str(t).zfill(track_length))
+        else:
+            raise TypeError(
+                "Reference Ground Track as a list or string"
+            )
+        #-- check if user-entered RGT is outside of the valid range
+        if not set(all_tracks) & set(track_list):
+            warnings.filterwarnings("always")
+            warnings.warn("Listed Reference Ground Track is not available")
+        return track_list
+
+#-- PURPOSE: check if the submitted granule regions are valid
+def granules(granule):
+    """
+    Check if the submitted granule regions are valid
+
+    Arguments
+    ---------
+    granule: ICESat-2 granule region
+    """
+    #-- string length of granule regions in granule files
+    granule_length = 2
+    #-- total number of ICESat-2 granule regions is 14
+    all_granules = [str(g).zfill(granule_length) for g in range(1,15)]
+    if granule is None:
+        return ["??"]
+    else:
+        if isinstance(granule, (str,int)):
+            assert int(granule) > 0, "Cycle region must be positive"
+            granule_list = [str(granule).zfill(granule_length)]
+        elif isinstance(granule, list):
+            granule_list = []
+            for g in granule:
+                assert int(g) > 0, "Granule region must be positive"
+                granule_list.append(str(g).zfill(granule_length))
+        else:
+            raise TypeError("Please enter the cycle number as a list or string")
+        #-- check if user-entered granule is outside of currently available range
+        if not set(all_granules) & set(granule_list):
+            warnings.filterwarnings("always")
+            warnings.warn("Listed cycle is not presently available")
+        return granule_list
+
+def readable_granules(product, **kwargs):
+    """
+    Create list of readable granule names for CMR queries
+
+    Arguments
+    ---------
+    product: ICESat-2 data product
+
+    Keyword arguments
+    -----------------
+    cycles: List of 91-day orbital cycle strings to query
+    tracks: List of Reference Ground Track (RGT) strings to query
+    granules: List of ICESat-2 granule region strings to query
+
+    Returns
+    -------
+    list of readable granule names for CMR queries
+    """
+    #-- default character wildcards for cycles and tracks
+    kwargs.setdefault("cycles", None)
+    kwargs.setdefault("tracks", None)
+    kwargs.setdefault("granules", None)
+    #-- list of readable granule names
+    readable_granule_list = []
+    #-- for each available cycle of interest
+    for c in cycles(kwargs["cycles"]):
+        #-- for each available track of interest
+        for t in tracks(kwargs["tracks"]):
+            #-- for each available granule region of interest
+            for g in granules(kwargs["granules"]):
+                #-- use single character wildcards "?" for date strings
+                #-- and ATLAS granule region number
+                if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
+                    args = (product, 14 * "?", t, c, g)
+                    pattern = "{0}-??_{1}_{2}{3}{4}_*"
+                elif product in ("ATL11",):
+                    args = (product, t, g)
+                    pattern = "{0}_{1}{2}_*"
+                else:
+                    args = (product, 14 * "?", t, c, g)
+                    pattern = "{0}_{1}_{2}{3}{4}_*"
+                #-- append the granule pattern
+                readable_granule_list.append(pattern.format(*args))
+    # return readable granules list
+    return readable_granule_list
+
+#-- PURPOSE: filter the CMR json response for desired data files
+def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
+    """
+    Filter the CMR json response for desired data files
+
+    Arguments
+    ---------
+    search_results: json response from CMR query
+
+    Keyword arguments
+    -----------------
+    request_type: data type for reducing CMR query
+
+    Returns
+    -------
+    producer_granule_ids: list of ICESat-2 granules
+    granule_urls: list of ICESat-2 granule urls from NSIDC
+    """
+    #-- output list of granule ids and urlsg
+    producer_granule_ids = []
+    granule_urls = []
+    #-- check that there are urls for request
+    if ('feed' not in search_results) or ('entry' not in search_results['feed']):
+        return (producer_granule_ids,granule_urls)
+    #-- iterate over references and get cmr location
+    for entry in search_results['feed']['entry']:
+        producer_granule_ids.append(entry['producer_granule_id'])
+        for link in entry['links']:
+            if (link['type'] == request_type):
+                granule_urls.append(link['href'])
+                break
+    #-- return the list of urls and granule ids
+    return (producer_granule_ids,granule_urls)
+
+#-- PURPOSE: cmr queries for orbital parameters
+def cmr(product=None, release=None, cycles=None, tracks=None,
+    granules=None, verbose=False, fid=sys.stdout):
+    """
+    Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
+
+    Keyword arguments
+    -----------------
+    product: ICESat-2 data product to query
+    release: ICESat-2 data release to query
+    cycles: List of 91-day orbital cycle strings to query
+    tracks: List of Reference Ground Track (RGT) strings to query
+    granules: List of ICESat-2 granule region strings to query
+    verbose: print file transfer information
+    fid: open file object to print if verbose
+
+    Returns
+    -------
+    producer_granule_ids: list of ICESat-2 granules
+    granule_urls: list of ICESat-2 granule urls from NSIDC
+    """
+    #-- create logger
+    loglevel = logging.INFO if verbose else logging.CRITICAL
+    logging.basicConfig(stream=fid, level=loglevel)
+    #-- build urllib2 opener with SSL context
+    build_opener(None, None, context=ssl.SSLContext(),
+        password_manager=False)
+    #-- build CMR query
+    cmr_format = 'json'
+    cmr_provider = 'NSIDC_ECS'
+    cmr_page_size = 2000
+    CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
+        'granules.{0}'.format(cmr_format)]
+    #-- build list of CMR query parameters
+    CMR_KEYS = []
+    CMR_KEYS.append('?provider={0}'.format(cmr_provider))
+    CMR_KEYS.append('&sort_key[]=start_date')
+    CMR_KEYS.append('&sort_key[]=producer_granule_id')
+    CMR_KEYS.append('&scroll=true')
+    CMR_KEYS.append('&page_size={0}'.format(cmr_page_size))
+    #-- append product string
+    CMR_KEYS.append('&short_name={0}'.format(product))
+    #-- append release strings
+    CMR_KEYS.append(query_release(release))
+    #-- append keys for querying specific granules
+    CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
+    CMR_KEYS.append("&options[spatial][or]=true")
+    readable_granule_list = readable_granules(product,
+        cycles=cycles, tracks=tracks, granules=granules)
+    for gran in readable_granule_list:
+        CMR_KEYS.append("&readable_granule_name[]={0}".format(gran))
+    #-- full CMR query url
+    cmr_query_url = "".join([posixpath.join(*CMR_HOST),*CMR_KEYS])
+    logging.info('CMR request={0}'.format(cmr_query_url))
+    #-- output list of granule names and urls
+    producer_granule_ids = []
+    granule_urls = []
+    cmr_scroll_id = None
+    while True:
+        req = urllib2.Request(cmr_query_url)
+        if cmr_scroll_id:
+            req.add_header('cmr-scroll-id', cmr_scroll_id)
+        response = urllib2.urlopen(req)
+        #-- get scroll id for next iteration
+        if not cmr_scroll_id:
+            headers = {k.lower():v for k,v in dict(response.info()).items()}
+            cmr_scroll_id = headers['cmr-scroll-id']
+        #-- read the CMR search as JSON
+        search_page = json.loads(response.read().decode('utf-8'))
+        ids,urls = cmr_filter_json(search_page)
+        if not urls:
+            break
+        #-- extend lists
+        producer_granule_ids.extend(ids)
+        granule_urls.extend(urls)
+    #-- return the list of granule ids and urls
+    return (producer_granule_ids, granule_urls)

@@ -24,10 +24,11 @@ python nsidc_icesat2_convert.py --user <username> --directory <outgoing> \
 - `-v X`, `--version X:` ICESat-2 data version to sync
 - `-t X`, `--track X`: ICESat-2 reference ground tracks to sync
 - `-g X`, `--granule X`: ICESat-2 granule regions to sync
+- `-c X`, `--cycle X`: ICESat-2 orbital cycles to sync
 - `-f X`, `--format X`: output file format
 	* `'zarr'`
 	* `'HDF5'`
-- `-c X`, `--chunks X`: Rechunk files to size
+- `--chunks X`: Rechunk files to size
 - `--auxiliary`: Sync ICESat-2 auxiliary files for each HDF5 file
 - `-I X, --index X`: Input index of ICESat-2 files to sync
 - `-F`, `--flatten`: Do not create subdirectories

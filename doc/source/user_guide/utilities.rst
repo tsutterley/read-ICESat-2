@@ -187,6 +187,37 @@ General Methods
         ``HOST``: remote http host
 
 
+.. method:: icesat2_toolkit.utilities.http_list(HOST,timeout=None,context=ssl.SSLContext(),parser=lxml.etree.HTMLParser(),format='%Y-%m-%d %H:%M',pattern='',sort=False)
+
+    List a directory on an Apache http Server
+
+    Arguments:
+
+        ``HOST``: remote http host path split as list
+
+    Keyword arguments:
+
+        ``timeout``: timeout in seconds for blocking operations
+
+        ``context``: SSL context for url opener object
+
+        ``parser``: HTML parser for lxml
+
+        ``format``: format for input time string
+
+        ``pattern``: regular expression pattern for reducing list
+
+        ``sort``: sort output list
+
+    Returns:
+
+        ``colnames``: list of column names in a directory
+
+        ``collastmod``: list of last modification times for items in the directory
+
+        ``colerror``: notification for list error
+
+
 .. method:: icesat2_toolkit.utilities.from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
 
     Download a file from a http host
@@ -318,7 +349,7 @@ General Methods
         ``response_error``: notification for response error
 
 
-.. method:: icesat2_toolkit.utilities.cmr(product=None,release=None,cycles=None,tracks=None,granules=None,verbose=False,fid=sys.stdout):
+.. method:: icesat2_toolkit.utilities.cmr(product=None,release=None,cycles=None,tracks=None,granules=None,verbose=False,fid=sys.stdout)
 
     Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
 
@@ -338,7 +369,7 @@ General Methods
 
         ``fid``: open file object to print if verbose
 
-    Returns
+    Returns:
 
       ``producer_granule_ids``: list of ICESat-2 granules
 

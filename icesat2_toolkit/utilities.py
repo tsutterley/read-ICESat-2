@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2022: add NASA Common Metadata Repository (CMR) queries
+        added generic list from Apache http server. verify host inputs
     Updated 10/2021: using python logging for handling verbose output
         add parser for converting file lines to arguments
     Updated 08/2021: NSIDC no longer requires authentication headers
@@ -117,7 +118,7 @@ def url_split(s):
     s: url string
     """
     head, tail = posixpath.split(s)
-    if head in ('http:','https:'):
+    if head in ('http:','https:','ftp:'):
         return s,
     elif head in ('', posixpath.sep):
         return tail,
@@ -132,7 +133,7 @@ def convert_arg_line_to_args(arg_line):
     ---------
     arg_line: line string containing a single argument and/or comments
     """
-    # remove commented lines and after argument comments
+    #-- remove commented lines and after argument comments
     for arg in re.sub(r'\#(.*?)$',r'',arg_line).split():
         if not arg.strip():
             continue
@@ -253,6 +254,9 @@ def ftp_list(HOST,username=None,password=None,timeout=None,
     output: list of items in a directory
     mtimes: list of last modification times for items in the directory
     """
+    #-- verify inputs for remote ftp host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try to connect to ftp host
     try:
         ftp = ftplib.FTP(HOST[0],timeout=timeout)
@@ -324,6 +328,9 @@ def from_ftp(HOST,username=None,password=None,timeout=None,local=None,
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
     logging.basicConfig(stream=fid, level=loglevel)
+    #-- verify inputs for remote ftp host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try downloading from ftp
     try:
         #-- try to connect to ftp host
@@ -387,6 +394,65 @@ def check_connection(HOST):
     else:
         return True
 
+#-- PURPOSE: list a directory on an Apache http Server
+def http_list(HOST,timeout=None,context=ssl.SSLContext(),
+    parser=lxml.etree.HTMLParser(),format='%Y-%m-%d %H:%M',
+    pattern='',sort=False):
+    """
+    List a directory on an Apache http Server
+
+    Arguments
+    ---------
+    HOST: remote http host path split as list
+
+    Keyword arguments
+    -----------------
+    timeout: timeout in seconds for blocking operations
+    context: SSL context for url opener object
+    parser: HTML parser for lxml
+    format: format for input time string
+    pattern: regular expression pattern for reducing list
+    sort: sort output list
+
+    Returns
+    -------
+    colnames: list of column names in a directory
+    collastmod: list of last modification times for items in the directory
+    colerror: notification for list error
+    """
+    #-- verify inputs for remote http host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
+    #-- try listing from http
+    try:
+        #-- Create and submit request.
+        request=urllib2.Request(posixpath.join(*HOST))
+        response=urllib2.urlopen(request,timeout=timeout,context=context)
+    except (urllib2.HTTPError, urllib2.URLError) as e:
+        colerror = 'List error from {0}'.format(posixpath.join(*HOST))
+        return (False,False,colerror)
+    else:
+        #-- read and parse request for files (column names and modified times)
+        tree = lxml.etree.parse(response,parser)
+        colnames = tree.xpath('//tr/td[not(@*)]//a/@href')
+        #-- get the Unix timestamp value for a modification time
+        collastmod = [get_unix_time(i,format=format)
+            for i in tree.xpath('//tr/td[@align="right"][1]/text()')]
+        #-- reduce using regular expression pattern
+        if pattern:
+            i = [i for i,f in enumerate(colnames) if re.search(pattern,f)]
+            #-- reduce list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        #-- sort the list
+        if sort:
+            i = [i for i,j in sorted(enumerate(colnames), key=lambda i: i[1])]
+            #-- sort list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        #-- return the list of column names and last modified times
+        return (colnames,collastmod,None)
+
 #-- PURPOSE: download a file from a http host
 def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
     chunk=16384,verbose=False,fid=sys.stdout,mode=0o775):
@@ -415,6 +481,9 @@ def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
     logging.basicConfig(stream=fid, level=loglevel)
+    #-- verify inputs for remote http host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try downloading from http
     try:
         #-- Create and submit request.
@@ -558,12 +627,15 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
         build_opener(username, password)
         #-- check credentials
         check_credentials()
+    #-- verify inputs for remote https host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try listing from https
     try:
         #-- Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         tree = lxml.etree.parse(urllib2.urlopen(request,timeout=timeout),parser)
-    except (urllib2.HTTPError, urllib2.URLError):
+    except (urllib2.HTTPError, urllib2.URLError) as e:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
         return (False,False,colerror)
     else:
@@ -628,6 +700,9 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         build_opener(username, password)
         #-- check credentials
         check_credentials()
+    #-- verify inputs for remote https host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try downloading from https
     try:
         #-- Create and submit request.
@@ -820,7 +895,7 @@ def readable_granules(product, **kwargs):
     -------
     list of readable granule names for CMR queries
     """
-    #-- default character wildcards for cycles and tracks
+    #-- default keyword arguments
     kwargs.setdefault("cycles", None)
     kwargs.setdefault("tracks", None)
     kwargs.setdefault("granules", None)
@@ -832,8 +907,8 @@ def readable_granules(product, **kwargs):
         for t in tracks(kwargs["tracks"]):
             #-- for each available granule region of interest
             for g in granules(kwargs["granules"]):
-                #-- use single character wildcards "?" for date strings
-                #-- and ATLAS granule region number
+                #-- use single character wildcards "?" for date strings,
+                #-- sea ice product hemispheres, and any unset parameters
                 if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
                     args = (product, 14 * "?", t, c, g)
                     pattern = "{0}-??_{1}_{2}{3}{4}_*"
@@ -845,7 +920,7 @@ def readable_granules(product, **kwargs):
                     pattern = "{0}_{1}_{2}{3}{4}_*"
                 #-- append the granule pattern
                 readable_granule_list.append(pattern.format(*args))
-    # return readable granules list
+    #-- return readable granules list
     return readable_granule_list
 
 #-- PURPOSE: filter the CMR json response for desired data files
@@ -866,7 +941,7 @@ def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
     producer_granule_ids: list of ICESat-2 granules
     granule_urls: list of ICESat-2 granule urls from NSIDC
     """
-    #-- output list of granule ids and urlsg
+    #-- output list of granule ids and urls
     producer_granule_ids = []
     granule_urls = []
     #-- check that there are urls for request

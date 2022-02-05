@@ -40,7 +40,30 @@ Steps to Sync from NSIDC
     echo "machine urs.earthdata.nasa.gov login <uid> password <password>" >> ~/.netrc
     chmod 0600 ~/.netrc
 
-5. Sync data from NSIDC as `HDF5 <https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_sync.py>`_ or `zarr <https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_convert.py>`_, or use the `NSIDC subsetting API <https://github.com/tsutterley/nsidc-subsetter>`_ to gather data
+5. Sync data from NSIDC as `HDF5 <https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_sync.py>`_ or `zarr <https://github.com/tsutterley/read-ICESat-2/blob/main/scripts/nsidc_icesat2_convert.py>`_
+
+NASA Common Metadata Repository
+###############################
+
+The NASA Common Metadata Repository (CMR) is a catalog of all data
+and service metadata records contained as part of NASA's Earth
+Observing System Data and Information System (EOSDIS).
+Querying the CMR system is a way of quickly performing a search
+through the NASA Earthdata archive.
+Basic queries for the granule names and NSIDC URLs of NASA ICESat-2
+data are available through the ``cmr`` routine in the ``utilities`` module.
+
+.. code-block:: python
+
+    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',release='005',
+        cycles=[3,4,5],tracks=752,granules=[10,11,12],verbose=False)
+
+Some more advanced spatial and temporal CMR queries are available as part of the
+`NSIDC data subsetting toolkit <https://github.com/tsutterley/nsidc-subsetter>`_.
+Additionally, the community `icepyx <https://github.com/icesat2py/icepyx>`_
+set of tools includes multiple spatial, temporal and orbital
+query options for ICESat-2 data along with subsetting options
+using the `NSIDC services API <https://nsidc.org/api>`_.
 
 Other Data Access Examples
 ##########################

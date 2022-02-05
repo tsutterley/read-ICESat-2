@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 u"""
-test_download_and_read.py (01/2022)
+test_download_and_read.py (02/2022)
 
 UPDATE HISTORY:
+    Updated 02/2022: add CMR query tests for cycles, tracks and granules
     Updated 01/2022: update data releases for all products
     Updated 03/2021: modify ATL11 to read from explicitly named groups
     Updated 11/2020: use output error string returned by from_nsidc
@@ -89,3 +90,31 @@ def test_ATL12_download_and_read(username,password):
     IS2_ATL12_mds,IS2_ATL12_attrs,IS2_ATL12_beams = read_HDF5_ATL12(HOST[-1],
         ATTRIBUTES=False, VERBOSE=True)
     assert all(gtx in IS2_ATL12_mds.keys() for gtx in IS2_ATL12_beams)
+
+#-- PURPOSE: test CMR queries for specific cycles
+def test_cmr_query_cycles():
+    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',
+        release='005',cycles=[2,3],tracks=752,granules=10,
+        verbose=False)
+    valid = ['ATL06_20190215171140_07520210_005_01.h5',
+        'ATL06_20190517125119_07520310_005_01.h5']
+    assert all(id in valid for id in ids)
+
+#-- PURPOSE: test CMR queries for specific tracks
+def test_cmr_query_tracks():
+    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',
+        release='005',cycles=2,tracks=[752,753],granules=10,
+        verbose=False)
+    valid = ['ATL06_20190215171140_07520210_005_01.h5',
+        'ATL06_20190215184558_07530210_005_01.h5']
+    assert all(id in valid for id in ids)
+
+#-- PURPOSE: test CMR queries for specific granules
+def test_cmr_query_granules():
+    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',
+        release='005',cycles=2,tracks=752,granules=[10,11,12],
+        verbose=False)
+    valid = ['ATL06_20190215171140_07520210_005_01.h5',
+        'ATL06_20190215171921_07520211_005_01.h5',
+        'ATL06_20190215172504_07520212_005_01.h5']
+    assert all(id in valid for id in ids)

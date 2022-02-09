@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 02/2022: add NASA Common Metadata Repository (CMR) queries
         added generic list from Apache http server. verify host inputs
+        fix logging to file for download instances
     Updated 10/2021: using python logging for handling verbose output
         add parser for converting file lines to arguments
     Updated 08/2021: NSIDC no longer requires authentication headers
@@ -362,7 +363,7 @@ def from_ftp(HOST,username=None,password=None,timeout=None,local=None,
                 os.makedirs(os.path.dirname(local), mode)
             #-- print file information
             args = (posixpath.join(*HOST),local)
-            logging.info('{0} -->\n\t{1}'.format(*args), file=fid)
+            logging.info('{0} -->\n\t{1}'.format(*args))
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:
@@ -509,7 +510,7 @@ def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
                 os.makedirs(os.path.dirname(local), mode)
             #-- print file information
             args = (posixpath.join(*HOST),local)
-            logging.info('{0} -->\n\t{1}'.format(*args), file=fid)
+            logging.info('{0} -->\n\t{1}'.format(*args))
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:
@@ -729,7 +730,7 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
                 os.makedirs(os.path.dirname(local), mode)
             #-- print file information
             args = (posixpath.join(*HOST),local)
-            logging.info('{0} -->\n\t{1}'.format(*args), file=fid)
+            logging.info('{0} -->\n\t{1}'.format(*args))
             #-- store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
             with open(os.path.expanduser(local), 'wb') as f:

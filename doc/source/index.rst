@@ -33,6 +33,7 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/read_ICESat2_ATL12.md
     user_guide/spatial.rst
     user_guide/time.rst
+    user_guide/tools.rst
     user_guide/utilities.rst
 
 .. toctree::

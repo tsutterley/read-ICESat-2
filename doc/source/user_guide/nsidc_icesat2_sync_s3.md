@@ -13,6 +13,7 @@ python nsidc_icesat2_sync_s3.py --user <username> --aws-access-key-id <access-ke
 
 #### Command Line Options
 - `-U X`, `--user X`: username for NASA Earthdata Login
+- `-W X`, `--password X`: password for NASA Earthdata Login
 - `-N X`, `--netrc X`: path to .netrc file for alternative authentication
 - `--aws-access-key-id X`: AWS Access Key ID
 - `--aws-secret-access-key X`: AWS Secret Key

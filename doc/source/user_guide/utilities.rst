@@ -249,6 +249,35 @@ General Methods
         ``remote_buffer``: BytesIO representation of file
 
 
+.. method:: icesat2_toolkit.utilities.attempt_login(urs,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,**kwargs)
+
+    attempt to build a urllib opener for NASA Earthdata
+
+    Arguments:
+
+        ``urs``: Earthdata login URS 3 host
+
+    Keyword arguments
+
+        ``context``: SSL context for opener object
+
+        ``password_manager``: create password manager context using default realm
+
+        ``get_ca_certs``: get list of loaded “certification authority” certificates
+
+        ``redirect``: create redirect handler object
+
+        ``authorization_header``: add base64 encoded authorization header to opener
+
+        ``username``: NASA Earthdata username
+
+        ``password``: NASA Earthdata password
+
+        ``retries``: number of retry attempts
+
+        ``netrc``: path to .netrc file for authentication
+
+
 .. method:: icesat2_toolkit.utilities.build_opener(username,password,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,urs=None)
 
     build urllib opener for NASA Earthdata with supplied credentials

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync_s3.py
-Written by Tyler Sutterley (02/2022)
+Written by Tyler Sutterley (03/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     and transfers to an AWS S3 bucket using a local machine as pass through
@@ -35,6 +35,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: username for NASA Earthdata Login
+    -W X, --password X: Password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for alternative authentication
     --aws-access-key-id X: AWS Access Key ID
     --aws-secret-access-key X: AWS Secret Key
@@ -71,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
     Forked 08/2021 from nsidc_icesat2_sync.py
@@ -104,11 +106,8 @@ import sys
 import os
 import re
 import boto3
-import netrc
-import getpass
 import logging
 import argparse
-import builtins
 import posixpath
 import traceback
 import lxml.etree
@@ -398,6 +397,9 @@ def main():
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
+    parser.add_argument('--password','-W',
+        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.path.join(os.path.expanduser('~'),'.netrc'),
@@ -483,34 +485,23 @@ def main():
         default=False, action='store_true',
         help='Overwrite existing data')
     args,_ = parser.parse_known_args()
+
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
-    #-- get authentication
-    try:
-        args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(HOST)
-    except:
-        #-- check that NASA Earthdata credentials were entered
-        if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
-            args.user = builtins.input(prompt)
-        #-- enter password securely from command-line
-        prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
-        PASSWORD = getpass.getpass(prompt)
-    #-- build a urllib opener for NSIDC
-    #-- Add the username and password for NASA Earthdata Login system
-    opener = icesat2_toolkit.utilities.build_opener(args.user,PASSWORD)
-
     #-- check internet connection before attempting to run program
+    opener = icesat2_toolkit.utilities.attempt_login(HOST,
+        username=args.user, password=args.password,
+        netrc=args.netrc)
+
     #-- check NASA earthdata credentials before attempting to run program
-    if icesat2_toolkit.utilities.check_credentials():
-        nsidc_icesat2_sync_s3(args.aws_access_key_id,
-            args.aws_secret_access_key, args.aws_region_name,
-            args.s3_bucket_name, args.s3_bucket_path,
-            args.products, args.release, args.version, args.granule,
-            args.track, YEARS=args.year, SUBDIRECTORY=args.subdirectory,
-            CYCLES=args.cycle, REGION=args.region, AUXILIARY=args.auxiliary,
-            INDEX=args.index, FLATTEN=args.flatten, PROCESSES=args.np,
-            TIMEOUT=args.timeout, RETRY=args.retry, CLOBBER=args.clobber)
+    nsidc_icesat2_sync_s3(args.aws_access_key_id,
+        args.aws_secret_access_key, args.aws_region_name,
+        args.s3_bucket_name, args.s3_bucket_path,
+        args.products, args.release, args.version, args.granule,
+        args.track, YEARS=args.year, SUBDIRECTORY=args.subdirectory,
+        CYCLES=args.cycle, REGION=args.region, AUXILIARY=args.auxiliary,
+        INDEX=args.index, FLATTEN=args.flatten, PROCESSES=args.np,
+        TIMEOUT=args.timeout, RETRY=args.retry, CLOBBER=args.clobber)
 
 #-- run main program
 if __name__ == '__main__':

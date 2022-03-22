@@ -12,6 +12,7 @@ python nsidc_icesat2_associated.py --user <username> --directory <outgoing> \
 
 #### Command Line Options
 - `-U X`, `--user X`: username for NASA Earthdata Login
+- `-W X`, `--password X`: password for NASA Earthdata Login
 - `-N X`, `--netrc X`: path to .netrc file for alternative authentication
 - `-D X`, `--directory`: local working directory for receiving data
 - `-p X`, `--product X`: Associated ICESat-2 data product to download

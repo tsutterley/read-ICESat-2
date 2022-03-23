@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (02/2022)
+Written by Tyler Sutterley (03/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,8 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 03/2022: added NASA CMR query parameters for ATL14/15
+        added attempt login function to recursively check credentials
     Updated 02/2022: add NASA Common Metadata Repository (CMR) queries
         added generic list from Apache http server. verify host inputs
         fix logging to file for download instances
@@ -42,9 +44,11 @@ import ftplib
 import shutil
 import base64
 import socket
+import getpass
 import inspect
 import hashlib
 import logging
+import builtins
 import datetime
 import warnings
 import posixpath
@@ -521,6 +525,72 @@ def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
         remote_buffer.seek(0)
         return remote_buffer
 
+# PURPOSE: attempt to build an opener with netrc
+def attempt_login(urs, context=ssl.SSLContext(),
+    password_manager=True, get_ca_certs=False, redirect=False,
+    authorization_header=False, **kwargs):
+    """
+    attempt to build a urllib opener for NASA Earthdata
+
+    Arguments
+    ---------
+    urs: Earthdata login URS 3 host
+
+    Keyword arguments
+    -----------------
+    context: SSL context for opener object
+    password_manager: create password manager context using default realm
+    get_ca_certs: get list of loaded “certification authority” certificates
+    redirect: create redirect handler object
+    authorization_header: add base64 encoded authorization header to opener
+    username: NASA Earthdata username
+    password: NASA Earthdata password
+    retries: number of retry attempts
+    netrc: path to .netrc file for authentication
+    """
+    # set default keyword arguments
+    kwargs.setdefault('username', os.environ.get('EARTHDATA_USERNAME'))
+    kwargs.setdefault('password', os.environ.get('EARTHDATA_PASSWORD'))
+    kwargs.setdefault('retries', 5)
+    kwargs.setdefault('netrc', os.path.expanduser('~/.netrc'))
+    try:
+        # only necessary on jupyterhub
+        os.chmod(kwargs['netrc'], 0o600)
+        # try retrieving credentials from netrc
+        username, _, password = netrc.netrc(kwargs['netrc']).authenticators(urs)
+    except Exception as e:
+        # try retrieving credentials from environmental variables
+        username, password = (kwargs['username'], kwargs['password'])
+        pass
+    # if username or password are not available
+    if not username:
+        username = builtins.input('Username for {0}: '.format(urs))
+    if not password:
+        prompt = 'Password for {0}@{1}: '.format(username, urs)
+        password = getpass.getpass(prompt=prompt)
+    # for each retry
+    for retry in range(kwargs['retries']):
+        # build an opener for urs with credentials
+        opener = build_opener(username, password,
+            context=context,
+            password_manager=password_manager,
+            get_ca_certs=get_ca_certs,
+            redirect=redirect,
+            authorization_header=authorization_header,
+            urs=urs)
+        # try logging in by check credentials
+        try:
+            check_credentials()
+        except Exception as e:
+            pass
+        else:
+            return opener
+        # reattempt login
+        username = builtins.input('Username for {0}: '.format(urs))
+        password = getpass.getpass(prompt=prompt)
+    # reached end of available retries
+    raise RuntimeError('End of Retries: Check NASA Earthdata credentials')
+
 #-- PURPOSE: "login" to NASA Earthdata with supplied credentials
 def build_opener(username, password, context=ssl.SSLContext(),
     password_manager=True, get_ca_certs=False, redirect=False,
@@ -878,6 +948,66 @@ def granules(granule):
             warnings.warn("Listed cycle is not presently available")
         return granule_list
 
+#-- PURPOSE: check if the submitted ATL14/ATL15 regions are valid
+def regions(region):
+    """
+    Check if the submitted ATL14/ATL15 regions are valid
+
+    Arguments
+    ---------
+    region: ICESat-2 ATL14/ATL15 region
+    """
+    #-- all available ICESat-2 ATL14/15 regions
+    all_regions = ['AA','AK','CN','CS','GL','IS','SV','RA']
+    if region is None:
+        return ["??"]
+    else:
+        if isinstance(region, str):
+            assert region in all_regions
+            region_list = [str(region)]
+        elif isinstance(region, list):
+            region_list = []
+            for r in region:
+                assert r in all_regions
+                region_list.append(str(r))
+        else:
+            raise TypeError("Please enter the region as a list or string")
+        #-- check if user-entered region is currently not available
+        if not set(all_regions) & set(region_list):
+            warnings.filterwarnings("always")
+            warnings.warn("Listed region is not presently available")
+        return region_list
+
+#-- PURPOSE: check if the submitted ATL14/ATL15 regions are valid
+def resolutions(resolution):
+    """
+    Check if the submitted ATL14/ATL15 resolutions are valid
+
+    Arguments
+    ---------
+    resolution: ICESat-2 ATL14/ATL15 spatial resolution
+    """
+    #-- all available ICESat-2 ATL14/15 resolutions
+    all_resolutions = ['100m','01km','10km','20km','40km']
+    if resolution is None:
+        return ["????"]
+    else:
+        if isinstance(resolution, str):
+            assert resolution in all_resolutions
+            resolution_list = [str(resolution)]
+        elif isinstance(resolution, list):
+            resolution_list = []
+            for r in resolution:
+                assert r in all_resolutions
+                resolution_list.append(str(r))
+        else:
+            raise TypeError("Please enter the resolution as a list or string")
+        #-- check if user-entered resolution is currently not available
+        if not set(all_resolutions) & set(resolution_list):
+            warnings.filterwarnings("always")
+            warnings.warn("Listed resolution is not presently available")
+        return resolution_list
+
 def readable_granules(product, **kwargs):
     """
     Create list of readable granule names for CMR queries
@@ -900,27 +1030,41 @@ def readable_granules(product, **kwargs):
     kwargs.setdefault("cycles", None)
     kwargs.setdefault("tracks", None)
     kwargs.setdefault("granules", None)
+    kwargs.setdefault("regions", None)
+    kwargs.setdefault("resolutions", None)
     #-- list of readable granule names
     readable_granule_list = []
-    #-- for each available cycle of interest
-    for c in cycles(kwargs["cycles"]):
-        #-- for each available track of interest
-        for t in tracks(kwargs["tracks"]):
-            #-- for each available granule region of interest
-            for g in granules(kwargs["granules"]):
-                #-- use single character wildcards "?" for date strings,
-                #-- sea ice product hemispheres, and any unset parameters
-                if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
-                    args = (product, 14 * "?", t, c, g)
-                    pattern = "{0}-??_{1}_{2}{3}{4}_*"
-                elif product in ("ATL11",):
-                    args = (product, t, g)
-                    pattern = "{0}_{1}{2}_*"
-                else:
-                    args = (product, 14 * "?", t, c, g)
-                    pattern = "{0}_{1}_{2}{3}{4}_*"
-                #-- append the granule pattern
+    #-- check if querying along-track or gridded products
+    if product in ("ATL14","ATL15"):
+        #-- gridded land ice products
+        #-- for each ATL14/ATL15 parameter
+        for r in regions(kwargs["regions"]):
+            for s in resolutions(kwargs["resolutions"]):
+                args = (product, r, s)
+                pattern = "{0}_{1}_????_{2}_*"
+                # append the granule pattern
                 readable_granule_list.append(pattern.format(*args))
+    else:
+        #-- along-track products
+        #-- for each available cycle of interest
+        for c in cycles(kwargs["cycles"]):
+            #-- for each available track of interest
+            for t in tracks(kwargs["tracks"]):
+                #-- for each available granule region of interest
+                for g in granules(kwargs["granules"]):
+                    #-- use single character wildcards "?" for date strings,
+                    #-- sea ice product hemispheres, and any unset parameters
+                    if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
+                        args = (product, 14 * "?", t, c, g)
+                        pattern = "{0}-??_{1}_{2}{3}{4}_*"
+                    elif product in ("ATL11",):
+                        args = (product, t, g)
+                        pattern = "{0}_{1}{2}_*"
+                    else:
+                        args = (product, 14 * "?", t, c, g)
+                        pattern = "{0}_{1}_{2}{3}{4}_*"
+                    #-- append the granule pattern
+                    readable_granule_list.append(pattern.format(*args))
     #-- return readable granules list
     return readable_granule_list
 
@@ -960,7 +1104,9 @@ def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
 
 #-- PURPOSE: cmr queries for orbital parameters
 def cmr(product=None, release=None, cycles=None, tracks=None,
-    granules=None, verbose=False, fid=sys.stdout):
+    granules=None, regions=None, resolutions=None,
+    request_type="application/x-hdfeos", verbose=False,
+    fid=sys.stdout):
     """
     Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
 
@@ -971,6 +1117,9 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     cycles: List of 91-day orbital cycle strings to query
     tracks: List of Reference Ground Track (RGT) strings to query
     granules: List of ICESat-2 granule region strings to query
+    regions: List of ICESat-2 ATL14/15 region strings to query
+    resolutions: List of ICESat-2 ATL14/15 resolution strings to query
+    request_type: data type for reducing CMR query
     verbose: print file transfer information
     fid: open file object to print if verbose
 
@@ -1006,7 +1155,8 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")
     readable_granule_list = readable_granules(product,
-        cycles=cycles, tracks=tracks, granules=granules)
+        cycles=cycles, tracks=tracks, granules=granules,
+        regions=regions, resolutions=resolutions)
     for gran in readable_granule_list:
         CMR_KEYS.append("&readable_granule_name[]={0}".format(gran))
     #-- full CMR query url
@@ -1027,7 +1177,7 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
             cmr_scroll_id = headers['cmr-scroll-id']
         #-- read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf-8'))
-        ids,urls = cmr_filter_json(search_page)
+        ids,urls = cmr_filter_json(search_page, request_type=request_type)
         if not urls:
             break
         #-- extend lists

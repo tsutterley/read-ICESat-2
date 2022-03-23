@@ -53,6 +53,10 @@ if gdal_output[3]:
     # add version information to gdal in install_requires
     gdal_index = install_requires.index('gdal')
     install_requires[gdal_index] = 'gdal=={0}'.format(gdal_output[3])
+elif any(install_requires):
+    # gdal version not found
+    gdal_index = install_requires.index('gdal')
+    install_requires.pop(gdal_index)
 
 setup(
     name='icesat2-toolkit',

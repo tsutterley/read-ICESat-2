@@ -57,4 +57,4 @@ Alternatively can install the utilities directly from GitHub with ``pip``:
 
 Executable versions of this repository can also be tested using
 `Binder <https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main>`_ or
-`Pangeo <https://binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main>`_.
+`Pangeo <https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab>`_.

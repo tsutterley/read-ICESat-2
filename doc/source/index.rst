@@ -23,14 +23,14 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     :caption: User Guide
 
     user_guide/convert.rst
-    user_guide/convert_delta_time.md
+    user_guide/convert_delta_time.rst
     user_guide/fit.rst
-    user_guide/read_ICESat2_ATL03.md
-    user_guide/read_ICESat2_ATL06.md
-    user_guide/read_ICESat2_ATL07.md
-    user_guide/read_ICESat2_ATL10.md
-    user_guide/read_ICESat2_ATL11.md
-    user_guide/read_ICESat2_ATL12.md
+    user_guide/read_ICESat2_ATL03.rst
+    user_guide/read_ICESat2_ATL06.rst
+    user_guide/read_ICESat2_ATL07.rst
+    user_guide/read_ICESat2_ATL10.rst
+    user_guide/read_ICESat2_ATL11.rst
+    user_guide/read_ICESat2_ATL12.rst
     user_guide/spatial.rst
     user_guide/time.rst
     user_guide/tools.rst

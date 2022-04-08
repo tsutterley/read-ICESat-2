@@ -34,10 +34,11 @@ with open(os.path.abspath('../../version.txt')) as fh:
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    'sphinx.ext.graphviz',
+    "numpydoc",
+    "sphinx.ext.graphviz",
     "sphinx.ext.viewcode",
-    'recommonmark',
-    'sphinx_markdown_tables'
+    "recommonmark",
+    "sphinx_markdown_tables"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -54,6 +55,8 @@ master_doc = 'index'
 # -- Configuration options ---------------------------------------------------
 autosummary_generate = True
 numfig = True
+autodoc_member_order = 'bysource'
+numpydoc_show_class_members = False
 
 # -- Options for HTML output -------------------------------------------------
 

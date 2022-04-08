@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (02/2022)
+Written by Tyler Sutterley (04/2022)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2022: use iteration breaks in convert ellipsoid function
     Written 11/2021
 """
@@ -31,7 +32,7 @@ import netCDF4
 import warnings
 import numpy as np
 try:
-    import osgeo.gdal, osgeo.osr
+    import osgeo.gdal, osgeo.osr, osgeo.gdalconst
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("GDAL not available")
@@ -39,6 +40,11 @@ except ModuleNotFoundError:
 def case_insensitive_filename(filename):
     """
     Searches a directory for a filename without case dependence
+
+    Parameters
+    ----------
+    filename: str
+        input filename
     """
     #-- check if file presently exists with input case
     if not os.access(os.path.expanduser(filename),os.F_OK):
@@ -69,10 +75,19 @@ def from_file(filename, format, **kwargs):
 def from_netCDF4(filename, **kwargs):
     """
     Read data from a netCDF4 file
-    Inputs: full path of input netCDF4 file
-    Options:
-        netCDF4 file is compressed or streamed from memory
-        netCDF4 variable names of x, y, and data
+
+    Parameters
+    ----------
+    filename: str
+        full path of input netCDF4 file
+    compression: str or NoneType, default None
+        file compression type
+    xname: str, default 'lon'
+        name for x-dimension variable
+    yname: str, default 'lat'
+        name for y-dimension variable
+    varname: str, default 'data'
+        name for data variable
     """
     #-- set default keyword arguments
     kwargs.setdefault('compression',None)
@@ -158,10 +173,19 @@ def from_netCDF4(filename, **kwargs):
 def from_HDF5(filename, **kwargs):
     """
     Read data from a HDF5 file
-    Inputs: full path of input HDF5 file
-    Options:
-        HDF5 file is compressed or streamed from memory
-        HDF5 variable names of x, y, and data
+
+    Parameters
+    ----------
+    filename: str
+        full path of input HDF5 file
+    compression: str or NoneType, default None
+        file compression type
+    xname: str, default 'lon'
+        name for x-dimension variable
+    yname: str, default 'lat'
+        name for y-dimension variable
+    varname: str, default 'data'
+        name for data variable
     """
     #-- set default keyword arguments
     kwargs.setdefault('compression',None)
@@ -248,12 +272,19 @@ def from_HDF5(filename, **kwargs):
 def from_geotiff(filename, **kwargs):
     """
     Read data from a geotiff file
-    Inputs: full path of input geotiff file
-    Options:
-        geotiff file is compressed or streamed from memory
+
+    Parameters
+    ----------
+    filename: str
+        full path of input geotiff file
+    compression: str or NoneType, default None
+        file compression type
+    bounds: list or NoneType, default bounds
+        extent of the file to read: [xmin, xmax, ymin, ymax]
     """
     #-- set default keyword arguments
     kwargs.setdefault('compression',None)
+    kwargs.setdefault('bounds',None)
     #-- Open the geotiff file for reading
     if (kwargs['compression'] == 'gzip'):
         #-- read gzip compressed file and extract into memory-mapped object
@@ -269,7 +300,8 @@ def from_geotiff(filename, **kwargs):
         ds = osgeo.gdal.Open(mmap_name)
     else:
         #-- read geotiff dataset
-        ds = osgeo.gdal.Open(case_insensitive_filename(filename))
+        ds = osgeo.gdal.Open(case_insensitive_filename(filename),
+            osgeo.gdalconst.GA_ReadOnly)
     #-- print geotiff file if verbose
     logging.info(filename)
     #-- create python dictionary for output variables and attributes
@@ -282,6 +314,7 @@ def from_geotiff(filename, **kwargs):
     #-- get dimensions
     xsize = ds.RasterXSize
     ysize = ds.RasterYSize
+    bsize = ds.RasterCount
     #-- get geotiff info
     info_geotiff = ds.GetGeoTransform()
     dinput['attributes']['spacing'] = (info_geotiff[1],info_geotiff[5])
@@ -290,12 +323,38 @@ def from_geotiff(filename, **kwargs):
     ymax = info_geotiff[3]
     xmax = xmin + (xsize-1)*info_geotiff[1]
     ymin = ymax + (ysize-1)*info_geotiff[5]
-    dinput['attributes']['extent'] = (xmin,xmax,ymin,ymax)
     #-- x and y pixel center coordinates (converted from upper left)
-    dinput['x'] = xmin + info_geotiff[1]/2.0 + np.arange(xsize)*info_geotiff[1]
-    dinput['y'] = ymax + info_geotiff[5]/2.0 + np.arange(ysize)*info_geotiff[5]
-    #-- read full image with GDAL
-    dinput['data'] = ds.ReadAsArray()
+    x = xmin + info_geotiff[1]/2.0 + np.arange(xsize)*info_geotiff[1]
+    y = ymax + info_geotiff[5]/2.0 + np.arange(ysize)*info_geotiff[5]
+    #-- if reducing to specified bounds
+    if kwargs['bounds'] is not None:
+        #-- reduced x and y limits
+        xlimits = (kwargs['bounds'][0],kwargs['bounds'][1])
+        ylimits = (kwargs['bounds'][2],kwargs['bounds'][3])
+        #-- Specify offset and rows and columns to read
+        xoffset = int((xlimits[0] - xmin)/info_geotiff[1])
+        yoffset = int((ymax - ylimits[1])/np.abs(info_geotiff[5]))
+        xcount = int((xlimits[1] - xlimits[0])/info_geotiff[1]) + 1
+        ycount = int((ylimits[1] - ylimits[0])/np.abs(info_geotiff[5])) + 1
+        #-- reduced x and y pixel center coordinates
+        dinput['x'] = x[slice(xoffset, xoffset + xcount, None)]
+        dinput['y'] = y[slice(yoffset, yoffset + ycount, None)]
+        #-- read reduced image with GDAL
+        dinput['data'] = ds.ReadAsArray(xoff=xoffset, yoff=yoffset,
+            xsize=xcount, ysize=ycount)
+        #-- reduced image extent (converted back to upper left)
+        xmin = np.min(dinput['x']) - info_geotiff[1]/2.0
+        xmax = np.max(dinput['x']) - info_geotiff[1]/2.0
+        ymin = np.min(dinput['y']) - info_geotiff[5]/2.0
+        ymax = np.max(dinput['y']) - info_geotiff[5]/2.0
+    else:
+        #-- x and y pixel center coordinates
+        dinput['x'] = np.copy(x)
+        dinput['y'] = np.copy(y)
+        #-- read full image with GDAL
+        dinput['data'] = ds.ReadAsArray()
+    #-- image extent
+    dinput['attributes']['extent'] = (xmin, xmax, ymin, ymax)
     #-- check if image has fill values
     dinput['data'] = np.ma.asarray(dinput['data'])
     dinput['data'].mask = np.zeros_like(dinput['data'],dtype=bool)
@@ -315,26 +374,36 @@ def convert_ellipsoid(phi1, h1, a1, f1, a2, f2, eps=1e-12, itmax=10):
     """
     Convert latitudes and heights to a different ellipsoid using Newton-Raphson
 
-    Inputs:
-        phi1: latitude of input ellipsoid in degrees
-        h1: height above input ellipsoid in meters
-        a1: semi-major axis of input ellipsoid
-        f1: flattening of input ellipsoid
-        a2: semi-major axis of output ellipsoid
-        f2: flattening of output ellipsoid
+    Parameters
+    ----------
+    phi1: float
+        latitude of input ellipsoid in degrees
+    h1: float
+        height above input ellipsoid in meters
+    a1: float
+        semi-major axis of input ellipsoid
+    f1: float
+        flattening of input ellipsoid
+    a2: float
+        semi-major axis of output ellipsoid
+    f2: float
+        flattening of output ellipsoid
+    eps: float, default 1e-12
+        tolerance to prevent division by small numbers and
+        to determine convergence
+    itmax: int, default 10
+        maximum number of iterations to use in Newton-Raphson
 
-    Options:
-        eps: tolerance to prevent division by small numbers
-            and to determine convergence
-        itmax: maximum number of iterations to use in Newton-Raphson
+    Returns
+    -------
+    phi2: float
+        latitude of output ellipsoid in degrees
+    h2: float
+        height above output ellipsoid in meters
 
-    Returns:
-        phi2: latitude of output ellipsoid in degrees
-        h2: height above output ellipsoid in meters
-
-    References:
-        Astronomical Algorithms, Jean Meeus, 1991, Willmann-Bell, Inc.
-            pp. 77-82
+    References
+    ----------
+    .. [1] J Meeus, Astronomical Algorithms, pp. 77-82 (1991)
     """
     if (len(phi1) != len(h1)):
         raise ValueError('phi and h have incompatable dimensions')
@@ -449,18 +518,27 @@ def compute_delta_h(a1, f1, a2, f2, lat):
     Compute difference in elevation for two ellipsoids at a given
         latitude using a simplified empirical equation
 
-    Inputs:
-        a1: semi-major axis of input ellipsoid
-        f1: flattening of input ellipsoid
-        a2: semi-major axis of output ellipsoid
-        f2: flattening of output ellipsoid
-        lat: array of latitudes in degrees
+    Parameters
+    ----------
+    a1: float
+        semi-major axis of input ellipsoid
+    f1: float
+        flattening of input ellipsoid
+    a2: float
+        semi-major axis of output ellipsoid
+    f2: float
+        flattening of output ellipsoid
+    lat: float
+        latitudes (degrees north)
 
-    Returns:
-        delta_h: difference in elevation for two ellipsoids
+    Returns
+    -------
+    delta_h: float
+        difference in elevation for two ellipsoids
 
-    Reference:
-        J Meeus, Astronomical Algorithms, pp. 77-82 (1991)
+    References
+    ----------
+    .. [1] J Meeus, Astronomical Algorithms, pp. 77-82 (1991)
     """
     #-- force phi into range -90 <= phi <= 90
     gt90, = np.nonzero((lat < -90.0) | (lat > 90.0))
@@ -481,8 +559,10 @@ def wrap_longitudes(lon):
     """
     Wraps longitudes to range from -180 to +180
 
-    Inputs:
-        lon: longitude (degrees east)
+    Parameters
+    ----------
+    lon: float
+        longitude (degrees east)
     """
     phi = np.arctan2(np.sin(lon*np.pi/180.0),np.cos(lon*np.pi/180.0))
     #-- convert phi from radians to degrees
@@ -492,16 +572,20 @@ def to_cartesian(lon,lat,h=0.0,a_axis=6378137.0,flat=1.0/298.257223563):
     """
     Converts geodetic coordinates to Cartesian coordinates
 
-    Inputs:
-        lon: longitude (degrees east)
-        lat: latitude (degrees north)
-
-    Options:
-        h: height above ellipsoid (or sphere)
-        a_axis: semimajor axis of the ellipsoid (default: WGS84)
-            * for spherical coordinates set to radius of the Earth
-        flat: ellipsoidal flattening (default: WGS84)
-            * for spherical coordinates set to 0
+    Parameters
+    ----------
+    lon: float
+        longitude (degrees east)
+    lat: float
+        latitude (degrees north)
+    h: float, default 0.0
+        height above ellipsoid (or sphere)
+    a_axis: float, default 6378137.0
+        semimajor axis of the ellipsoid
+        for spherical coordinates set to radius of the Earth
+    flat: float, default 1.0/298.257223563
+        ellipsoidal flattening
+        for spherical coordinates set to 0
     """
     #-- verify axes
     lon = np.atleast_1d(lon)
@@ -528,8 +612,14 @@ def to_sphere(x,y,z):
     """
     Convert from cartesian coordinates to spherical coordinates
 
-    Inputs:
-        x,y,z in cartesian coordinates
+    Parameters
+    ----------
+    x, float
+        cartesian x-coordinates
+    y, float
+        cartesian y-coordinates
+    z, float
+        cartesian z-coordinates
     """
     #-- calculate radius
     rad = np.sqrt(x**2.0 + y**2.0 + z**2.0)
@@ -554,16 +644,23 @@ def to_geodetic(x,y,z,a_axis=6378137.0,flat=1.0/298.257223563):
     Convert from cartesian coordinates to geodetic coordinates
     using a closed form solution
 
-    Inputs:
-        x,y,z in cartesian coordinates
+    Parameters
+    ----------
+    x, float
+        cartesian x-coordinates
+    y, float
+        cartesian y-coordinates
+    z, float
+        cartesian z-coordinates
+    a_axis: float, default 6378137.0
+        semimajor axis of the ellipsoid
+    flat: float, default 1.0/298.257223563
+        ellipsoidal flattening
 
-    Options:
-        a_axis: semimajor axis of the ellipsoid (default: WGS84)
-        flat: ellipsoidal flattening (default: WGS84)
-
-    References:
-        J Zhu "Exact conversion of Earth-centered, Earth-fixed
-            coordinates to geodetic coordinates"
+    References
+    ----------
+    .. [1] J Zhu "Exact conversion of Earth-centered, Earth-fixed
+        coordinates to geodetic coordinates"
         Journal of Guidance, Control, and Dynamics,
         16(2), 389--391, 1993
         https://arc.aiaa.org/doi/abs/10.2514/3.21016
@@ -611,21 +708,26 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     Calculates area scaling factors for a polar stereographic projection
     including special case of at the exact pole
 
-    Inputs:
-        lat: latitude (degrees north)
+    Parameters
+    ----------
+    lat: float,
+        latitude (degrees north)
+    flat: float, default 1.0/298.257223563
+        ellipsoidal flattening
+    ref: float, default 70.0
+        reference latitude (true scale latitude)
 
-    Options:
-        flat: ellipsoidal flattening (default: WGS84)
-        ref: reference latitude (true scale latitude)
+    Returns
+    -------
+    scale: float
+        area scaling factors at input latitudes
 
-    Returns:
-        scale: area scaling factors at input latitudes
-
-    References:
-        Snyder, J P (1982) Map Projections used by the U.S. Geological Survey
-            Forward formulas for the ellipsoid.  Geological Survey Bulletin
-            1532, U.S. Government Printing Office.
-        JPL Technical Memorandum 3349-85-101
+    References
+    ----------
+    .. [1] Snyder, J P (1982) Map Projections used by the U.S. Geological Survey
+        Forward formulas for the ellipsoid.  Geological Survey Bulletin
+        1532, U.S. Government Printing Office.
+    .. [2] JPL Technical Memorandum 3349-85-101
     """
     #-- convert latitude from degrees to positive radians
     theta = np.abs(lat)*np.pi/180.0

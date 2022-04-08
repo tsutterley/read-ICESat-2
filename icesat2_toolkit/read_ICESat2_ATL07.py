@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL07.py (02/2021)
+read_ICESat2_ATL07.py (04/2022)
 Read ICESat-2 ATL07 (Sea Ice Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
@@ -32,19 +33,21 @@ def read_HDF5_ATL07(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL07 (Sea Ice Height) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL07 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read HDF5 attributes for groups and variables
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL07 file
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
 
     Returns
     -------
-    IS2_atl07_mds: dictionary with ATL07 variables
-    IS2_atl07_attrs: dictionary with ATL07 attributes
-    IS2_atl07_beams: list with valid ICESat-2 beams within ATL07 file
+    IS2_atl07_mds: dict
+        ATL07 variables
+    IS2_atl07_attrs:
+        ATL07 attributes
+    IS2_atl07_beams: list
+        valid ICESat-2 beams within ATL07 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -188,13 +191,15 @@ def find_HDF5_ATL07_beams(FILENAME):
     """
     Find valid beam groups within ICESat-2 ATL07 (Sea Ice Height) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL07 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL07 file
 
     Returns
     -------
-    IS2_atl07_beams: list with valid ICESat-2 beams within ATL07 file
+    IS2_atl07_beams: list
+        valid ICESat-2 beams within ATL07 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://github.com/scikit-learn/scikit-learn
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Written 05/2021
 """
 import operator
@@ -30,10 +31,12 @@ def compress_list(i,n):
     """
     Compress complete list of valid indices into a set of ranges
 
-    Arguments
-    ---------
-    i: indices to compress
-    n: largest gap between indices to accept for range
+    Parameters
+    ----------
+    i: int
+        indices to compress
+    n: int
+        largest gap between indices to accept for range
     """
     for a,b in itertools.groupby(enumerate(i), lambda v: ((v[1]-v[0])//n)*n):
         group = list(map(operator.itemgetter(1),b))
@@ -45,6 +48,15 @@ def extract_tep_histogram(tep_hist_time,tep_hist,tep_range_prim):
     """
     Centers the transmit-echo-path histogram reported by ATL03
     using an iterative edit to distinguish between signal and noise
+
+    Parameters
+    ----------
+    tep_hist_time: float
+        TEP histogram bin times
+    tep_hist: int
+        TEP histogram
+    tep_range_prim: float
+        primary histogram range values
     """
     # ATL03 recommends subset between 15-30 ns to avoid secondary
     # using primary histogram range values from ATL03 tep attributes
@@ -92,12 +104,33 @@ def extract_tep_histogram(tep_hist_time,tep_hist,tep_range_prim):
 # robust dispersion estimator (Smith et al, 2017) of the model residuals
 def filter_elevation(r0):
     """
-    Calculates the interquartile range (Pritchard et al, 2009) and
-    robust dispersion estimator (Smith et al, 2017) of the model residuals
+    Calculates the interquartile range [Pritchard2009]_ and
+    robust dispersion estimator [Smith2017]_ of the model residuals
 
-    Arguments
-    ---------
-    r0: height residuals
+    Parameters
+    ----------
+    r0: float
+        height residuals
+
+    Returns
+    -------
+    IQR: float
+        75% of the interquartile range
+    RDE: float
+        50% of the difference between the 84th and 16th percentiles
+    median: float
+        median value of height residuals
+
+    References
+    ----------
+    .. [Pritchard2009] H. D. Pritchard et al., "Extensive dynamic thinning
+        on the margins of the Greenland and Antarctic ice sheets",
+        *Nature*, 461(7266), 971--975, (2009).
+        `doi:10.1038/nature08471 <https://doi.org/10.1038/nature08471>`_
+    .. [Smith2017] B. E. Smith el al., "Connected subglacial lake drainage
+        beneath Thwaites Glacier, West Antarctica", *The Cryosphere*,
+        11(1), 451--467, (2017).
+        `doi:10.5194/tc-11-451-2017 <https://doi.org/10.5194/tc-11-451-2017>`_
     """
     # calculate percentiles for IQR and RDE
     # IQR: first and third quartiles (25th and 75th percentiles)
@@ -119,6 +152,28 @@ def try_surface_fit(x, y, z, confidence_mask, dist_along, SURF_TYPE='linear',
     """
     Try fitting a surface to the signal photons with progressively
     less confidence if no valid surface is found
+
+    Parameters
+    ----------
+    x: float
+        along-track x-coordinates
+    y: float
+        along-track y-coordinates
+    z: float
+        along-track photon heights
+    confidence_mask: int
+        confidence level of each photon event
+    dist_along: float
+        center of segment in along-track x-coordinates
+    SURF_TYPE: str, default 'linear'
+        Surface polynomial to fit to photon heights
+
+            - ``'linear'``
+            - ``'quadratic'``
+    ITERATE: int, default 25
+        maximum number of iterations to use in fit
+    CONFIDENCE: list, default [4,3,2,1,0]
+        Minimum photon confidence levels to attempt to use in fit
     """
     # try with progressively less confidence
     for i,conf in enumerate(CONFIDENCE):
@@ -142,7 +197,37 @@ def try_surface_fit(x, y, z, confidence_mask, dist_along, SURF_TYPE='linear',
 def reduce_surface_fit(x, y, z, centroid, ind, SURF_TYPE='linear', ITERATE=25):
     """
     Iteratively fit a polynomial surface to the elevation data to reduce to
-    within a valid surface window
+    within a valid surface window [Smith2019]_
+
+    Parameters
+    ----------
+    x: float
+        along-track x-coordinates
+    y: float
+        along-track y-coordinates
+    z: float
+        along-track photon heights
+    centroid: dict
+        segment center for referencing along-track coordinates
+
+            - ``'x'``: centroid of x-coordinates
+            - ``'y'``: centroid of y-coordinates
+    ind: int
+        indices of photon events for confidence level to use in fit
+    SURF_TYPE: str, default 'linear'
+        Surface polynomial to fit to photon heights
+
+            - ``'linear'``
+            - ``'quadratic'``
+    ITERATE: int, default 25
+        maximum number of iterations to use in fit
+
+    References
+    ----------
+    .. [Smith2019] B. E. Smith el al., "Land ice height-retrieval
+        algorithm for NASA's ICESat-2 photon-counting laser altimeter",
+        *Remote Sensing of Environment*, 233, 111352, (2019).
+        `doi:10.1016/j.rse.2019.111352 <https://doi.org/10.1016/j.rse.2019.111352>`_
     """
     # calculate x and y relative to centroid point
     rel_x = x - centroid['x']
@@ -259,6 +344,25 @@ def reduce_surface_fit(x, y, z, centroid, ind, SURF_TYPE='linear', ITERATE=25):
 def fit_surface(x, y, z, centroid, SURF_TYPE='linear'):
     """
     Fit a polynomial surface to the elevation data
+
+    Parameters
+    ----------
+    x: float
+        along-track x-coordinates
+    y: float
+        along-track y-coordinates
+    z: float
+        along-track photon heights
+    centroid: dict
+        segment center for referencing along-track coordinates
+
+            - ``'x'``: centroid of x-coordinates
+            - ``'y'``: centroid of y-coordinates
+    SURF_TYPE: str, default 'linear'
+        Surface polynomial to fit to photon heights
+
+            - ``'linear'``
+            - ``'quadratic'``
     """
     # calculate x and y relative to centroid point
     rel_x = x - centroid['x']
@@ -307,6 +411,32 @@ def try_histogram_fit(x, y, z, confidence_mask, dist_along, dt,
     """
     Try fitting a function to the signal photon histograms with
     progressively less confidence if no valid fit is found
+
+    Parameters
+    ----------
+    x: float
+        along-track x-coordinates
+    y: float
+        along-track y-coordinates
+    z: float
+        along-track photon heights
+    confidence_mask: int
+        confidence level of each photon event
+    dist_along: float
+        center of segment in along-track x-coordinates
+    dt: float
+        histogram bin size in seconds
+    FIT_TYPE: str, default 'linear'
+        decomposition function to fit to photon height histograms
+
+            - ``'gaussian'``
+            - ``'general'``
+    ITERATE: int, default 25
+        maximum number of iterations to use in fit
+    BACKGROUND: float or int, default 0
+        vertical noise-photon density for segment
+    CONFIDENCE: list, default [2,1,0]
+        Minimum photon confidence levels to attempt to use in fit
     """
     # try with progressively less confidence
     for i,conf in enumerate(CONFIDENCE):
@@ -333,6 +463,30 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
     """
     Iteratively use decomposition fitting to the elevation data to reduce
     to within a valid surface window
+
+    Parameters
+    ----------
+    x: float
+        along-track x-coordinates
+    y: float
+        along-track y-coordinates
+    z: float
+        along-track photon heights
+    ind: int
+        indices of photon events for confidence level to use in fit
+    dt: float
+        histogram bin size in seconds
+    FIT_TYPE: str, default 'linear'
+        decomposition function to fit to photon height histograms
+
+            - ``'gaussian'``
+            - ``'general'``
+    ITERATE: int, default 25
+        maximum number of iterations to use in fit
+    PEAKS: int, default 2
+        estimated number of signal peaks in the segment histogram
+    BACKGROUND: float or int, default 0
+        vertical noise-photon density for segment
     """
     # speed of light
     c = 299792458.0
@@ -628,6 +782,25 @@ def fit_histogram(z, hist, priors, lower_bound, upper_bound, FIT_TYPE=None):
     """
     Optimially fit a function to the photon event histogram with
     Levenberg-Marquardt algorithm
+
+    Parameters
+    ----------
+    z: float
+        photon height histogram bins
+    hist: int
+        photon height histogram
+    priors: float
+        mean estimate for each histogram fit parameter
+    lower_bound: float
+        lower-bound estimate for each histogram fit parameter
+    upper_bound: float
+        upper-bound estimate for each histogram fit parameter
+    FIT_TYPE: str, default 'linear'
+        decomposition function to fit to photon height histograms
+
+            - ``'gaussian'``
+            - ``'general'``
+
     """
     # create lists for the initial parameters
     # parameters, and functions for each maximum
@@ -716,6 +889,15 @@ def fit_geolocation(var, distance_along_X, X_atc):
     """
     Calculate the average of photon event variables by fitting with respect
     to the center of the along-track coordinates
+
+    Parameters
+    ----------
+    var: float
+        photon event variable to compute average
+    distance_along_X: float
+        along-track x-coordinates
+    X_atc: float
+        segment center in along-track x-coordinates
     """
     # calculate x relative to centroid point
     rel_x = distance_along_X - X_atc
@@ -730,6 +912,18 @@ def fit_geolocation(var, distance_along_X, X_atc):
 def segment_mean(var, **kwargs):
     """
     Calculate the average value from two segments with possible invalid values
+
+    Parameters
+    ----------
+    var: float
+        segment variable to compute average
+    fill_value: float, default None
+        replacement fill value for averages
+
+    Returns
+    -------
+    ave: float
+        average value of two segments
     """
     # verify that data is masked array
     if not isinstance(var, np.ma.MaskedArray):
@@ -751,7 +945,34 @@ def segment_mean(var, **kwargs):
 def calc_first_photon_bias(temporal_residuals,n_pulses,n_pixels,dead_time,dt,
     METHOD='direct',ITERATE=20):
     """
-    Estimate mean and median first photon bias corrections
+    Estimate mean and median first photon bias corrections [Smith2019]_
+
+    Parameters
+    ----------
+    temporal_residuals: float
+        photon height residuals in seconds
+    n_pulses: int
+        Estimated number of laser pulses in segment
+    n_pixels: int
+        Number of pixels for beam
+    dead_time: float
+        Estimated dead time
+    dt: float
+        Histogram bin size in seconds
+    METHOD: str, default 'direct'
+        Method for computing first photon bias
+
+            - ``'direct'``
+            - ``'logarithmic'``
+    ITERATE: int, default 20
+        maximum number of iterations to use in ``'logarithmic'`` method
+
+    References
+    ----------
+    .. [Smith2019] B. E. Smith el al., "Land ice height-retrieval
+        algorithm for NASA's ICESat-2 photon-counting laser altimeter",
+        *Remote Sensing of Environment*, 233, 111352, (2019).
+        `doi:10.1016/j.rse.2019.111352 <https://doi.org/10.1016/j.rse.2019.111352>`_
     """
     # create a histogram of the temporal residuals
     t_full = np.arange(temporal_residuals.min(),temporal_residuals.max()+dt,dt)
@@ -865,6 +1086,28 @@ def histogram_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
     """
     Estimate mean and median first photon bias corrections using
     histogram fit residuals
+
+    Parameters
+    ----------
+    t_full: float
+        histogram bins in seconds
+    hist: int or float
+        photon height residuals histogram
+    n_pulses: int
+        Estimated number of laser pulses in segment
+    n_pixels: int
+        Number of pixels for beam
+    dead_time: float
+        Estimated dead time
+    dt: float
+        Histogram bin size in seconds
+    METHOD: str, default 'direct'
+        Method for computing first photon bias
+
+            - ``'direct'``
+            - ``'logarithmic'``
+    ITERATE: int, default 20
+        maximum number of iterations to use in ``'logarithmic'`` method
     """
     # number of time points
     nt = len(t_full)
@@ -967,7 +1210,33 @@ def histogram_first_photon_bias(t_full,hist,n_pulses,n_pixels,dead_time,dt,
 # PURPOSE: Estimate transmit-pulse-shape correction
 def calc_transmit_pulse_shape(t_TX,p_TX,W_TX,W_RX,dt_W,SNR,ITERATE=50):
     """
-    Estimate the transmit-pulse-shape correction needed for segment averages
+    Estimate the transmit-pulse-shape correction needed for segment
+    averages [Smith2019]_
+
+    Parameters
+    ----------
+
+    t_TX: float
+        windowed TEP histogram time with respect to histogram centroid
+    p_TX: float
+        windowed TEP histogram power with noise estimate removed
+    W_TX: float
+        Robust Dispersion Estimate (RDE) of windowed transmit pulse
+    W_RX: float
+        Robust Dispersion Estimate (RDE) of segment fit residuals
+    dt_W: float
+        Segment fit window
+    SNR: float
+        Estimated signal-to-noise ratio of segment photons
+    ITERATE: int, default 50
+        maximum number of iterations to use
+
+    References
+    ----------
+    .. [Smith2019] B. E. Smith el al., "Land ice height-retrieval
+        algorithm for NASA's ICESat-2 photon-counting laser altimeter",
+        *Remote Sensing of Environment*, 233, 111352, (2019).
+        `doi:10.1016/j.rse.2019.111352 <https://doi.org/10.1016/j.rse.2019.111352>`_
     """
     # length of the transmit pulse
     nt = len(p_TX)

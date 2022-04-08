@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-convert_delta_time.py (01/2021)
+convert_delta_time.py (04/2022)
 Converts time from delta seconds into Julian and year-decimal
 
 INPUTS:
@@ -21,6 +21,7 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 08/2020: time utilities for counting leap seconds and JD conversion
     Updated 07/2020: added function docstrings
@@ -34,18 +35,19 @@ def convert_delta_time(delta_time, gps_epoch=1198800018.0):
     """
     converts ICESat-2 delta_times into into Julian and year-decimal
 
-    Arguments
-    ---------
-    delta_time: seconds since gps_epoch
-
-    Keyword arguments
-    -----------------
-    gps_epoch: seconds between delta_time and GPS epoch (1980-01-06T00:00:00)
+    Parameters
+    ----------
+    delta_time: float
+        seconds since gps_epoch
+    gps_epoch: float, default 1198800018.0
+        seconds between delta_time and GPS epoch (1980-01-06T00:00:00)
 
     Returns
     -------
-    julian: time in Julian days
-    decimal: time in year-decimal
+    julian: float
+        time in Julian days
+    decimal: float
+        time in year-decimal
     """
     #-- convert to array if single value
     delta_time = np.atleast_1d(delta_time)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL11.py (10/2021)
+read_ICESat2_ATL11.py (04/2022)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: added function for reading only pair level variables
         simplified group reads to iterate within a try/except statement
@@ -41,23 +42,29 @@ def read_HDF5_ATL11(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL11 file
-
-    Keyword arguments
-    -----------------
-    GROUPS: HDF5 groups to read for each beam pair
-    ATTRIBUTES: read HDF5 attributes for groups and variables
-    REFERENCE: read ATL11 reference surface variables
-    CROSSOVERS: read ATL11 crossover height variables
-    SUBSETTING: read ATL11 subsetting variables
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL11 file
+    GROUPS: list, default ['cycle_stats']
+        HDF5 groups to read for each beam pair
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
+    REFERENCE: bool, default False
+        read ATL11 reference surface variables
+    CROSSOVERS: bool, default False
+        read ATL11 crossover height variables
+    SUBSETTING: bool, default False
+        read ATL11 subsetting variables
 
     Returns
     -------
-    IS2_atl11_mds: dictionary with ATL11 variables
-    IS2_atl11_attrs: dictionary with ATL11 attributes
-    IS2_atl11_pairs: list with valid ICESat-2 beam pairs within ATL11 file
+    IS2_atl11_mds:
+        ATL11 variables
+    IS2_atl11_attrs:
+        ATL11 attributes
+    IS2_atl11_pairs: list
+        valid ICESat-2 beam pairs within ATL11 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -199,13 +206,15 @@ def find_HDF5_ATL11_pairs(FILENAME, **kwargs):
     Find valid beam pair groups within ICESat-2 ATL11 (Annual Land Ice Height)
     data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL11 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL11 file
 
     Returns
     -------
-    IS2_atl11_pairs: list with valid ICESat-2 beam pairs within ATL11 file
+    IS2_atl11_pairs: list
+        valid ICESat-2 beam pairs within ATL11 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -235,26 +244,33 @@ def read_HDF5_ATL11_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
     for a specific beam pair
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL11 file
-    ptx: beam pair name
-        pt1
-        pt2
-        pt3
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL11 file
+    ptx: str
+        beam pair name
 
-    Keyword arguments
-    -----------------
-    GROUPS: HDF5 groups to read for each beam pair
-    ATTRIBUTES: read HDF5 attributes for groups and variables
-    REFERENCE: read ATL11 reference surface variables
-    CROSSOVERS: read ATL11 crossover height variables
-    SUBSETTING: read ATL11 subsetting variables
+            - ``'pt1'``
+            - ``'pt2'``
+            - ``'pt3'``
+    GROUPS: list, default ['cycle_stats']
+        HDF5 groups to read for each beam pair
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
+    REFERENCE: bool, default False
+        read ATL11 reference surface variables
+    CROSSOVERS: bool, default False
+        read ATL11 crossover height variables
+    SUBSETTING: bool, default False
+        read ATL11 subsetting variables
 
     Returns
     -------
-    IS2_atl11_mds: dictionary with ATL11 variables
-    IS2_atl11_attrs: dictionary with ATL11 attributes
+    IS2_atl11_mds: dict
+        ATL11 variables
+    IS2_atl11_attrs: dict
+        ATL11 attributes
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL03.py (10/2021)
+read_ICESat2_ATL03.py (04/2022)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
@@ -42,19 +43,21 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL03 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read file, group and variable attributes
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL03 file
+    ATTRIBUTES: bool, default False
+        read file, group and variable attributes
 
     Returns
     -------
-    IS2_atl03_mds: dictionary with ATL03 variables
-    IS2_atl03_attrs: dictionary with ATL03 attributes
-    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    IS2_atl03_mds: dict
+        ATL03 variables
+    IS2_atl03_attrs: dict
+        ATL03 attributes
+    IS2_atl03_beams: list
+        valid ICESat-2 beams within ATL03 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -248,21 +251,25 @@ def read_HDF5_ATL03(FILENAME, ATTRIBUTES=False, **kwargs):
 def read_HDF5_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True, **kwargs):
     """
     Reads ICESat-2 ATL09 Atmospheric Characteristics data files
+    and interpolates a subset of variables to ATL03 segment lengths
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL03 file
-    pfl: profile for a given beam
-    dtime: ATL03 reference photon delta_time
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read file, group and variable attributes
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL03 file
+    pfl: str
+        profile for a given beam
+    dtime: float
+        ATL03 reference photon delta_time
+    ATTRIBUTES: bool, default False
+        read file, group and variable attributes
 
     Returns
     -------
-    IS2_atl09_mds: dictionary with ATL09 variables
-    IS2_atl09_attrs: dictionary with ATL09 attributes
+    IS2_atl09_mds: dict
+        ATL09 variables remapped to ATL03 segments
+    IS2_atl09_attrs: dict
+        ATL09 attributes
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -319,13 +326,15 @@ def find_HDF5_ATL03_beams(FILENAME, **kwargs):
     Find valid beam groups within ICESat-2 ATL03 Global Geolocated Photons
     data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL03 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL03 file
 
     Returns
     -------
-    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    IS2_atl03_beams: list
+        valid ICESat-2 beams within ATL03 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -356,19 +365,21 @@ def read_HDF5_ATL03_main(FILENAME, ATTRIBUTES=False, **kwargs):
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
     for only the main-level variables and not the beam-level data
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL03 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read file, group and variable attributes
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL03 file
+    ATTRIBUTES: bool, default False
+        read file, group and variable attributes
 
     Returns
     -------
-    IS2_atl03_mds: dictionary with ATL03 main-level variables
-    IS2_atl03_attrs: dictionary with ATL03 main-level attributes
-    IS2_atl03_beams: list with valid ICESat-2 beams within ATL03 file
+    IS2_atl03_mds: dict
+        ATL03 main-level variables
+    IS2_atl03_attrs: dict
+        ATL03 main-level attributes
+    IS2_atl03_beams: list
+        valid ICESat-2 beams within ATL03 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -509,25 +520,28 @@ def read_HDF5_ATL03_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     Reads ICESat-2 ATL03 Global Geolocated Photons data files
     for a specific beam
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL03 file
-    gtx: beam name based on ground track and position
-        gt1l
-        gt1r
-        gt2l
-        gt2r
-        gt3l
-        gt3r
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL03 file
+    gtx: str
+        beam name based on ground track and position
 
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read file, group and variable attributes
+            - ``'gt1l'``
+            - ``'gt1r'``
+            - ``'gt2l'``
+            - ``'gt2r'``
+            - ``'gt3l'``
+            - ``'gt3r'``
+    ATTRIBUTES: bool, default False
+        read file, group and variable attributes
 
     Returns
     -------
-    IS2_atl03_mds: dictionary with ATL03 beam-level variables
-    IS2_atl03_attrs: dictionary with ATL03 beam-level attributes
+    IS2_atl03_mds: dict
+        ATL03 beam-level variables
+    IS2_atl03_attrs: dict
+        ATL03 beam-level attributes
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

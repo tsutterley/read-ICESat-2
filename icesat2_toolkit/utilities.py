@@ -139,9 +139,10 @@ def convert_arg_line_to_args(arg_line):
     """
     Convert file lines to arguments
 
-    Arguments
-    ---------
-    arg_line: line string containing a single argument and/or comments
+    Parameters
+    ----------
+    arg_line: str
+        line string containing a single argument and/or comments
     """
     #-- remove commented lines and after argument comments
     for arg in re.sub(r'\#(.*?)$',r'',arg_line).split():

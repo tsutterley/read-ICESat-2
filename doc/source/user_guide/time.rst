@@ -43,178 +43,26 @@ Convert a calendar date into Modified Julian Days
 General Methods
 ===============
 
-.. method:: icesat2_toolkit.time.parse_date_string(date_string)
+.. autofunction:: icesat2_toolkit.time.parse_date_string
 
-    Parse a date string of the form time-units since yyyy-mm-dd hh:mm:ss
+.. autofunction:: icesat2_toolkit.time.split_date_string
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.time.datetime_to_list
 
-        ``date_string``: time-units since yyyy-mm-dd hh:mm:ss
+.. autofunction:: icesat2_toolkit.time.calendar_days
 
-    Returns:
+.. autofunction:: icesat2_toolkit.time.convert_datetime
 
-        ``epoch``: epoch of delta time
+.. autofunction:: icesat2_toolkit.time.convert_delta_time
 
-        ``scale``: multiplication factor to convert to seconds
+.. autofunction:: icesat2_toolkit.time.convert_calendar_dates
 
+.. autofunction:: icesat2_toolkit.time.convert_calendar_decimal
 
-.. method:: icesat2_toolkit.time.split_date_string(date_string)
+.. autofunction:: icesat2_toolkit.time.convert_julian
 
-    Split a date string into units and epoch
+.. autofunction:: icesat2_toolkit.time.count_leap_seconds
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.time.get_leap_seconds
 
-        ``date_string``: time-units since yyyy-mm-dd hh:mm:ss
-
-
-.. method:: icesat2_toolkit.time.datetime_to_list(date)
-
-    Convert a datetime object into a list
-
-    Arguments:
-
-        ``date``: datetime object
-
-
-.. method:: icesat2_toolkit.time.calendar_days(year)
-
-    Calculates the number of days per month for a given year
-
-    Arguments:
-
-        ``year``: calendar year
-
-    Returns:
-
-        ``dpm``: number of days for each month
-
-
-.. method:: icesat2_toolkit.time.convert_delta_time(delta_time, epoch1=None, epoch2=None, scale=1.0)
-
-    Convert delta time from seconds since epoch1 to time since epoch2
-
-    Arguments:
-
-        ``delta_time``: seconds since epoch1
-
-    Keyword arguments:
-
-        ``epoch1``: epoch for input delta_time
-
-        ``epoch2``: epoch for output delta_time
-
-        ``scale``: scaling factor for converting time to output units
-
-
-.. method:: icesat2_toolkit.time.convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0, epoch=None, scale=1.0)
-
-    Calculate the time in time units since epoch from calendar dates
-
-    Arguments:
-
-        ``year``: calendar month
-
-        ``month``: month of the year
-
-        ``day``: day of the month
-
-    Keyword arguments:
-
-        ``hour``: hour of the day
-
-        ``minute``: minute of the hour
-
-        ``second``: second of the minute
-
-        ``epoch``: epoch for output delta_time
-
-        ``scale``: scaling factor for converting time to output units
-
-
-.. method:: icesat2_toolkit.time.convert_calendar_decimal(year, month, day=None, hour=None, minute=None, second=None, DofY=None)
-
-    Converts from calendar date into decimal years taking into account leap years
-
-    Arguments:
-
-        ``year``: calendar year
-
-        ``month``: calendar month
-
-    Keyword arguments:
-
-        ``day``: Number of day of the month
-
-        ``hour``: hour of the day
-
-        ``minute``: minute of the hour
-
-        ``second``: second (and fractions of a second) of the minute
-
-        ``DofY``: day of the year
-
-    Returns:
-
-        ``t_date`` date in decimal-year format
-
-
-.. method:: icesat2_toolkit.time.convert_julian(JD, ASTYPE=None, FORMAT=None)
-
-    Converts from Julian day to calendar date and time
-
-    Arguments:
-
-        ``JD``: Julian Day (days since 01-01-4713 BCE at 12:00:00)
-
-    Keyword arguments:
-
-        ``ASTYPE``: convert output to variable type
-
-        ``FORMAT``: format of output variables
-
-            ``'dict'``: dictionary with variable keys
-
-            ``'tuple'``: tuple with variable order year,month,day,hour,minute,second
-
-            ``'zip'``: aggregated variable sets
-
-    Returns:
-
-        ``year``: Calendar year
-
-        ``month``: Calendar month
-
-        ``day``: Calendar day of the month
-
-        ``hour``: hour of the day
-
-        ``minute``: minute of the hour
-
-        ``second``: second (and fractions of a second) of the minute
-
-
-.. method:: icesat2_toolkit.time.count_leap_seconds(GPS_Time)
-
-    Counts the number of leap seconds between a given GPS time and UTC
-
-    Arguments:
-
-        ``GPS_Time``: seconds since January 6, 1980 at 00:00:00
-
-
-.. method:: icesat2_toolkit.time.get_leap_seconds()
-
-    Gets a list of GPS times for when leap seconds occurred
-
-
-.. method:: icesat2_toolkit.time.update_leap_seconds(verbose=False, mode=0o775)
-
-    Connects to servers to download leap-seconds.list files from `NIST servers`__
-
-.. __: ftp://ftp.nist.gov/pub/time/leap-seconds.list
-
-    Keyword arguments:
-
-        ``verbose``: print file information about output file
-
-        ``mode``: permissions mode of output file
+.. autofunction:: icesat2_toolkit.time.update_leap_seconds

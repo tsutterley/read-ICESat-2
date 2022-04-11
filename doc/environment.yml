@@ -8,9 +8,10 @@ dependencies:
   - future
   - gdal
   - graphviz
-  - h5py
+  - h5py>=2.9=mpi*
   - lxml
   - matplotlib
+  - mpi4py
   - netCDF4
   - notebook
   - numpy

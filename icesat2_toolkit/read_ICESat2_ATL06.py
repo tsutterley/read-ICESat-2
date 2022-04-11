@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL06.py (10/2021)
+read_ICESat2_ATL06.py (04/2022)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -16,6 +16,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
@@ -40,21 +41,25 @@ def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
     """
     Reads ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL06 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read HDF5 attributes for groups and variables
-    HISTOGRAM: read ATL06 residual_histogram variables
-    QUALITY: read ATL06 segment_quality variables
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL06 file
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
+    HISTOGRAM: bool, default False
+        read ATL06 residual_histogram variables
+    QUALITY: bool, default False
+        read ATL06 segment_quality variables
 
     Returns
     -------
-    IS2_atl06_mds: dictionary with ATL06 variables
-    IS2_atl06_attrs: dictionary with ATL06 attributes
-    IS2_atl06_beams: list with valid ICESat-2 beams within ATL06 file
+    IS2_atl06_mds: dict
+        ATL06 variables
+    IS2_atl06_attrs:
+        ATL06 attributes
+    IS2_atl06_beams: list
+        valid ICESat-2 beams within ATL06 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -240,13 +245,15 @@ def find_HDF5_ATL06_beams(FILENAME, **kwargs):
     Find valid beam groups within ICESat-2 ATL06 (Land Ice Along-Track
     Height Product) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL06 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL06 file
 
     Returns
     -------
-    IS2_atl06_beams: list with valid ICESat-2 beams within ATL06 file
+    IS2_atl06_beams: list
+        valid ICESat-2 beams within ATL06 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -275,27 +282,34 @@ def read_HDF5_ATL06_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     Reads ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
     for a specific beam
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL06 file
-    gtx: beam name based on ground track and position
-        gt1l
-        gt1r
-        gt2l
-        gt2r
-        gt3l
-        gt3r
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL06 file
+    gtx: str
+        beam name based on ground track and position
 
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read HDF5 attributes for groups and variables
-    HISTOGRAM: read ATL06 residual_histogram variables
-    QUALITY: read ATL06 segment_quality variables
+            - ``'gt1l'``
+            - ``'gt1r'``
+            - ``'gt2l'``
+            - ``'gt2r'``
+            - ``'gt3l'``
+            - ``'gt3r'``
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
+    HISTOGRAM: bool, default False
+        read ATL06 residual_histogram variables
+    QUALITY: bool, default False
+        read ATL06 segment_quality variables
 
     Returns
     -------
-    IS2_atl06_mds: dictionary with ATL06 variables
-    IS2_atl06_attrs: dictionary with ATL06 attributes
+    IS2_atl06_mds: dict
+        ATL06 variables
+    IS2_atl06_attrs:
+        ATL06 attributes
+    IS2_atl06_beams: list
+        valid ICESat-2 beams within ATL06 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

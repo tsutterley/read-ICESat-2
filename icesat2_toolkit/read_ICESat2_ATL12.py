@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL12.py (10/2021)
+read_ICESat2_ATL12.py (04/2022)
 Read ICESat-2 ATL12 (Ocean Surface Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
     Updated 10/2020: add small function to find valid beam groups
@@ -31,19 +32,21 @@ def read_HDF5_ATL12(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL12 (Ocean Surface Height) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL12 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read HDF5 attributes for groups and variables
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL12 file
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
 
     Returns
     -------
-    IS2_atl12_mds: dictionary with ATL12 variables
-    IS2_atl12_attrs: dictionary with ATL12 attributes
-    IS2_atl12_beams: list with valid ICESat-2 beams within ATL12 file
+    IS2_atl12_mds: dict
+        ATL12 variables
+    IS2_atl12_attrs: dict
+        TL12 attributes
+    IS2_atl12_beams: list
+        valid ICESat-2 beams within ATL12 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -182,13 +185,15 @@ def find_HDF5_ATL12_beams(FILENAME):
     """
     Find valid beam groups within ICESat-2 ATL12 (Ocean Surface Height) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL12 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL12 file
 
     Returns
     -------
-    IS2_atl12_beams: list with valid ICESat-2 beams within ATL12 file
+    IS2_atl12_beams: list
+        valid ICESat-2 beams within ATL12 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

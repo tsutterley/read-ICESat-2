@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL10.py (12/2021)
+read_ICESat2_ATL10.py (04/2022)
 Read ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Written 12/2021
 """
 from __future__ import print_function
@@ -27,19 +28,21 @@ def read_HDF5_ATL10(FILENAME, ATTRIBUTES=False, **kwargs):
     """
     Reads ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL10 file
-
-    Keyword arguments
-    -----------------
-    ATTRIBUTES: read HDF5 attributes for groups and variables
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL10 file
+    ATTRIBUTES: bool, default False
+        read HDF5 attributes for groups and variables
 
     Returns
     -------
-    IS2_atl10_mds: dictionary with ATL10 variables
-    IS2_atl10_attrs: dictionary with ATL10 attributes
-    IS2_atl10_beams: list with valid ICESat-2 beams within ATL10 file
+    IS2_atl10_mds: dict
+        ATL10 variables
+    IS2_atl10_attrs:
+        ATL10 attributes
+    IS2_atl10_beams: list
+        valid ICESat-2 beams within ATL10 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
@@ -186,13 +189,15 @@ def find_HDF5_ATL10_beams(FILENAME):
     """
     Find valid beam groups within ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
-    Arguments
-    ---------
-    FILENAME: full path to ATL10 file
+    Parameters
+    ----------
+    FILENAME: str
+        full path to ATL10 file
 
     Returns
     -------
-    IS2_atl10_beams: list with valid ICESat-2 beams within ATL10 file
+    IS2_atl10_beams: list
+        valid ICESat-2 beams within ATL10 file
     """
     #-- Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):

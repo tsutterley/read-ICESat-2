@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (01/2022)
+Written by Tyler Sutterley (04/2022)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -21,6 +21,7 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2022: added ascii and dataframe outputs for ATL07
     Updated 09/2021: added ground track and time to output dataframes
         calculate a global reference point for ATL06/07/08 dataframes
@@ -42,6 +43,21 @@ from icesat2_toolkit.convert_delta_time import convert_delta_time
 class convert():
     np.seterr(invalid='ignore')
     def __init__(self, filename=None, reformat=None):
+        """Utilities for converting ICESat-2 HDF5 files into different formats
+
+        Parameters
+        ----------
+        filename: str, obj or NoneType, default None
+            input HDF5 filename or io.BytesIO object
+        reformat: str or NoneType
+            output format
+
+                - ``'csv'``: comma-separated values for each beam group
+                - ``'dataframe'``: Pandas dataframe
+                - ``'HDF5'``: rechunked HDF5
+                - ``'txt'``: tab-delimited ascii for each beam group
+                - ``'zarr'``: chunked zarr
+        """
         self.filename = filename
         self.reformat = reformat
         # gps-based epoch for delta times #
@@ -51,6 +67,11 @@ class convert():
     def file_converter(self, **kwds):
         """
         Convert a HDF5 file to another format
+
+        Parameters
+        ----------
+        **kwds: dict
+            keyword arguments for output converter
         """
         if (self.reformat == 'zarr'):
             # output zarr file
@@ -74,6 +95,11 @@ class convert():
     def HDF5_to_zarr(self, **kwds):
         """
         convert a HDF5 file to zarr copying all file data
+
+        Parameters
+        ----------
+        **kwds: dict
+            keyword arguments for output zarr converter
         """
         # split extension from HDF5 file
         if isinstance(self.filename, str):
@@ -96,6 +122,11 @@ class convert():
     def HDF5_to_HDF5(self, **kwds):
         """
         rechunk a HDF5 file copying all file data
+
+        Parameters
+        ----------
+        **kwds: dict
+            keyword arguments for output HDF5 converter
         """
         # split extension from HDF5 file
         if isinstance(self.filename, str):
@@ -117,7 +148,18 @@ class convert():
     # PURPOSE: Copy a named variable from the HDF5 file to the destination file
     def copy_from_HDF5(self, source, dest, name=None, **kwds):
         """
-        Copy a named variable from the `source` HDF5 into the `dest` file
+        Copy a named variable from the ``source`` HDF5 into the ``dest`` file
+
+        Parameters
+        ----------
+        source: obj
+            open file object for input
+        dest: obj
+            open file object for output
+        name: str or NoneType, default None
+            variable or group name
+        chunks: int
+            chunk size for output
         """
         if hasattr(source, 'shape') and bool(source.chunks):
             # if data can be chunked
@@ -203,6 +245,11 @@ class convert():
     def HDF5_to_ascii(self, **kwds):
         """
         Convert a HDF5 file to beam-level ascii files copying reduced sets of data
+
+        Parameters
+        ----------
+        **kwds: dict
+            keyword arguments for output ascii converter
         """
         # compile regular expression operator for extracting info from ICESat2 files
         rx = re.compile(r'(processed_)?(ATL\d+)(-\d{2})?_(\d{4})(\d{2})(\d{2})'
@@ -388,6 +435,11 @@ class convert():
     def HDF5_to_dataframe(self, **kwds):
         """
         Convert a HDF5 file to a pandas dataframe copying reduced sets of data
+
+        Parameters
+        ----------
+        **kwds: dict
+            keyword arguments for output dataframe converter
         """
         # compile regular expression operator for extracting info from ICESat2 files
         rx = re.compile(r'(processed_)?(ATL\d+)(-\d{2})?_(\d{4})(\d{2})(\d{2})'
@@ -507,7 +559,14 @@ class convert():
 
     # PURPOSE: encoder for copying the file attributes
     def attributes_encoder(self, attr):
-        """Custom encoder for copying file attributes in Python 3"""
+        """
+        Custom encoder for copying file attributes in Python 3
+
+        Parameters
+        ----------
+        attr: obj
+            attribute to be converted for output
+        """
         if isinstance(attr, (bytes, bytearray)):
             return attr.decode('utf-8')
         if isinstance(attr, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32,

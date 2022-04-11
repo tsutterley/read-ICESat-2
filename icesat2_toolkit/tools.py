@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 tools.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Plotting tools and utilities
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://github.com/matplotlib/matplotlib
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 12/2021: added custom colormap function for some common scales
     Written 09/2021
 """
@@ -26,16 +27,19 @@ import matplotlib.colors as colors
 
 def from_cpt(filename, use_extremes=True, **kwargs):
     """
-    Reads a GMT color palette table
+    Reads GMT color palette table files and registers the
+    colormap to be recognizable by ``plt.cm.get_cmap()``
+
     Can import HSV (hue-saturation-value) or RGB values
 
-    Arguments
-    ---------
-    filename: color palette table file
-
-    Keyword Arguments
-    -----------------
-    use_extremes: use the under, over and bad values from the cpt file
+    Parameters
+    ----------
+    filename: str
+        color palette table file
+    use_extremes: bool, default True
+        use the under, over and bad values from the cpt file
+    **kwargs: dict
+        optional arguments for LinearSegmentedColormap
     """
 
     # read the cpt file and get contents
@@ -133,18 +137,38 @@ def from_cpt(filename, use_extremes=True, **kwargs):
 
 def custom_colormap(N, map_name, **kwargs):
     """
-    Calculates custom colormaps
+    Calculates a custom colormap and registers it
+    to be recognizable by ``plt.cm.get_cmap()``
 
-    Arguments
-    ---------
-    N: number of slices in initial HSV color map
-    map_name: name of color map
-        Joughin: Joughin et al. (2018) standard velocity colormap
-            https://doi.org/10.5194/tc-12-2211-2018
-        Rignot: Rignot et al. (2011) standard velocity colormap
-            https://doi.org/10.1126/science.1208336
-        Seroussi: Seroussi et al. (2011) velocity divergence colormap
-            https://doi.org/10.1029/2011GL047338
+    Parameters
+    ----------
+    N: int
+        number of slices in initial HSV color map
+    map_name: str
+        name of color map
+
+            - ``'Joughin'``: [Joughin2018]_ standard velocity colormap
+            - ``'Rignot'``: [Rignot2011]_ standard velocity colormap
+            - ``'Seroussi'``: [Seroussi2011]_ velocity divergence colormap
+    **kwargs: dict
+        optional arguments for LinearSegmentedColormap
+
+    References
+    ----------
+    .. [Joughin2018] I. Joughin, B. E. Smith, and I. Howat,
+        "Greenland Ice Mapping Project: ice flow velocity variation
+        at sub-monthly to decadal timescales", *The Cryosphere*,
+        12, 2211--2227, (2018).
+        `doi: 10.5194/tc-12-2211-2018 <https://doi.org/10.5194/tc-12-2211-2018>`_
+    .. [Rignot2011] E. Rignot J. Mouginot, and B. Scheuchl,
+        "Ice Flow of the Antarctic Ice Sheet",
+        *Science*, 333(6048), 1427--1430, (2011).
+        `doi: 10.1126/science.1208336 <https://doi.org/10.1126/science.1208336>`_
+    .. [Seroussi2011] H. Seroussi, M. Morlighem, E. Rignot, E. Larour,
+        D. Aubry, H. Ben Dhia, and S. S. Kristensen,
+        "Ice flux divergence anomalies on 79north Glacier, Greenland",
+        *Geophysical Research Letters*, 38(L09501), (2011).
+        `doi: 10.1029/2011GL047338 <https://doi.org/10.1029/2011GL047338>`_
     """
 
     # make sure map_name is properly formatted

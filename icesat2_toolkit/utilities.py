@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (03/2022)
+Written by Tyler Sutterley (04/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 03/2022: added NASA CMR query parameters for ATL14/15
         added attempt login function to recursively check credentials
     Updated 02/2022: add NASA Common Metadata Repository (CMR) queries
@@ -31,7 +32,7 @@ UPDATE HISTORY:
     Updated 08/2020: add Earthdata opener, login and download functions
     Written 08/2020
 """
-from __future__ import print_function
+from __future__ import print_function, division
 
 import sys
 import os
@@ -50,6 +51,7 @@ import hashlib
 import logging
 import builtins
 import datetime
+import dateutil
 import warnings
 import posixpath
 import lxml.etree
@@ -63,13 +65,15 @@ else:
     from urllib.parse import urlencode
     import urllib.request as urllib2
 
+#-- PURPOSE: get absolute path within a package from a relative path
 def get_data_path(relpath):
     """
     Get the absolute path within a package from a relative path
 
-    Arguments
-    ---------
-    relpath: relative path
+    Parameters
+    ----------
+    relpath: str,
+        relative path
     """
     #-- current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
@@ -85,15 +89,15 @@ def get_hash(local, algorithm='MD5'):
     """
     Get the hash value from a local file or BytesIO object
 
-    Arguments
-    ---------
-    local: BytesIO object or path to file
+    Parameters
+    ----------
+    local: obj or str
+        BytesIO object or path to file
+    algorithm: str, default 'MD5'
+        hashing algorithm for checksum validation
 
-    Keyword Arguments
-    -----------------
-    algorithm: hashing algorithm for checksum validation
-        MD5: Message Digest
-        sha1: Secure Hash Algorithm
+            - ``'MD5'``: Message Digest
+            - ``'sha1'``: Secure Hash Algorithm
     """
     #-- check if open file object or if local file exists
     if isinstance(local, io.IOBase):
@@ -118,12 +122,13 @@ def url_split(s):
     """
     Recursively split a url path into a list
 
-    Arguments
-    ---------
-    s: url string
+    Parameters
+    ----------
+    s: str
+        url string
     """
     head, tail = posixpath.split(s)
-    if head in ('http:','https:','ftp:'):
+    if head in ('http:','https:','ftp:','s3:'):
         return s,
     elif head in ('', posixpath.sep):
         return tail,
@@ -134,9 +139,10 @@ def convert_arg_line_to_args(arg_line):
     """
     Convert file lines to arguments
 
-    Arguments
-    ---------
-    arg_line: line string containing a single argument and/or comments
+    Parameters
+    ----------
+    arg_line: str
+        line string containing a single argument and/or comments
     """
     #-- remove commented lines and after argument comments
     for arg in re.sub(r'\#(.*?)$',r'',arg_line).split():
@@ -149,29 +155,54 @@ def get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S'):
     """
     Get the Unix timestamp value for a formatted date string
 
-    Arguments
-    ---------
-    time_string: formatted time string to parse
-
-    Keyword arguments
-    -----------------
-    format: format for input time string
+    Parameters
+    ----------
+    time_string: str
+        formatted time string to parse
+    format: str, default '%Y-%m-%d %H:%M:%S'
+        format for input time string
     """
     try:
         parsed_time = time.strptime(time_string.rstrip(), format)
     except (TypeError, ValueError):
-        return None
+        pass
     else:
         return calendar.timegm(parsed_time)
+    #-- try parsing with dateutil
+    try:
+        parsed_time = dateutil.parser.parse(time_string.rstrip())
+    except (TypeError, ValueError):
+        return None
+    else:
+        return parsed_time.timestamp()
+
+#-- PURPOSE: output a time string in isoformat
+def isoformat(time_string):
+    """
+    Reformat a date string to ISO formatting
+
+    Parameters
+    ----------
+    time_string: str
+        formatted time string to parse
+    """
+    #-- try parsing with dateutil
+    try:
+        parsed_time = dateutil.parser.parse(time_string.rstrip())
+    except (TypeError, ValueError):
+        return None
+    else:
+        return parsed_time.isoformat()
 
 #-- PURPOSE: rounds a number to an even number less than or equal to original
 def even(value):
     """
     Rounds a number to an even number less than or equal to original
 
-    Arguments
-    ---------
-    value: number to be rounded
+    Parameters
+    ----------
+    value: float
+        number to be rounded
     """
     return 2*int(value//2)
 
@@ -180,29 +211,30 @@ def ceil(value):
     """
     Rounds a number upward to its nearest integer
 
-    Arguments
-    ---------
-    value: number to be rounded upward
+    Parameters
+    ----------
+    value: float
+        number to be rounded upward
     """
     return -int(-value//1)
 
 #-- PURPOSE: make a copy of a file with all system information
-def copy(source, destination, verbose=False, move=False):
+def copy(source, destination, move=False, **kwargs):
     """
     Copy or move a file with all system information
 
-    Arguments
-    ---------
-    source: source file
-    destination: copied destination file
-
-    Keyword arguments
-    -----------------
-    verbose: print file transfer information
-    move: remove the source file
+    Parameters
+    ----------
+    source: str
+        source file
+    destination: str
+        copied destination file
+    move: bool, default False
+        remove the source file
     """
     source = os.path.abspath(os.path.expanduser(source))
     destination = os.path.abspath(os.path.expanduser(destination))
+    #-- log source and destination
     logging.info('{0} -->\n\t{1}'.format(source,destination))
     shutil.copyfile(source, destination)
     shutil.copystat(source, destination)
@@ -210,18 +242,18 @@ def copy(source, destination, verbose=False, move=False):
         os.remove(source)
 
 #-- PURPOSE: check ftp connection
-def check_ftp_connection(HOST,username=None,password=None):
+def check_ftp_connection(HOST, username=None, password=None):
     """
     Check internet connection with ftp host
 
-    Arguments
-    ---------
-    HOST: remote ftp host
-
-    Keyword arguments
-    -----------------
-    username: ftp username
-    password: ftp password
+    Parameters
+    ----------
+    HOST: str
+        remote ftp host
+    username: str or NoneType
+        ftp username
+    password: str or NoneType
+        ftp password
     """
     #-- attempt to connect to ftp host
     try:
@@ -236,28 +268,34 @@ def check_ftp_connection(HOST,username=None,password=None):
         return True
 
 #-- PURPOSE: list a directory on a ftp host
-def ftp_list(HOST,username=None,password=None,timeout=None,
-    basename=False,pattern=None,sort=False):
+def ftp_list(HOST, username=None, password=None, timeout=None,
+    basename=False, pattern=None, sort=False):
     """
     List a directory on a ftp host
 
-    Arguments
-    ---------
-    HOST: remote ftp host path split as list
-
-    Keyword arguments
-    -----------------
-    username: ftp username
-    password: ftp password
-    timeout: timeout in seconds for blocking operations
-    basename: return the file or directory basename instead of the full path
-    pattern: regular expression pattern for reducing list
-    sort: sort output list
+    Parameters
+    ----------
+    HOST: str or list
+        remote ftp host path split as list
+    username: str or NoneType
+        ftp username
+    password: str or NoneType
+        ftp password
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    basename: bool, default False
+        return the file or directory basename instead of the full path
+    pattern: str or NoneType, default None
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
 
     Returns
     -------
-    output: list of items in a directory
-    mtimes: list of last modification times for items in the directory
+    output: list
+        items in a directory
+    mtimes: list
+        last modification times for items in the directory
     """
     #-- verify inputs for remote ftp host
     if isinstance(HOST, str):
@@ -305,30 +343,39 @@ def ftp_list(HOST,username=None,password=None,timeout=None,
         return (output,mtimes)
 
 #-- PURPOSE: download a file from a ftp host
-def from_ftp(HOST,username=None,password=None,timeout=None,local=None,
-    hash='',chunk=8192,verbose=False,fid=sys.stdout,mode=0o775):
+def from_ftp(HOST, username=None, password=None, timeout=None,
+    local=None, hash='', chunk=8192, verbose=False, fid=sys.stdout,
+    mode=0o775):
     """
     Download a file from a ftp host
 
-    Arguments
-    ---------
-    HOST: remote ftp host path split as list
-
-    Keyword arguments
-    -----------------
-    username: ftp username
-    password: ftp password
-    timeout: timeout in seconds for blocking operations
-    local: path to local file
-    hash: MD5 hash of local file
-    chunk: chunk size for transfer encoding
-    verbose: print file transfer information
-    fid: open file object to print if verbose
-    mode: permissions mode of output local file
+    Parameters
+    ----------
+    HOST: str or list
+        remote ftp host path
+    username: str or NoneType
+        ftp username
+    password: str or NoneType
+        ftp password
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    local: str or NoneType, default None
+        path to local file
+    hash: str, default ''
+        MD5 hash of local file
+    chunk: int, default 8192
+        chunk size for transfer encoding
+    verbose: bool, default False
+        print file transfer information
+    fid: obj, default sys.stdout
+        open file object to print if verbose
+    mode: oct, default 0o775
+        permissions mode of output local file
 
     Returns
     -------
-    remote_buffer: BytesIO representation of file
+    remote_buffer: obj
+        BytesIO representation of file
     """
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
@@ -387,9 +434,10 @@ def check_connection(HOST):
     """
     Check internet connection with http host
 
-    Arguments
-    ---------
-    HOST: remote http host
+    Parameters
+    ----------
+    HOST: str
+        remote http host
     """
     #-- attempt to connect to http host
     try:
@@ -400,30 +448,37 @@ def check_connection(HOST):
         return True
 
 #-- PURPOSE: list a directory on an Apache http Server
-def http_list(HOST,timeout=None,context=ssl.SSLContext(),
-    parser=lxml.etree.HTMLParser(),format='%Y-%m-%d %H:%M',
-    pattern='',sort=False):
+def http_list(HOST, timeout=None, context=ssl.SSLContext(),
+    parser=lxml.etree.HTMLParser(), format='%Y-%m-%d %H:%M',
+    pattern='', sort=False):
     """
     List a directory on an Apache http Server
 
-    Arguments
-    ---------
-    HOST: remote http host path split as list
-
-    Keyword arguments
-    -----------------
-    timeout: timeout in seconds for blocking operations
-    context: SSL context for url opener object
-    parser: HTML parser for lxml
-    format: format for input time string
-    pattern: regular expression pattern for reducing list
-    sort: sort output list
+    Parameters
+    ----------
+    HOST: str or list
+        remote http host path
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    context: obj, default ssl.SSLContext()
+        SSL context for url opener object
+    parser: obj, default lxml.etree.HTMLParser()
+        HTML parser for lxml
+    format: str, default '%Y-%m-%d %H:%M'
+        format for input time string
+    pattern: str, default ''
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
 
     Returns
     -------
-    colnames: list of column names in a directory
-    collastmod: list of last modification times for items in the directory
-    colerror: notification for list error
+    colnames: list
+        column names in a directory
+    collastmod: list
+        last modification times for items in the directory
+    colerror: list
+        notification for list error
     """
     #-- verify inputs for remote http host
     if isinstance(HOST, str):
@@ -459,29 +514,39 @@ def http_list(HOST,timeout=None,context=ssl.SSLContext(),
         return (colnames,collastmod,None)
 
 #-- PURPOSE: download a file from a http host
-def from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',
-    chunk=16384,verbose=False,fid=sys.stdout,mode=0o775):
+def from_http(HOST, timeout=None, context=ssl.SSLContext(),
+    local=None, hash='', chunk=16384, verbose=False, fid=sys.stdout,
+    mode=0o775):
     """
     Download a file from a http host
 
-    Arguments
-    ---------
-    HOST: remote http host path split as list
-
-    Keyword arguments
-    -----------------
-    timeout: timeout in seconds for blocking operations
-    context: SSL context for url opener object
-    local: path to local file
-    hash: MD5 hash of local file
-    chunk: chunk size for transfer encoding
-    verbose: print file transfer information
-    fid: open file object to print if verbose
-    mode: permissions mode of output local file
+    Parameters
+    ----------
+    HOST: str or list
+        remote http host path split as list
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    context: obj, default ssl.SSLContext()
+        SSL context for url opener object
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    local: str or NoneType, default None
+        path to local file
+    hash: str, default ''
+        MD5 hash of local file
+    chunk: int, default 16384
+        chunk size for transfer encoding
+    verbose: bool, default False
+        print file transfer information
+    fid: obj, default sys.stdout
+        open file object to print if verbose
+    mode: oct, default 0o775
+        permissions mode of output local file
 
     Returns
     -------
-    remote_buffer: BytesIO representation of file
+    remote_buffer: obj
+        BytesIO representation of file
     """
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
@@ -532,21 +597,33 @@ def attempt_login(urs, context=ssl.SSLContext(),
     """
     attempt to build a urllib opener for NASA Earthdata
 
-    Arguments
-    ---------
-    urs: Earthdata login URS 3 host
+    Parameters
+    ----------
+    urs: str
+        Earthdata login URS 3 host
+    context: obj, default ssl.SSLContext()
+        SSL context for url opener object
+    password_manager: bool, default True
+        Create password manager context using default realm
+    get_ca_certs: bool, default False
+        Get list of loaded “certification authority” certificates
+    redirect: bool, default False
+        Create redirect handler object
+    authorization_header: bool, default False
+        Add base64 encoded authorization header to opener
+    username: str, default from environmental variable
+        NASA Earthdata username
+    password: str, default from environmental variable
+        NASA Earthdata password
+    retries: int, default 5
+        number of retry attempts
+    netrc: str, default ~/.netrc
+        path to .netrc file for authentication
 
-    Keyword arguments
-    -----------------
-    context: SSL context for opener object
-    password_manager: create password manager context using default realm
-    get_ca_certs: get list of loaded “certification authority” certificates
-    redirect: create redirect handler object
-    authorization_header: add base64 encoded authorization header to opener
-    username: NASA Earthdata username
-    password: NASA Earthdata password
-    retries: number of retry attempts
-    netrc: path to .netrc file for authentication
+    Returns
+    -------
+    opener: obj
+        OpenerDirector instance
     """
     # set default keyword arguments
     kwargs.setdefault('username', os.environ.get('EARTHDATA_USERNAME'))
@@ -598,19 +675,29 @@ def build_opener(username, password, context=ssl.SSLContext(),
     """
     build urllib opener for NASA Earthdata with supplied credentials
 
-    Arguments
-    ---------
-    username: NASA Earthdata username
-    password: NASA Earthdata password
+    Parameters
+    ----------
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    context: obj, default ssl.SSLContext()
+        SSL context for url opener object
+    password_manager: bool, default True
+        Create password manager context using default realm
+    get_ca_certs: bool, default False
+        Get list of loaded “certification authority” certificates
+    redirect: bool, default False
+        Create redirect handler object
+    authorization_header: bool, default False
+        Add base64 encoded authorization header to opener
+    urs: str, default 'https://urs.earthdata.nasa.gov'
+        Earthdata login URS 3 host
 
-    Keyword arguments
-    -----------------
-    context: SSL context for opener object
-    password_manager: create password manager context using default realm
-    get_ca_certs: get list of loaded “certification authority” certificates
-    redirect: create redirect handler object
-    authorization_header: add base64 encoded authorization header to opener
-    urs: Earthdata login URS 3 host
+    Returns
+    -------
+    opener: obj
+        OpenerDirector instance
     """
     #-- https://docs.python.org/3/howto/urllib2.html#id5
     handler = []
@@ -663,35 +750,45 @@ def check_credentials():
         return True
 
 #-- PURPOSE: list a directory on NSIDC https server
-def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
-    parser=lxml.etree.HTMLParser(),pattern='',sort=False):
+def nsidc_list(HOST, username=None, password=None, build=True,
+    timeout=None, urs='urs.earthdata.nasa.gov',
+    parser=lxml.etree.HTMLParser(), pattern='', sort=False):
     """
     List a directory on NSIDC
 
-    Arguments
-    ---------
-    HOST: remote https host path split as list
-
-    Keyword arguments
-    -----------------
-    username: NASA Earthdata username
-    password: NASA Earthdata password
-    build: Build opener and check NASA Earthdata credentials
-    timeout: timeout in seconds for blocking operations
-    parser: HTML parser for lxml
-    pattern: regular expression pattern for reducing list
-    sort: sort output list
+    Parameters
+    ----------
+    HOST: str or list
+        remote https host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener and check WebDAV credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        NASA Earthdata URS 3 host
+    parser: obj, default lxml.etree.HTMLParser()
+        HTML parser for lxml
+    pattern: str, default ''
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
 
     Returns
     -------
-    colnames: list of column names in a directory
-    collastmod: list of last modification times for items in the directory
-    colerror: notification for list error
+    colnames: list
+        Column names in a directory
+    collastmod: list
+        Last modification times for items in the directory
+    colerror: list
+        Notification for list error
     """
     #-- use netrc credentials
     if build and not (username or password):
-        urs = 'urs.earthdata.nasa.gov'
-        username,login,password = netrc.netrc().authenticators(urs)
+        username,_,password = netrc.netrc().authenticators(urs)
     #-- build urllib2 opener and check credentials
     if build:
         #-- build urllib2 opener with credentials
@@ -731,40 +828,52 @@ def nsidc_list(HOST,username=None,password=None,build=True,timeout=None,
         return (colnames,collastmod,None)
 
 #-- PURPOSE: download a file from a NSIDC https server
-def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
-    local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775):
+def from_nsidc(HOST, username=None, password=None, build=True,
+    timeout=None, urs='urs.earthdata.nasa.gov', local=None,
+    hash='', chunk=16384, verbose=False, fid=sys.stdout, mode=0o775):
     """
     Download a file from a NSIDC https server
 
-    Arguments
-    ---------
-    HOST: remote https host path split as list
-
-    Keyword arguments
-    -----------------
-    username: NASA Earthdata username
-    password: NASA Earthdata password
-    build: Build opener and check NASA Earthdata credentials
-    timeout: timeout in seconds for blocking operations
-    local: path to local file
-    hash: MD5 hash of local file
-    chunk: chunk size for transfer encoding
-    verbose: print file transfer information
-    fid: open file object to print if verbose
-    mode: permissions mode of output local file
+    Parameters
+    ----------
+    HOST: str or list
+        remote https host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener and check WebDAV credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        NASA Earthdata URS 3 host
+    local: str or NoneType, default None
+        path to local file
+    hash: str, default ''
+        MD5 hash of local file
+    chunk: int, default 16384
+        chunk size for transfer encoding
+    verbose: bool, default False
+        print file transfer information
+    fid: obj, default sys.stdout
+        open file object to print if verbose
+    mode: oct, default 0o775
+        permissions mode of output local file
 
     Returns
     -------
-    remote_buffer: BytesIO representation of file
-    response_error: notification for response error
+    remote_buffer: obj
+        BytesIO representation of file
+    response_error: str or None
+        notification for response error
     """
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
     logging.basicConfig(stream=fid, level=loglevel)
     #-- use netrc credentials
     if build and not (username or password):
-        urs = 'urs.earthdata.nasa.gov'
-        username,login,password = netrc.netrc().authenticators(urs)
+        username,_,password = netrc.netrc().authenticators(urs)
     #-- build urllib2 opener and check credentials
     if build:
         #-- build urllib2 opener with credentials
@@ -779,7 +888,7 @@ def from_nsidc(HOST,username=None,password=None,build=True,timeout=None,
         #-- Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request,timeout=timeout)
-    except:
+    except (urllib2.HTTPError, urllib2.URLError) as e:
         response_error = 'Download error from {0}'.format(posixpath.join(*HOST))
         return (False,response_error)
     else:
@@ -816,13 +925,15 @@ def query_release(release):
     """
     Build formatted query string for ICESat-2 release
 
-    Arguments
-    ---------
-    release: ICESat-2 data release to query
+    Parameters
+    ----------
+    release: str
+        ICESat-2 data release to query
 
     Returns
     -------
-    query_params: formatted string for CMR queries
+    query_params: str
+        formatted string for CMR queries
     """
     if release is None:
         return ''
@@ -844,9 +955,15 @@ def cycles(cycle):
     """
     Check if the submitted cycles are valid
 
-    Arguments
-    ---------
-    cycle: ICESat-2 orbital cycle
+    Parameters
+    ----------
+    cycle: str, list or NoneType, default None
+        ICESat-2 91-day orbital cycle
+
+    Returns
+    -------
+    cycle_list: list
+        formatted available 91-day orbital cycles
     """
     #-- string length of cycles in granules
     cycle_length = 2
@@ -887,9 +1004,15 @@ def tracks(track):
     """
     Check if the submitted RGTs are valid
 
-    Arguments
-    ---------
-    track: ICESat-2 reference ground track (RGT)
+    Parameters
+    ----------
+    track: str, list or NoneType, default None
+        ICESat-2 reference ground track (RGT)
+
+    Returns
+    -------
+    track_list: list
+        formatted available reference ground tracks (RGTs)
     """
     #-- string length of RGTs in granules
     track_length = 4
@@ -921,9 +1044,15 @@ def granules(granule):
     """
     Check if the submitted granule regions are valid
 
-    Arguments
-    ---------
-    granule: ICESat-2 granule region
+    Parameters
+    ----------
+    granule: str, list or NoneType, default None
+        ICESat-2 granule region
+
+    Returns
+    -------
+    granule_list: list
+        formatted available granule regions
     """
     #-- string length of granule regions in granule files
     granule_length = 2
@@ -953,9 +1082,15 @@ def regions(region):
     """
     Check if the submitted ATL14/ATL15 regions are valid
 
-    Arguments
-    ---------
-    region: ICESat-2 ATL14/ATL15 region
+    Parameters
+    ----------
+    region: str, list or NoneType, default None
+        ICESat-2 ATL14/ATL15 region
+
+    Returns
+    -------
+    region_list: list
+        formatted available ATL14/ATL15 regions
     """
     #-- all available ICESat-2 ATL14/15 regions
     all_regions = ['AA','AK','CN','CS','GL','IS','SV','RA']
@@ -983,9 +1118,15 @@ def resolutions(resolution):
     """
     Check if the submitted ATL14/ATL15 resolutions are valid
 
-    Arguments
-    ---------
-    resolution: ICESat-2 ATL14/ATL15 spatial resolution
+    Parameters
+    ----------
+    resolution: str, list or NoneType, default None
+        ICESat-2 ATL14/ATL15 spatial resolution
+
+    Returns
+    -------
+    resolution_list: list
+        formatted available ATL14/ATL15 resolutions
     """
     #-- all available ICESat-2 ATL14/15 resolutions
     all_resolutions = ['100m','01km','10km','20km','40km']
@@ -1012,19 +1153,21 @@ def readable_granules(product, **kwargs):
     """
     Create list of readable granule names for CMR queries
 
-    Arguments
-    ---------
-    product: ICESat-2 data product
-
-    Keyword arguments
-    -----------------
-    cycles: List of 91-day orbital cycle strings to query
-    tracks: List of Reference Ground Track (RGT) strings to query
-    granules: List of ICESat-2 granule region strings to query
+    Parameters
+    ----------
+    product: str
+        ICESat-2 data product
+    cycles: str, list or NoneType, default None
+        91-day orbital cycle strings to query
+    tracks: str, list or NoneType, default None
+        Reference Ground Track (RGT) strings to query
+    granules: str, list or NoneType, default None
+        ICESat-2 granule region strings to query
 
     Returns
     -------
-    list of readable granule names for CMR queries
+    readable_granule_list: list
+        readable granule names for CMR queries
     """
     #-- default keyword arguments
     kwargs.setdefault("cycles", None)
@@ -1073,18 +1216,19 @@ def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
     """
     Filter the CMR json response for desired data files
 
-    Arguments
-    ---------
-    search_results: json response from CMR query
-
-    Keyword arguments
-    -----------------
-    request_type: data type for reducing CMR query
+    Parameters
+    ----------
+    search_results: dict
+        json response from CMR query
+    request_type: str, default 'application/x-hdfeos'
+        data type for reducing CMR query
 
     Returns
     -------
-    producer_granule_ids: list of ICESat-2 granules
-    granule_urls: list of ICESat-2 granule urls from NSIDC
+    producer_granule_ids: list
+        ICESat-2 granules
+    granule_urls: list
+        ICESat-2 granule urls from NSIDC
     """
     #-- output list of granule ids and urls
     producer_granule_ids = []
@@ -1105,44 +1249,68 @@ def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
 #-- PURPOSE: cmr queries for orbital parameters
 def cmr(product=None, release=None, cycles=None, tracks=None,
     granules=None, regions=None, resolutions=None,
+    start_date=None, end_date=None, provider='NSIDC_ECS',
     request_type="application/x-hdfeos", verbose=False,
     fid=sys.stdout):
     """
     Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
 
-    Keyword arguments
-    -----------------
-    product: ICESat-2 data product to query
-    release: ICESat-2 data release to query
-    cycles: List of 91-day orbital cycle strings to query
-    tracks: List of Reference Ground Track (RGT) strings to query
-    granules: List of ICESat-2 granule region strings to query
-    regions: List of ICESat-2 ATL14/15 region strings to query
-    resolutions: List of ICESat-2 ATL14/15 resolution strings to query
-    request_type: data type for reducing CMR query
-    verbose: print file transfer information
-    fid: open file object to print if verbose
+    Parameters
+    ----------
+    product: str or NoneType, default None
+        ICESat-2 data product to query
+    release: str or NoneType, default None
+        ICESat-2 data release to query
+    cycles: str, list or NoneType, default None
+        91-day orbital cycle strings to query
+    tracks: str, list or NoneType, default None
+        Reference Ground Track (RGT) strings to query
+    granules: str, list or NoneType, default None
+        ICESat-2 granule region strings to query
+    regions: str, list or NoneType, default None
+        ICESat-2 ATL14/15 region strings to query
+    resolutions: str, list or NoneType, default None
+        ICESat-2 ATL14/15 resolution strings to query
+    start_date: str or NoneType, default None
+        starting date for CMR product query
+    end_date: str or NoneType, default None
+        ending date for CMR product query
+    provider: str, default 'NSIDC_ECS'
+        CMR data provider
+    request_type: str, default 'application/x-hdfeos'
+        data type for reducing CMR query
+    verbose: bool, default False
+        print file transfer information
+    fid: obj, default sys.stdout
+        open file object to print if verbose
 
     Returns
     -------
-    producer_granule_ids: list of ICESat-2 granules
-    granule_urls: list of ICESat-2 granule urls from NSIDC
+    producer_granule_ids: list
+        ICESat-2 granules
+    granule_urls: list
+        ICESat-2 granule urls from NSIDC
     """
     #-- create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
     logging.basicConfig(stream=fid, level=loglevel)
     #-- build urllib2 opener with SSL context
-    build_opener(None, None, context=ssl.SSLContext(),
-        password_manager=False)
+    #-- https://docs.python.org/3/howto/urllib2.html#id5
+    handler = []
+    #-- Create cookie jar for storing cookies
+    cookie_jar = CookieJar()
+    handler.append(urllib2.HTTPCookieProcessor(cookie_jar))
+    handler.append(urllib2.HTTPSHandler(context=ssl.SSLContext()))
+    #-- create "opener" (OpenerDirector instance)
+    opener = urllib2.build_opener(*handler)
     #-- build CMR query
     cmr_format = 'json'
-    cmr_provider = 'NSIDC_ECS'
     cmr_page_size = 2000
     CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
         'granules.{0}'.format(cmr_format)]
     #-- build list of CMR query parameters
     CMR_KEYS = []
-    CMR_KEYS.append('?provider={0}'.format(cmr_provider))
+    CMR_KEYS.append('?provider={0}'.format(provider))
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
     CMR_KEYS.append('&scroll=true')
@@ -1151,6 +1319,11 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     CMR_KEYS.append('&short_name={0}'.format(product))
     #-- append release strings
     CMR_KEYS.append(query_release(release))
+    #-- append keys for start and end time
+    #-- verify that start and end times are in ISO format
+    start_date = isoformat(start_date) if start_date else ''
+    end_date = isoformat(end_date) if end_date else ''
+    CMR_KEYS.append('&temporal={0},{1}'.format(start_date, end_date))
     #-- append keys for querying specific granules
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")
@@ -1170,7 +1343,7 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
         req = urllib2.Request(cmr_query_url)
         if cmr_scroll_id:
             req.add_header('cmr-scroll-id', cmr_scroll_id)
-        response = urllib2.urlopen(req)
+        response = opener.open(req)
         #-- get scroll id for next iteration
         if not cmr_scroll_id:
             headers = {k.lower():v for k,v in dict(response.info()).items()}

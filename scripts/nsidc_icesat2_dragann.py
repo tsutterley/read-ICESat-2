@@ -453,6 +453,7 @@ def main():
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
+    #-- build a urllib opener for NASA Earthdata
     #-- check internet connection before attempting to run program
     opener = icesat2_toolkit.utilities.attempt_login(HOST,
         username=args.user, password=args.password,

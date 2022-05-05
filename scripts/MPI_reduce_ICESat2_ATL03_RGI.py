@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL03_RGI.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
@@ -101,6 +102,41 @@ def info(rank, size):
     if hasattr(os, 'getppid'):
         logging.info('parent process: {0:d}'.format(os.getppid()))
     logging.info('process id: {0:d}'.format(os.getpid()))
+
+#-- PURPOSE: create argument parser
+def arguments():
+    parser = argparse.ArgumentParser(
+        description="""Create masks for reducing ICESat-2 photon event data to
+            the Randolph Glacier Inventory (RGI)
+            """,
+        fromfile_prefix_chars="@"
+    )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
+    #-- command line parameters
+    parser.add_argument('file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='ICESat-2 ATL03 file to run')
+    #-- working data directory for location of RGI files
+    parser.add_argument('--directory','-D',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Working data directory for mask files')
+    #-- region of Randolph Glacier Inventory to run
+    parser.add_argument('--region','-r',
+        metavar='RGI', type=int, choices=range(1,20),
+        help='region of Randolph Glacier Inventory to run')
+    #-- verbosity settings
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the local files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
 
 #-- PURPOSE: load zip file containing Randolph Glacier Inventory shapefiles
 def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
@@ -160,44 +196,15 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
     #-- return the dictionary of polygon objects and the input file
     return (poly_dict, RGI_files[RGI_REGION-1])
 
-#-- PURPOSE: read ICESat-2 data from NSIDC or MPI_ICESat2_ATL03.py
+#-- PURPOSE: read ICESat-2 geolocated photon height data (ATL03)
 #-- reduce to the Randolph Glacier Inventory
 def main():
     #-- start MPI communicator
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
-    parser = argparse.ArgumentParser(
-        description="""Create masks for reducing ICESat-2 photon event data to
-            the Randolph Glacier Inventory (RGI)
-            """,
-        fromfile_prefix_chars="@"
-    )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
-    #-- command line parameters
-    parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='ICESat-2 ATL03 file to run')
-    #-- working data directory for location of RGI files
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
-    #-- region of Randolph Glacier Inventory to run
-    parser.add_argument('--region','-r',
-        metavar='RGI', type=int, choices=range(1,20),
-        help='region of Randolph Glacier Inventory to run')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

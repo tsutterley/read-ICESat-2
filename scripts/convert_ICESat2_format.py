@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 convert_ICESat2_format.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 07/2021: set context for multiprocessing to fork child processes
@@ -211,9 +212,8 @@ def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
         #-- return the output string
         return output
 
-#-- Main program that calls convert_ICESat2_format()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Converts ICESat-2 HDF5 datafiles to zarr or
             rechunked HDF5 datafiles
@@ -292,8 +292,15 @@ def main():
     #-- permissions mode of the converted files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- convert HDF5 files for each data product
     convert_ICESat2_format(args.directory, args.products, args.release,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_IB_ICESat2_ATL06.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 Calculates and interpolates inverse-barometer responses to times and
     locations of ICESat-2 ATL06 land ice elevation data
     This data will be interpolated for all valid points
@@ -45,6 +45,7 @@ REFERENCES:
         Rev. A, 84 pp., (1994)
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
     Updated 05/2021: print full path of output filename
@@ -672,9 +673,8 @@ def HDF5_ATL06_corr_write(IS2_atl06_corr, IS2_atl06_attrs, INPUT=None,
     #-- Closing the HDF5 file
     fileID.close()
 
-#-- Main program that calls interp_IB_response_ICESat2()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates and interpolates inverse-barometer
             responses to times and locations of ICESat-2 ATL06 land
@@ -716,7 +716,14 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files created')
-    args,_ = parser.parse_known_args()
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- run for each input ATL06 file
     for FILE in args.infile:

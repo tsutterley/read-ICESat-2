@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
     Updated 05/2020: adjust regular expression to run ATL07 sea ice products
@@ -60,9 +61,8 @@ import paramiko
 import posixpath
 import numpy as np
 
-#-- Main program that calls scp_ICESat2_files()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Copies ICESat-2 HDF5 data from between a local host and
             remote host
@@ -142,8 +142,15 @@ def main():
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output directories and files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output directories and files')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- use entered host and username
     client_kwds = {}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync_s3.py
-Written by Tyler Sutterley (03/2022)
+Written by Tyler Sutterley (05/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     and transfers to an AWS S3 bucket using a local machine as pass through
@@ -72,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
@@ -379,9 +380,8 @@ def retry_download(remote_file, BUCKET=None, LOCAL=None, TIMEOUT=None, RETRY=1):
     if (retry_counter == RETRY):
         raise TimeoutError('Maximum number of retries reached')
 
-#-- Main program that calls nsidc_icesat2_sync()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Acquires ICESat-2 datafiles from the National Snow
             and Ice Data Center (NSIDC) and transfers to an AWS S3 bucket
@@ -484,7 +484,14 @@ def main():
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data')
-    args,_ = parser.parse_known_args()
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL06_raster.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (05/2022)
 
 Create masks for reducing ICESat-2 ATL06 data using raster imagery
 
@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Written 11/2021
 """
 from __future__ import print_function
@@ -519,9 +520,8 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     #-- Closing the HDF5 file
     fileID.close()
 
-#-- Main program that calls reduce_ICESat2_ATL06_raster()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Create masks for reducing ICESat-2 data
             using raster imagery
@@ -561,8 +561,15 @@ def main():
     #-- permissions mode of the local files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- run raster mask program with parameters
     reduce_ICESat2_ATL06_raster(args.file,

@@ -41,16 +41,16 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     :hidden:
     :caption: Utilities
 
-    user_guide/convert_ICESat2_format.md
-    user_guide/copy_scf_ICESat2_files.md
-    user_guide/nsidc_icesat2_associated.md
-    user_guide/nsidc_icesat2_convert.md
-    user_guide/nsidc_icesat2_dragann.md
-    user_guide/nsidc_icesat2_sync.md
-    user_guide/nsidc_icesat2_sync_s3.md
-    user_guide/scp_ICESat2_files.md
-    user_guide/scp_scf_ICESat2_files.md
-    user_guide/symbolic_ICESat2_files.md
+    user_guide/convert_ICESat2_format.rst
+    user_guide/copy_scf_ICESat2_files.rst
+    user_guide/nsidc_icesat2_associated.rst
+    user_guide/nsidc_icesat2_convert.rst
+    user_guide/nsidc_icesat2_dragann.rst
+    user_guide/nsidc_icesat2_sync.rst
+    user_guide/nsidc_icesat2_sync_s3.rst
+    user_guide/scp_ICESat2_files.rst
+    user_guide/scp_scf_ICESat2_files.rst
+    user_guide/symbolic_ICESat2_files.rst
 
 .. toctree::
     :maxdepth: 1
@@ -60,24 +60,24 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     user_guide/interp_IB_response_ICESat2_ATL06.rst
     user_guide/interp_IB_response_ICESat2_ATL07.rst
     user_guide/interp_IB_response_ICESat2_ATL11.rst
-    user_guide/interp_sea_level_ICESat2_ATL06.md
-    user_guide/interp_sea_level_ICESat2_ATL07.md
-    user_guide/interp_sea_level_ICESat2_ATL11.md
-    user_guide/MPI_DEM_ICESat2_ATL03.md
-    user_guide/MPI_DEM_ICESat2_ATL06.md
-    user_guide/MPI_DEM_ICESat2_ATL11.md
-    user_guide/MPI_ICESat2_ATL03.md
-    user_guide/MPI_ICESat2_ATL03_histogram.md
-    user_guide/MPI_reduce_ICESat2_ATL03_RGI.md
-    user_guide/MPI_reduce_ICESat2_ATL06_drainages.md
-    user_guide/MPI_reduce_ICESat2_ATL06_grounded.md
-    user_guide/MPI_reduce_ICESat2_ATL06_ice_shelves.md
-    user_guide/MPI_reduce_ICESat2_ATL06_RGI.md
-    user_guide/MPI_reduce_ICESat2_ATL11_drainages.md
-    user_guide/MPI_reduce_ICESat2_ATL11_grounded.md
-    user_guide/MPI_reduce_ICESat2_ATL11_ice_shelves.md
-    user_guide/MPI_reduce_ICESat2_ATL11_RGI.md
-    user_guide/reduce_ICESat2_ATL06_raster.md
-    user_guide/reduce_ICESat2_ATL07_raster.md
-    user_guide/reduce_ICESat2_ATL10_raster.md
-    user_guide/reduce_ICESat2_ATL11_raster.md
+    user_guide/interp_sea_level_ICESat2_ATL06.rst
+    user_guide/interp_sea_level_ICESat2_ATL07.rst
+    user_guide/interp_sea_level_ICESat2_ATL11.rst
+    user_guide/MPI_DEM_ICESat2_ATL03.rst
+    user_guide/MPI_DEM_ICESat2_ATL06.rst
+    user_guide/MPI_DEM_ICESat2_ATL11.rst
+    user_guide/MPI_ICESat2_ATL03.rst
+    user_guide/MPI_ICESat2_ATL03_histogram.rst
+    user_guide/MPI_reduce_ICESat2_ATL03_RGI.rst
+    user_guide/MPI_reduce_ICESat2_ATL06_drainages.rst
+    user_guide/MPI_reduce_ICESat2_ATL06_grounded.rst
+    user_guide/MPI_reduce_ICESat2_ATL06_ice_shelves.rst
+    user_guide/MPI_reduce_ICESat2_ATL06_RGI.rst
+    user_guide/MPI_reduce_ICESat2_ATL11_drainages.rst
+    user_guide/MPI_reduce_ICESat2_ATL11_grounded.rst
+    user_guide/MPI_reduce_ICESat2_ATL11_ice_shelves.rst
+    user_guide/MPI_reduce_ICESat2_ATL11_RGI.rst
+    user_guide/reduce_ICESat2_ATL06_raster.rst
+    user_guide/reduce_ICESat2_ATL07_raster.rst
+    user_guide/reduce_ICESat2_ATL10_raster.rst
+    user_guide/reduce_ICESat2_ATL11_raster.rst

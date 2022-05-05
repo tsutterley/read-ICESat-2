@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (05/2022)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: use delta time as output dimension for HDF5 variables
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
@@ -131,6 +132,41 @@ def info(rank, size):
     if hasattr(os, 'getppid'):
         logging.info('parent process: {0:d}'.format(os.getppid()))
     logging.info('process id: {0:d}'.format(os.getpid()))
+
+#-- PURPOSE: create argument parser
+def arguments():
+    parser = argparse.ArgumentParser(
+        description="""Interpolate DEMs to ICESat-2 ATL06 land ice locations
+            """,
+        fromfile_prefix_chars="@"
+    )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
+    #-- command line parameters
+    parser.add_argument('file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='ICESat-2 ATL06 file to run')
+    #-- working data directory for location of DEM files
+    parser.add_argument('--directory','-D',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Working data directory')
+    #-- Digital elevation model (REMA, ArcticDEM, GIMP) to run
+    #-- set the DEM model to run for a given granule (else set automatically)
+    parser.add_argument('--model','-m',
+        metavar='DEM', type=str, choices=('REMA', 'ArcticDEM', 'GIMP'),
+        help='Digital Elevation Model to run')
+    #-- verbosity settings
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the local files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
 
 #-- PURPOSE: set the DEM model to interpolate based on the input granule
 def set_DEM_model(GRANULE):
@@ -325,44 +361,15 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     #-- return values (flip y values to be monotonically increasing)
     return (im[::-1,:],mask[::-1,:],xi,yi[::-1])
 
-#-- PURPOSE: read ICESat-2 data from NSIDC or MPI_ICESat2_ATL03.py
+#-- PURPOSE: read ICESat-2 land ice height data (ATL06)
 #-- interpolate DEM data to x and y coordinates
 def main():
     #-- start MPI communicator
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
-    parser = argparse.ArgumentParser(
-        description="""Interpolate DEMs to ICESat-2 ATL06 land ice locations
-            """,
-        fromfile_prefix_chars="@"
-    )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
-    #-- command line parameters
-    parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='ICESat-2 ATL06 file to run')
-    #-- working data directory for location of DEM files
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
-    #-- Digital elevation model (REMA, ArcticDEM, GIMP) to run
-    #-- set the DEM model to run for a given granule (else set automatically)
-    parser.add_argument('--model','-m',
-        metavar='DEM', type=str, choices=('REMA', 'ArcticDEM', 'GIMP'),
-        help='Digital Elevation Model to run')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_drainages.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (05/2022)
 
 Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
 
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: use delta time as output dimension for HDF5 variables
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
@@ -90,6 +91,37 @@ def info(rank, size):
     if hasattr(os, 'getppid'):
         logging.info('parent process: {0:d}'.format(os.getppid()))
     logging.info('process id: {0:d}'.format(os.getpid()))
+
+#-- PURPOSE: create argument parser
+def arguments():
+    parser = argparse.ArgumentParser(
+        description="""Create masks for reducing ICESat-2 data into IMBIE-2
+            drainage regions
+            """,
+        fromfile_prefix_chars="@"
+    )
+    parser.convert_arg_line_to_args = \
+        icesat2_toolkit.utilities.convert_arg_line_to_args
+    #-- command line parameters
+    parser.add_argument('file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='ICESat-2 ATL06 file to run')
+    #-- working data directory for drainage basins shapefiles
+    parser.add_argument('--directory','-D',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Working data directory for mask files')
+    #-- verbosity settings
+    #-- verbose will output information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the local files (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
 
 #-- PURPOSE: set the hemisphere of interest based on the granule
 def set_hemisphere(GRANULE):
@@ -146,40 +178,15 @@ def load_IMBIE2_basins(basin_dir, HEM, EPSG):
     #-- return the polygon object and the input file name
     return poly_dict, [basin_shapefile]
 
-#-- PURPOSE: read ICESat-2 data from NSIDC or MPI_ICESat2_ATL03.py
+#-- PURPOSE: read ICESat-2 land ice height data (ATL06)
 #-- reduce to IMBIE-2 (Rignot) drainage basins
 def main():
     #-- start MPI communicator
     comm = MPI.COMM_WORLD
 
     #-- Read the system arguments listed after the program
-    parser = argparse.ArgumentParser(
-        description="""Create masks for reducing ICESat-2 data into IMBIE-2
-            drainage regions
-            """,
-        fromfile_prefix_chars="@"
-    )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
-    #-- command line parameters
-    parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='ICESat-2 ATL06 file to run')
-    #-- working data directory for drainage basins shapefiles
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

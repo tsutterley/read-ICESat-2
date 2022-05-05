@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 interp_sea_level_ICESat2_ATL07.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (05/2022)
 Interpolates sea level anomalies (sla), absolute dynamic topography (adt) and
     mean dynamic topography (mdt) to times and locations of ICESat-2 ATL07 data
 
@@ -37,6 +37,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: hemisphere flags based on ATL07 hemisphere code
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
@@ -604,9 +605,8 @@ def HDF5_ATL07_corr_write(IS2_atl07_corr, IS2_atl07_attrs, INPUT=None,
     #-- Closing the HDF5 file
     fileID.close()
 
-#-- Main program that calls interp_sea_level_ICESat2()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Interpolates AVISO sea level anomalies, absolute
             dynamic topography and mean dynamic topography to ICESat-2
@@ -634,7 +634,14 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files created')
-    args,_ = parser.parse_known_args()
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- run for each input ATL07 file
     for FILE in args.infile:

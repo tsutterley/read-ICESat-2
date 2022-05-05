@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -24,6 +24,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 11/2020: add exception for FileExistsError to skip files
     Updated 10/2020: using argparse to set parameters
@@ -39,9 +40,8 @@ import logging
 import argparse
 import numpy as np
 
-#-- Main program that calls symbolic_ICESat2_files()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates symbolic links for ICESat-2 HDF5 files from the
             local scf directory to a separate directory organized by date
@@ -107,8 +107,15 @@ def main():
     #-- permissions mode of the local directories (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output directories')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output directories')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

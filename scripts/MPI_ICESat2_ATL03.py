@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
     classify_photons.py: Yet Another Photon Classifier for Geolocated Photon Data
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         do not use possible TEP photons in photon classification calculation
         added parsing for converting file lines to arguments
@@ -97,13 +98,8 @@ def info(rank, size):
         logging.info('parent process: {0:d}'.format(os.getppid()))
     logging.info('process id: {0:d}'.format(os.getpid()))
 
-#-- PURPOSE: reads ICESat-2 ATL03 and ATL09 HDF5 files
-#-- and computes average heights over segments
-def main():
-    #-- start MPI communicator
-    comm = MPI.COMM_WORLD
-
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Read ICESat-2 ATL03 and ATL09 data files to calculate
             average segment surfaces
@@ -133,8 +129,20 @@ def main():
     #-- permissions mode of the local files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
+
+#-- PURPOSE: read ICESat-2 geolocated photon height data (ATL03)
+#-- and backscatter profiles/atmospheric layer characteristics (ATL09)
+#-- Computes average heights over segments
+def main():
+    #-- start MPI communicator
+    comm = MPI.COMM_WORLD
+
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

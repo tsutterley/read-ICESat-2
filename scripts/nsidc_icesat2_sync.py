@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (03/2022)
+Written by Tyler Sutterley (05/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -69,6 +69,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
@@ -427,9 +428,8 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
         remote_buffer.seek(0)
         return remote_buffer
 
-#-- Main program that calls nsidc_icesat2_sync()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Acquires ICESat-2 datafiles from the National Snow and
             Ice Data Center (NSIDC)
@@ -535,8 +535,15 @@ def main():
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'

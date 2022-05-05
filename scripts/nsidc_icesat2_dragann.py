@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (03/2022)
+Written by Tyler Sutterley (05/2022)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -58,6 +58,7 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
     Updated 10/2021: using python logging for handling verbose output
@@ -366,9 +367,8 @@ def extract_dragann_classification(buffer,gtx,segment_id,ph_index_beg,n_pe):
     #-- return the output variables and attributes
     return (output,attrs)
 
-#-- Main program that calls nsidc_icesat2_dragann()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Acquires the ATL03 geolocated photon height product
             and appends the ATL08 DRAGANN classifications from NSIDC
@@ -448,8 +448,15 @@ def main():
     #-- permissions mode of the output files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
-    args,_ = parser.parse_known_args()
+        help='Permissions mode of output files')
+    # return the parser
+    return parser
+
+# This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
+    args,_ = parser.parse_known_args()()
 
     #-- NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'

@@ -641,7 +641,7 @@ def arguments():
 def main():
     #-- Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()()
+    args,_ = parser.parse_known_args()
 
     #-- run for each input ATL07 file
     for FILE in args.infile:

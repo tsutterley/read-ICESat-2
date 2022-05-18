@@ -17,390 +17,56 @@ Download and management utilities for syncing time and auxiliary files
 General Methods
 ===============
 
+.. autofunction:: icesat2_toolkit.utilities.get_data_path
 
-.. method:: icesat2_toolkit.utilities.get_data_path(relpath)
+.. autofunction:: icesat2_toolkit.utilities.get_hash
 
-    Get the absolute path within a package from a relative path
+.. autofunction:: icesat2_toolkit.utilities.url_split
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.utilities.get_unix_time
 
-        ``relpath``: local relative path as list or string
+.. autofunction:: icesat2_toolkit.utilities.even
 
+.. autofunction:: icesat2_toolkit.utilities.ceil
 
-.. method:: icesat2_toolkit.utilities.get_hash(local, algorithm='MD5')
+.. autofunction:: icesat2_toolkit.utilities.copy
 
-    Get the hash value from a local file or BytesIO object
+.. autofunction:: icesat2_toolkit.utilities.check_ftp_connection
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.utilities.ftp_list
 
-        ``local``: BytesIO object or path to file
+.. autofunction:: icesat2_toolkit.utilities.from_ftp
 
-    Keyword Arguments:
+.. autofunction:: icesat2_toolkit.utilities.check_connection
 
-        ``algorithm``: hashing algorithm for checksum validation
+.. autofunction:: icesat2_toolkit.utilities.http_list
 
-            ``'MD5'``: Message Digest
+.. autofunction:: icesat2_toolkit.utilities.from_http
 
-            ``'sha1'``: Secure Hash Algorithm
+.. autofunction:: icesat2_toolkit.utilities.attempt_login
 
+.. autofunction:: icesat2_toolkit.utilities.build_opener
 
-.. method:: icesat2_toolkit.utilities.url_split(s)
+.. autofunction:: icesat2_toolkit.utilities.check_credentials
 
-    Recursively split a url path into a list
+.. autofunction:: icesat2_toolkit.utilities.nsidc_list
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.utilities.from_nsidc
 
-        ``s``: url string
+.. autofunction:: icesat2_toolkit.utilities.query_release
 
+.. autofunction:: icesat2_toolkit.utilities.cycles
 
-.. method:: icesat2_toolkit.utilities.get_unix_time(time_string, format='%Y-%m-%d %H:%M:%S')
+.. autofunction:: icesat2_toolkit.utilities.tracks
 
-    Get the Unix timestamp value for a formatted date string
+.. autofunction:: icesat2_toolkit.utilities.granules
 
-    Arguments:
+.. autofunction:: icesat2_toolkit.utilities.regions
 
-        ``time_string``: formatted time string to parse
+.. autofunction:: icesat2_toolkit.utilities.resolutions
 
-    Keyword arguments:
+.. autofunction:: icesat2_toolkit.utilities.readable_granules
 
-        ``format``: format for input time string
+.. autofunction:: icesat2_toolkit.utilities.cmr_filter_json
 
-
-.. method:: icesat2_toolkit.utilities.even(value)
-
-    Rounds a number to an even number less than or equal to original
-
-    Arguments:
-
-        ``value``: number to be rounded
-
-
-.. method:: icesat2_toolkit.utilities.ceil(value)
-
-    Rounds a number upward to its nearest integer
-
-    Arguments:
-
-        ``value``: number to be rounded upward
-
-
-.. method:: icesat2_toolkit.utilities.copy(source, destination, verbose=False, move=False)
-
-    Copy or move a file with all system information
-
-    Arguments:
-
-        ``source``: source file
-
-        ``destination``: copied destination file
-
-    Keyword arguments:
-
-        ``verbose``: print file transfer information
-
-        ``move``: remove the source file
-
-
-.. method:: icesat2_toolkit.utilities.check_ftp_connection(HOST,username=None,password=None)
-
-    Check internet connection with ftp host
-
-    Arguments:
-
-        ``HOST``: remote ftp host
-
-    Keyword arguments:
-
-        ``username``: ftp username
-
-        ``password``: ftp password
-
-
-.. method:: icesat2_toolkit.utilities.ftp_list(HOST,username=None,password=None,timeout=None,basename=False,pattern=None,sort=False)
-
-    List a directory on a ftp host
-
-    Arguments:
-
-        ``HOST``: remote ftp host path split as list
-
-    Keyword arguments:
-
-        ``username``: ftp username
-
-        ``password``: ftp password
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``basename``: return the file or directory basename instead of the full path
-
-        ``pattern``: regular expression pattern for reducing list
-
-        ``sort``: sort output list
-
-    Returns:
-
-        ``output``: list of items in a directory
-
-        ``mtimes``: list of last modification times for items in the directory
-
-
-.. method:: icesat2_toolkit.utilities.from_ftp(HOST,username=None,password=None,timeout=None,local=None,hash='',chunk=8192,verbose=False,fid=sys.stdout,mode=0o775)
-
-    Download a file from a ftp host
-
-    Arguments:
-
-        ``HOST``: remote ftp host path split as list
-
-    Keyword arguments:
-
-        ``username``: ftp username
-
-        ``password``: ftp password
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``local``: path to local file
-
-        ``hash``: MD5 hash of local file
-
-        ``chunk``: chunk size for transfer encoding
-
-        ``verbose``: print file transfer information
-
-        ``fid``: open file object to print if verbose
-
-        ``mode``: permissions mode of output local file
-
-    Returns:
-
-        ``remote_buffer``: BytesIO representation of file
-
-
-.. method:: icesat2_toolkit.utilities.check_connection(HOST)
-
-    Check internet connection with an http host
-
-    Arguments:
-
-        ``HOST``: remote http host
-
-
-.. method:: icesat2_toolkit.utilities.http_list(HOST,timeout=None,context=ssl.SSLContext(),parser=lxml.etree.HTMLParser(),format='%Y-%m-%d %H:%M',pattern='',sort=False)
-
-    List a directory on an Apache http Server
-
-    Arguments:
-
-        ``HOST``: remote http host path split as list
-
-    Keyword arguments:
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``context``: SSL context for url opener object
-
-        ``parser``: HTML parser for lxml
-
-        ``format``: format for input time string
-
-        ``pattern``: regular expression pattern for reducing list
-
-        ``sort``: sort output list
-
-    Returns:
-
-        ``colnames``: list of column names in a directory
-
-        ``collastmod``: list of last modification times for items in the directory
-
-        ``colerror``: notification for list error
-
-
-.. method:: icesat2_toolkit.utilities.from_http(HOST,timeout=None,context=ssl.SSLContext(),local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
-
-    Download a file from a http host
-
-    Arguments:
-
-        ``HOST``: remote http host path split as list
-
-    Keyword arguments:
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``context``: SSL context for url opener object
-
-        ``local``: path to local file
-
-        ``hash``: MD5 hash of local file
-
-        ``chunk``: chunk size for transfer encoding
-
-        ``verbose``: print file transfer information
-
-        ``fid``: open file object to print if verbose
-
-        ``mode``: permissions mode of output local file
-
-    Returns:
-
-        ``remote_buffer``: BytesIO representation of file
-
-
-.. method:: icesat2_toolkit.utilities.attempt_login(urs,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,**kwargs)
-
-    attempt to build a urllib opener for NASA Earthdata
-
-    Arguments:
-
-        ``urs``: Earthdata login URS 3 host
-
-    Keyword arguments
-
-        ``context``: SSL context for opener object
-
-        ``password_manager``: create password manager context using default realm
-
-        ``get_ca_certs``: get list of loaded “certification authority” certificates
-
-        ``redirect``: create redirect handler object
-
-        ``authorization_header``: add base64 encoded authorization header to opener
-
-        ``username``: NASA Earthdata username
-
-        ``password``: NASA Earthdata password
-
-        ``retries``: number of retry attempts
-
-        ``netrc``: path to .netrc file for authentication
-
-
-.. method:: icesat2_toolkit.utilities.build_opener(username,password,context=ssl.SSLContext(),password_manager=True,get_ca_certs=False,redirect=False,authorization_header=True,urs=None)
-
-    build urllib opener for NASA Earthdata with supplied credentials
-
-    Arguments:
-
-        ``username``: NASA Earthdata username
-
-        ``password``: NASA Earthdata password
-
-    Keyword arguments:
-
-        ``context``: SSL context for opener object
-
-        ``password_manager``: create password manager context using default realm
-
-        ``get_ca_certs``: get list of loaded “certification authority” certificates
-
-        ``redirect``: create redirect handler object
-
-        ``authorization_header``: add base64 encoded authorization header to opener
-
-        ``urs``: Earthdata login URS 3 host
-
-
-.. method:: icesat2_toolkit.utilities.check_credentials()
-
-    Check that entered NASA Earthdata credentials are valid
-
-
-.. method:: icesat2_toolkit.utilities.nsidc_list(HOST,username=None,password=None,build=True,timeout=None,parser=None,pattern='',sort=False)
-
-    Download a file from a NSIDC https server
-
-    Arguments:
-
-        ``HOST``: remote http host path split as list
-
-    Keyword arguments:
-
-        ``username``: NASA Earthdata username
-
-        ``password``: NASA Earthdata password
-
-        ``build``: Build opener and check Earthdata credentials
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``parser``: HTML parser for lxml
-
-        ``pattern``: regular expression pattern for reducing list
-
-        ``sort``: sort output list
-
-    Returns:
-
-        ``colnames``: list of column names in a directory
-
-        ``collastmod``: list of last modification times for items in the directory
-
-        ``colerror``: notification for list error
-
-
-.. method:: icesat2_toolkit.utilities.from_nsidc(HOST,username=None,password=None,build=True,timeout=None,local=None,hash='',chunk=16384,verbose=False,fid=sys.stdout,mode=0o775)
-
-    Download a file from a NSIDC https server
-
-    Arguments:
-
-        ``HOST``: remote http host path split as list
-
-    Keyword arguments:
-
-        ``username``: NASA Earthdata username
-
-        ``password``: NASA Earthdata password
-
-        ``build``: Build opener and check Earthdata credentials
-
-        ``timeout``: timeout in seconds for blocking operations
-
-        ``local``: path to local file
-
-        ``hash``: MD5 hash of local file
-
-        ``chunk``: chunk size for transfer encoding
-
-        ``verbose``: print file transfer information
-
-        ``fid``: open file object to print if verbose
-
-        ``mode``: permissions mode of output local file
-
-    Returns:
-
-        ``remote_buffer``: BytesIO representation of file
-
-        ``response_error``: notification for response error
-
-
-.. method:: icesat2_toolkit.utilities.cmr(product=None,release=None,cycles=None,tracks=None,granules=None,verbose=False,fid=sys.stdout)
-
-    Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
-
-    Keyword arguments:
-
-        ``product``: ICESat-2 data product to query
-
-        ``release``: ICESat-2 data release to query
-
-        ``cycles``: List of 91-day orbital cycle strings to query
-
-        ``tracks``: List of Reference Ground Track (RGT) strings to query
-
-        ``granules``: List of ICESat-2 granule region strings to query
-
-        ``verbose``: print file transfer information
-
-        ``fid``: open file object to print if verbose
-
-    Returns:
-
-      ``producer_granule_ids``: list of ICESat-2 granules
-
-      ``granule_urls``: list of ICESat-2 granule urls from NSIDC
-
+.. autofunction:: icesat2_toolkit.utilities.cmr

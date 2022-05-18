@@ -186,7 +186,7 @@ def main():
 
     #-- Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()()
+    args,_ = parser.parse_known_args()
 
     #-- create logger
     loglevel = logging.INFO if args.verbose else logging.CRITICAL

@@ -157,7 +157,7 @@ def arguments():
 def main():
     #-- Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()()
+    args,_ = parser.parse_known_args()
 
     #-- use entered host and username
     client_kwds = {}

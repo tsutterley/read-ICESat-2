@@ -300,7 +300,7 @@ def arguments():
 def main():
     #-- Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()()
+    args,_ = parser.parse_known_args()
 
     #-- convert HDF5 files for each data product
     convert_ICESat2_format(args.directory, args.products, args.release,

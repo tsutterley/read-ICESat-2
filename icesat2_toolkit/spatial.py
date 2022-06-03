@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (06/2022)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 06/2022: place netCDF4 import behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2022: use iteration breaks in convert ellipsoid function
     Written 11/2021
@@ -28,14 +29,22 @@ import gzip
 import uuid
 import h5py
 import logging
-import netCDF4
 import warnings
 import numpy as np
+
+try:
+    import netCDF4
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("netCDF4 not available")
+    warnings.warn("Some functions will throw an exception if called")
+
 try:
     import osgeo.gdal, osgeo.osr, osgeo.gdalconst
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("GDAL not available")
+    warnings.warn("Some functions will throw an exception if called")
 
 def case_insensitive_filename(filename):
     """

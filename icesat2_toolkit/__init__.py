@@ -19,7 +19,6 @@ import icesat2_toolkit.spatial
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 import icesat2_toolkit.version
-from icesat2_toolkit.convert import convert
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 from icesat2_toolkit.read_ICESat2_ATL03 import read_HDF5_ATL03, \
     find_HDF5_ATL03_beams, read_HDF5_ATL09, read_HDF5_ATL03_main, read_HDF5_ATL03_beam

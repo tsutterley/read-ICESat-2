@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 06/2022: use explicit import of convert functions
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
@@ -75,8 +76,8 @@ import logging
 import argparse
 import traceback
 import multiprocessing as mp
-import icesat2_toolkit.convert
 import icesat2_toolkit.utilities
+from icesat2_toolkit.convert import convert
 
 #-- PURPOSE: convert the ICESat-2 elevation data from HDF5 to zarr
 #-- or rechunked HDF5 formats
@@ -202,9 +203,9 @@ def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
     #-- if file does not exist, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- output string for printing files transferred
-        output='{0} -->\n\t{1}{2}\n'.format(hdf5_file,output_file,OVERWRITE)
+        output = '{0} -->\n\t{1}{2}\n'.format(hdf5_file,output_file,OVERWRITE)
         #-- copy everything from the HDF5 file to the output file
-        conv = icesat2_toolkit.convert(filename=hdf5_file,reformat=FORMAT)
+        conv = convert(filename=hdf5_file, reformat=FORMAT)
         conv.file_converter(chunks=CHUNKS)
         #-- keep remote modification time of file and local access time
         os.utime(output_file, (os.stat(output_file).st_atime, hdf5_mtime))

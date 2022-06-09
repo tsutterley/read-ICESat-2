@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (06/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 06/2022: add NASA CMR spatial bounding box queries
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 03/2022: added NASA CMR query parameters for ATL14/15
         added attempt login function to recursively check credentials
@@ -1236,7 +1237,7 @@ def cmr_filter_json(search_results, request_type="application/x-hdfeos"):
 
 # PURPOSE: cmr queries for orbital parameters
 def cmr(product=None, release=None, cycles=None, tracks=None,
-    granules=None, regions=None, resolutions=None,
+    granules=None, regions=None, resolutions=None, bbox=None,
     start_date=None, end_date=None, provider='NSIDC_ECS',
     request_type="application/x-hdfeos", verbose=False,
     fid=sys.stdout):
@@ -1259,6 +1260,9 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
         ICESat-2 ATL14/15 region strings to query
     resolutions: str, list or NoneType, default None
         ICESat-2 ATL14/15 resolution strings to query
+    bbox: list or NoneType, default None
+        Spatial bounding box for CMR query in form
+        (``lon_min``, ``lat_min``, ``lon_max``, ``lat_max``)
     start_date: str or NoneType, default None
         starting date for CMR product query
     end_date: str or NoneType, default None
@@ -1312,6 +1316,10 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     start_date = isoformat(start_date) if start_date else ''
     end_date = isoformat(end_date) if end_date else ''
     CMR_KEYS.append('&temporal={0},{1}'.format(start_date, end_date))
+    # append keys for spatial bounding box
+    if bbox is not None:
+        bounding_box = ','.join([str(b) for b in bbox])
+        CMR_KEYS.append('&bounding_box={0}'.format(bounding_box))
     # append keys for querying specific granules
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")

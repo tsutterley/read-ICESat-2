@@ -8,6 +8,7 @@ read-ICESat-2
 |Documentation Status|
 |Binder|
 |Pangeo|
+|zenodo|
 |Shot Count|
 
 .. |Language| image:: https://img.shields.io/badge/python-v3.8-green.svg
@@ -27,6 +28,9 @@ read-ICESat-2
 
 .. |Pangeo| image:: https://img.shields.io/static/v1.svg?logo=Jupyter&label=PangeoBinderAWS&message=us-west-2&color=orange
    :target: https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab
+
+.. |zenodo| image:: https://zenodo.org/badge/193143942.svg
+   :target: https://zenodo.org/badge/latestdoi/193143942
 
 .. |Shot count| image:: https://img.shields.io/badge/dynamic/json?label=ICESat-2%20shot%20count&query=message&url=https%3A%2F%2Fraw.githubusercontent.com%2Ftsutterley%2Ftsutterley%2Fmaster%2FIS2-shot-count.json
    :target: https://icesat-2.gsfc.nasa.gov/

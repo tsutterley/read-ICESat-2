@@ -41,14 +41,14 @@ Dependencies
 
 .. code-block:: bash
 
-    curl -O http://zlib.net/zlib-1.2.11.tar.gz
+    curl -O http://zlib.net/zlib-1.2.12.tar.gz
     export CFLAGS=-fPIC
-    mkdir -p $HOME/packages/zlib/1.2.11
-    ./configure --prefix=$HOME/packages/zlib/1.2.11
+    mkdir -p $HOME/packages/zlib/1.2.12
+    ./configure --prefix=$HOME/packages/zlib/1.2.12
     make
     make install
 
-modulefile for local installation of zlib (``~/privatemodules/zlib/1.2.11``):
+modulefile for local installation of zlib (``~/privatemodules/zlib/1.2.12``):
 
 .. code-block:: tcl
 
@@ -56,12 +56,12 @@ modulefile for local installation of zlib (``~/privatemodules/zlib/1.2.11``):
     #
     #  zlib module for use with 'environment-modules' package:
     #
-    module-whatis		"Provides zlib 1.2.11 (local)"
+    module-whatis		"Provides zlib 1.2.12 (local)"
     global              env
-    prepend-path        PATH            $env(HOME)/packages/zlib/1.2.11/bin
-    prepend-path        LD_LIBRARY_PATH $env(HOME)/packages/zlib/1.2.11/lib
-    prepend-path        MANPATH         $env(HOME)/packages/zlib/1.2.11/share/man/
-    append-path         ZLIB_DIR        $env(HOME)/packages/zlib/1.2.11/
+    prepend-path        PATH            $env(HOME)/packages/zlib/1.2.12/bin
+    prepend-path        LD_LIBRARY_PATH $env(HOME)/packages/zlib/1.2.12/lib
+    prepend-path        MANPATH         $env(HOME)/packages/zlib/1.2.12/share/man/
+    append-path         ZLIB_DIR        $env(HOME)/packages/zlib/1.2.12/
 
 
 - `szip <https://support.hdfgroup.org/doc_resource/SZIP/>`_
@@ -127,7 +127,7 @@ modulefile for local installation of OpenMPI (``~/privatemodules/mpi/openmpi/4.0
     CC=~/packages/mpi/openmpi/4.0.3/bin/mpicc ./configure \
         --enable-parallel --enable-hl --enable-shared \
         --prefix=$HOME/packages/hdf5/1.10.5 \
-        --with-zlib=$HOME/packages/zlib/1.2.11 \
+        --with-zlib=$HOME/packages/zlib/1.2.12 \
         --with-szip=$HOME/packages/szip/2.1.1
     make
     make check
@@ -143,7 +143,7 @@ modulefile for local installation of HDF5 (``~/privatemodules/hdf5/1.10.5``):
     #
     module-whatis		"Provides hdf5 1.10.5 (local)"
     global              env
-    prereq	$env(HOME)/privatemodules/zlib/1.2.11	$env(HOME)/privatemodules/szip/2.1.1	$env(HOME)/privatemodules/mpi/openmpi/4.0.3
+    prereq	$env(HOME)/privatemodules/zlib/1.2.12	$env(HOME)/privatemodules/szip/2.1.1	$env(HOME)/privatemodules/mpi/openmpi/4.0.3
     prepend-path        PATH            $env(HOME)/packages/hdf5/1.10.5/bin
     prepend-path        LD_LIBRARY_PATH $env(HOME)/packages/hdf5/1.10.5/lib
     prepend-path        MANPATH         $env(HOME)/packages/hdf5/1.10.5/share/man/

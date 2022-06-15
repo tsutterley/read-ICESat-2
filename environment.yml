@@ -1,26 +1,26 @@
-name: read-ICESat-2
+name: icesat2_toolkit
 channels:
   - conda-forge
 dependencies:
   - python>=3.6
   - notebook
-  - numpy
-  - scipy
-  - scikit-learn
-  - python-dateutil
-  - pandas
-  - pyproj
-  - matplotlib
+  - boto3
   - cartopy
-  - mpi4py
+  - future
   - gdal
   - h5py>=2.9=mpi*
-  - netCDF4 
-  - zarr
-  - future
-  - boto3
   - lxml
+  - matplotlib
+  - mpi4py
+  - netCDF4
+  - numpy
+  - pandas
   - paramiko
+  - pyproj
+  - python-dateutil
+  - scikit-learn
+  - scipy
   - scp
+  - zarr
   - pip:
      - git+https://github.com/tsutterley/yapc.git

@@ -19,8 +19,6 @@ long_description_content_type = "text/x-rst"
 # get install requirements
 with open('requirements.txt') as fh:
     install_requires = [line.split().pop(0) for line in fh.read().splitlines()]
-# dependency links
-dependency_links = ['https://github.com/tsutterley/yapc/tarball/main']
 
 # get version
 with open('version.txt') as fh:
@@ -76,7 +74,6 @@ setup(
     keywords=keywords,
     packages=find_packages(),
     install_requires=install_requires,
-    dependency_links=dependency_links,
     scripts=scripts,
     include_package_data=True,
 )

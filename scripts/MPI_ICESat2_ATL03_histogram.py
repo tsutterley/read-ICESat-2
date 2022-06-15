@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (10/2021)
+MPI_ICESat2_ATL03_histogram.py (06/2022)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -75,6 +75,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 06/2022: update classify photons to match current GSFC version
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         do not use possible TEP photons in photon classification calculation
@@ -554,8 +555,8 @@ def main():
                     h_win_width += tlm_height[b][idx]
             #-- calculate photon event weights
             Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
-                h_win_width, i2, K=3, min_ph=3, min_xspread=1.0,
-                min_hspread=0.01, aspect=3, method='linear')
+                h_win_width, i2, K=0, min_knn=5, min_ph=3, min_xspread=1.0,
+                min_hspread=0.01, win_x=15.0, win_h=6.0, method='linear')
         #-- photon event weights
         pe_weights = np.zeros((n_pe),dtype=np.float)
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \

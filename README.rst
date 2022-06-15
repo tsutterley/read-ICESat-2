@@ -4,6 +4,7 @@ read-ICESat-2
 
 |Language|
 |License|
+|PyPI Version|
 |Documentation Status|
 |Binder|
 |Pangeo|
@@ -14,6 +15,9 @@ read-ICESat-2
 
 .. |License| image:: https://img.shields.io/badge/license-MIT-green.svg
    :target: https://github.com/tsutterley/read-ICESat-2/blob/main/LICENSE
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/icesat2-toolkit.svg
+   :target: https://pypi.python.org/pypi/icesat2-toolkit/
 
 .. |Documentation Status| image:: https://readthedocs.org/projects/read-icesat-2/badge/?version=latest
    :target: https://read-icesat-2.readthedocs.io/en/latest/?badge=latest

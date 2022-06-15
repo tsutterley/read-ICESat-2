@@ -27,8 +27,8 @@ The ``read-ICESat-2`` installation uses the ``gdal-config`` routines to set the 
 Installation
 ############
 
-Presently ``read-ICESat-2`` is only available for use as a
-`GitHub repository <https://github.com/tsutterley/read-ICESat-2>`_.
+``read-ICESat-2`` is available for download from the `GitHub repository <https://github.com/tsutterley/read-ICESat-2>`_,
+and the `Python Package Index (pypi) <https://pypi.org/project/icesat2-toolkit/>`_,
 The contents of the repository can be download as a
 `zipped file <https://github.com/tsutterley/read-ICESat-2/archive/main.zip>`_  or cloned.
 To use this repository, please fork into your own account and then clone onto your system.
@@ -55,6 +55,11 @@ Alternatively can install the utilities directly from GitHub with ``pip``:
 
     python3 -m pip install --user git+https://github.com/tsutterley/read-ICESat-2.git
 
-Executable versions of this repository can also be tested using
-`Binder <https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main>`_ or
-`Pangeo <https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab>`_.
+| This repository can be also tested using `BinderHub <https://github.com/jupyterhub/binderhub>`_ platforms:
+| |Binder| |Pangeo|
+
+.. |Binder| image:: https://mybinder.org/badge_logo.svg
+   :target: https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main
+
+.. |Pangeo| image:: https://img.shields.io/static/v1.svg?logo=Jupyter&label=PangeoBinderAWS&message=us-west-2&color=orange
+   :target: https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab

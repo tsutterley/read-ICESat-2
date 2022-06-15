@@ -1,20 +1,21 @@
-numpy
-scipy
-mpi4py
-h5py --no-binary=h5py
-netCDF4
-zarr
-gdal
-pandas
-pyproj
-scikit-learn
-python-dateutil
-matplotlib
+boto3
 cartopy --no-binary=cartopy
-shapely
 fiona
 future
-boto3
+gdal
+h5py --no-binary=h5py
 lxml
+matplotlib
+mpi4py
+netCDF4
+numpy
+pandas
 paramiko
+pyproj
+python-dateutil
+pyYAPC
+scikit-learn
+scipy
 scp
+shapely
+zarr

@@ -300,6 +300,7 @@ RUN pip3 install --no-cache-dir --no-binary=h5py,cartopy \
         paramiko \
         pyproj \
         python-dateutil \
+        pyYAPC \
         scikit-learn \
         scipy \
         scp \

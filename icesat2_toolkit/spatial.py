@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 06/2022: place netCDF4 import behind try/except statements
+        added field_mapping options to netCDF4 and HDF5 reads
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2022: use iteration breaks in convert ellipsoid function
     Written 11/2021
@@ -69,6 +70,15 @@ def case_insensitive_filename(filename):
 def from_file(filename, format, **kwargs):
     """
     Wrapper function for reading data from an input format
+
+    Parameters
+    ----------
+    filename: str
+        full path of input file
+    format: str
+        format of input file
+    **kwargs: dict
+        Keyword arguments for file reader
     """
     #-- read input file to extract spatial coordinates and data
     if (format == 'netCDF4'):
@@ -81,6 +91,7 @@ def from_file(filename, format, **kwargs):
         raise ValueError('Invalid format {0}'.format(format))
     return dinput
 
+
 def from_netCDF4(filename, **kwargs):
     """
     Read data from a netCDF4 file
@@ -91,18 +102,24 @@ def from_netCDF4(filename, **kwargs):
         full path of input netCDF4 file
     compression: str or NoneType, default None
         file compression type
+    timename: str, default 'time'
+        name for time-dimension variable
     xname: str, default 'lon'
         name for x-dimension variable
     yname: str, default 'lat'
         name for y-dimension variable
     varname: str, default 'data'
         name for data variable
+    field_mapping: dict, default {}
+        mapping between output variables and input netCDF4
     """
     #-- set default keyword arguments
     kwargs.setdefault('compression',None)
-    kwargs.setdefault('xname','x')
-    kwargs.setdefault('yname','y')
+    kwargs.setdefault('timename','time')
+    kwargs.setdefault('xname','lon')
+    kwargs.setdefault('yname','lat')
     kwargs.setdefault('varname','data')
+    kwargs.setdefault('field_mapping',{})
     #-- read data from netCDF4 file
     #-- Open the NetCDF4 file for reading
     if (kwargs['compression'] == 'gzip'):
@@ -133,10 +150,15 @@ def from_netCDF4(filename, **kwargs):
     attributes_list = ['description','units','long_name','calendar',
         'standard_name','grid_mapping','_FillValue']
     #-- mapping between netCDF4 variable names and output names
-    variable_mapping = dict(x=kwargs['xname'],y=kwargs['yname'],
-        data=kwargs['varname'])
+    if not kwargs['field_mapping']:
+        kwargs['field_mapping']['x'] = copy.copy(kwargs['xname'])
+        kwargs['field_mapping']['y'] = copy.copy(kwargs['yname'])
+        if kwargs['varname'] is not None:
+            kwargs['field_mapping']['data'] = copy.copy(kwargs['varname'])
+        if kwargs['timename'] is not None:
+            kwargs['field_mapping']['time'] = copy.copy(kwargs['timename'])
     #-- for each variable
-    for key,nc in variable_mapping.items():
+    for key,nc in kwargs['field_mapping'].items():
         #-- Getting the data from each NetCDF variable
         dinput[key] = fileID.variables[nc][:]
         #-- get attributes for the included variables
@@ -154,6 +176,8 @@ def from_netCDF4(filename, **kwargs):
     if 'grid_mapping' in dinput['attributes']['data'].keys():
         #-- try getting the attribute
         grid_mapping = dinput['attributes']['data']['grid_mapping']
+        #-- get coordinate reference system attributes
+        dinput['attributes']['crs'] = {}
         for att_name in fileID[grid_mapping].ncattrs():
             dinput['attributes']['crs'][att_name] = \
                 fileID.variables[grid_mapping].getncattr(att_name)
@@ -167,13 +191,6 @@ def from_netCDF4(filename, **kwargs):
         dinput['data'] = np.ma.asarray(dinput['data'])
         dinput['data'].fill_value = dinput['attributes']['data']['_FillValue']
         dinput['data'].mask = (dinput['data'].data == dinput['data'].fill_value)
-    #-- add extent and spacing attributes
-    xmin,xmax = np.min(dinput['x']),np.max(dinput['x'])
-    ymin,ymax = np.min(dinput['y']),np.max(dinput['y'])
-    dinput['attributes']['extent'] = (xmin,xmax,ymin,ymax)
-    dx = dinput['x'][1] - dinput['x'][0]
-    dy = dinput['y'][1] - dinput['y'][0]
-    dinput['attributes']['spacing'] = (dx,dy)
     #-- Closing the NetCDF file
     fileID.close()
     #-- return the spatial variables
@@ -189,18 +206,24 @@ def from_HDF5(filename, **kwargs):
         full path of input HDF5 file
     compression: str or NoneType, default None
         file compression type
+    timename: str, default 'time'
+        name for time-dimension variable
     xname: str, default 'lon'
         name for x-dimension variable
     yname: str, default 'lat'
         name for y-dimension variable
     varname: str, default 'data'
         name for data variable
+    field_mapping: dict, default {}
+        mapping between output variables and input HDF5
     """
     #-- set default keyword arguments
     kwargs.setdefault('compression',None)
-    kwargs.setdefault('xname','x')
-    kwargs.setdefault('yname','y')
+    kwargs.setdefault('timename','time')
+    kwargs.setdefault('xname','lon')
+    kwargs.setdefault('yname','lat')
     kwargs.setdefault('varname','data')
+    kwargs.setdefault('field_mapping',{})
     #-- read data from HDF5 file
     #-- Open the HDF5 file for reading
     if (kwargs['compression'] == 'gzip'):
@@ -236,10 +259,15 @@ def from_HDF5(filename, **kwargs):
     attributes_list = ['description','units','long_name','calendar',
         'standard_name','grid_mapping','_FillValue']
     #-- mapping between HDF5 variable names and output names
-    variable_mapping = dict(x=kwargs['xname'],y=kwargs['yname'],
-        data=kwargs['varname'])
+    if not kwargs['field_mapping']:
+        kwargs['field_mapping']['x'] = copy.copy(kwargs['xname'])
+        kwargs['field_mapping']['y'] = copy.copy(kwargs['yname'])
+        if kwargs['varname'] is not None:
+            kwargs['field_mapping']['data'] = copy.copy(kwargs['varname'])
+        if kwargs['timename'] is not None:
+            kwargs['field_mapping']['time'] = copy.copy(kwargs['timename'])
     #-- for each variable
-    for key,h5 in variable_mapping.items():
+    for key,h5 in kwargs['field_mapping'].items():
         #-- Getting the data from each HDF5 variable
         dinput[key] = np.copy(fileID[h5][:])
         #-- get attributes for the included variables
@@ -254,6 +282,8 @@ def from_HDF5(filename, **kwargs):
     if 'grid_mapping' in dinput['attributes']['data'].keys():
         #-- try getting the attribute
         grid_mapping = dinput['attributes']['data']['grid_mapping']
+        #-- get coordinate reference system attributes
+        dinput['attributes']['crs'] = {}
         for att_name,att_val in fileID[grid_mapping].attrs.items():
             dinput['attributes']['crs'][att_name] = att_val
         #-- get the spatial projection reference information from wkt
@@ -266,13 +296,6 @@ def from_HDF5(filename, **kwargs):
         dinput['data'] = np.ma.asarray(dinput['data'])
         dinput['data'].fill_value = dinput['attributes']['data']['_FillValue']
         dinput['data'].mask = (dinput['data'].data == dinput['data'].fill_value)
-    #-- add extent and spacing attributes
-    xmin,xmax = np.min(dinput['x']),np.max(dinput['x'])
-    ymin,ymax = np.min(dinput['y']),np.max(dinput['y'])
-    dinput['attributes']['extent'] = (xmin,xmax,ymin,ymax)
-    dx = dinput['x'][1] - dinput['x'][0]
-    dy = dinput['y'][1] - dinput['y'][0]
-    dinput['attributes']['spacing'] = (dx,dy)
     #-- Closing the HDF5 file
     fileID.close()
     #-- return the spatial variables
@@ -296,11 +319,8 @@ def from_geotiff(filename, **kwargs):
     kwargs.setdefault('bounds',None)
     #-- Open the geotiff file for reading
     if (kwargs['compression'] == 'gzip'):
-        #-- read gzip compressed file and extract into memory-mapped object
-        mmap_name = "/vsimem/{0}".format(uuid.uuid4().hex)
-        with gzip.open(case_insensitive_filename(filename),'r') as f:
-            osgeo.gdal.FileFromMemBuffer(mmap_name, f.read())
-        #-- read as GDAL memory-mapped (diskless) geotiff dataset
+        #-- read as GDAL gzip virtual geotiff dataset
+        mmap_name = "/vsigzip/{0}".format(case_insensitive_filename(filename))
         ds = osgeo.gdal.Open(mmap_name)
     elif (kwargs['compression'] == 'bytes'):
         #-- read as GDAL memory-mapped (diskless) geotiff dataset
@@ -364,6 +384,8 @@ def from_geotiff(filename, **kwargs):
         dinput['data'] = ds.ReadAsArray()
     #-- image extent
     dinput['attributes']['extent'] = (xmin, xmax, ymin, ymax)
+    #-- set default time to zero for each band
+    dinput.setdefault('time', np.zeros((bsize)))
     #-- check if image has fill values
     dinput['data'] = np.ma.asarray(dinput['data'])
     dinput['data'].mask = np.zeros_like(dinput['data'],dtype=bool)

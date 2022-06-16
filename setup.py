@@ -12,16 +12,16 @@ description = ('Python tools for obtaining and working with elevation data '
     'from the NASA ICESat-2 mission')
 keywords = 'ICESat-2 laser altimetry, ATLAS, surface elevation and change'
 # get long_description from README.rst
-with open("README.rst", "r") as fh:
+with open('README.rst', 'r', encoding='utf8') as fh:
     long_description = fh.read()
 long_description_content_type = "text/x-rst"
 
 # get install requirements
-with open('requirements.txt') as fh:
+with open('requirements.txt', 'r', encoding='utf8') as fh:
     install_requires = [line.split().pop(0) for line in fh.read().splitlines()]
 
 # get version
-with open('version.txt') as fh:
+with open('version.txt', 'r', encoding='utf8') as fh:
     version = fh.read()
 
 # list of all scripts to be included with package

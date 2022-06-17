@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL06_raster.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 
 Create masks for reducing ICESat-2 ATL06 data using raster imagery
 
@@ -15,6 +15,7 @@ COMMAND LINE OPTIONS:
         x, y and data variable names
     -P X, --projection X: spatial projection as EPSG code or PROJ4 string
         4326: latitude and longitude coordinates on WGS84 reference ellipsoid
+    -S X, --sigma X: Standard deviation for Gaussian kernel
     -O X, --output X: Output mask file name
     -V, --verbose: Output information about each created file
     -M X, --mode X: Permission mode of directories and files created
@@ -42,6 +43,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2022: added option sigma to Gaussian filter raster images
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Written 11/2021
 """
@@ -57,6 +59,7 @@ import argparse
 import datetime
 import warnings
 import numpy as np
+import scipy.ndimage
 import scipy.spatial
 import scipy.interpolate
 import icesat2_toolkit.spatial
@@ -142,6 +145,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
     VARIABLES=[],
     OUTPUT=None,
     PROJECTION=None,
+    SIGMA=0.0,
     VERBOSE=False,
     MODE=0o775):
 
@@ -176,6 +180,15 @@ def reduce_ICESat2_ATL06_raster(FILE,
     #-- check that input points are within convex hull of valid model points
     gridx,gridy = np.meshgrid(dinput['x'],dinput['y'])
     v,triangle = find_valid_triangulation(gridx[indy,indx],gridy[indy,indx])
+    #-- gaussian filter mask to increase coverage
+    if (SIGMA > 0):
+        # convert nan values to 0
+        ii,jj = np.nonzero(np.isfinite(dinput['data']))
+        dinput['data'] = np.nan_to_num(dinput['data'], nan=0.0)
+        dinput['data'] = scipy.ndimage.gaussian_filter(dinput['data'],
+            SIGMA, mode='constant', cval=0)
+        # return original mask values to true
+        dinput['data'][ii,jj] = 1.0
     #-- create an interpolator for input raster data
     logging.info('Building Spline Interpolator')
     SPL = scipy.interpolate.RectBivariateSpline(dinput['x'], dinput['y'],
@@ -553,6 +566,10 @@ def arguments():
     parser.add_argument('--projection','-P',
         type=str, default='4326',
         help='Spatial projection as EPSG code or PROJ4 string')
+    #-- Gaussian filter raster image to increase coverage
+    parser.add_argument('--sigma','-S',
+        type=float, default=0.0,
+        help='Standard deviation for Gaussian kernel')
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -577,6 +594,7 @@ def main():
         FORMAT=args.format,
         VARIABLES=args.variables,
         PROJECTION=args.projection,
+        SIGMA=args.sigma,
         OUTPUT=args.output,
         VERBOSE=args.verbose,
         MODE=args.mode)

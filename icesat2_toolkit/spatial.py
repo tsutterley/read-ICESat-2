@@ -26,6 +26,7 @@ UPDATE HISTORY:
 import os
 import re
 import io
+import copy
 import gzip
 import uuid
 import h5py

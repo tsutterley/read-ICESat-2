@@ -11,7 +11,7 @@ read-ICESat-2
 |zenodo|
 |Shot Count|
 
-.. |Language| image:: https://img.shields.io/badge/python-v3.8-green.svg
+.. |Language| image:: https://img.shields.io/pypi/pyversions/icesat2-toolkit?color=green
    :target: https://www.python.org/
 
 .. |License| image:: https://img.shields.io/badge/license-MIT-green.svg

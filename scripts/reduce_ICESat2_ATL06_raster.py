@@ -146,6 +146,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
     OUTPUT=None,
     PROJECTION=None,
     SIGMA=0.0,
+    TOLERANCE=0.5,
     VERBOSE=False,
     MODE=0o775):
 
@@ -183,8 +184,10 @@ def reduce_ICESat2_ATL06_raster(FILE,
     #-- gaussian filter mask to increase coverage
     if (SIGMA > 0):
         # convert nan values to 0
-        ii,jj = np.nonzero(np.isfinite(dinput['data']))
         dinput['data'] = np.nan_to_num(dinput['data'], nan=0.0)
+        ii,jj = np.nonzero(np.logical_not(dinput['data'].mask) &
+            (dinput['data'] != 0.0))
+        #-- gaussian filter image
         dinput['data'] = scipy.ndimage.gaussian_filter(dinput['data'],
             SIGMA, mode='constant', cval=0)
         # return original mask values to true
@@ -245,7 +248,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
         interp_mask = np.zeros((n_seg),dtype=bool)
         #-- skip beam interpolation if no data within bounds of raster image
         if np.any(valid):
-            interp_mask[valid] = SPL.ev(X[valid], Y[valid])
+            interp_mask[valid] = (SPL.ev(X[valid], Y[valid]) >= TOLERANCE)
 
         #-- group attributes for beam
         IS2_atl06_mask_attrs[gtx]['Description'] = IS2_atl06_attrs[gtx]['Description']
@@ -350,6 +353,8 @@ def reduce_ICESat2_ATL06_raster(FILE,
             'Mask calculated using raster image'
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['source'] = \
             os.path.basename(MASK)
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['sigma'] = SIGMA
+        IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['tolerance'] = TOLERANCE
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['mask']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
 
@@ -570,6 +575,10 @@ def arguments():
     parser.add_argument('--sigma','-S',
         type=float, default=0.0,
         help='Standard deviation for Gaussian kernel')
+    #-- tolerance in interpolated mask to set as valid
+    parser.add_argument('--tolerance','-T',
+        type=float, default=0.5,
+        help='Tolerance to set as valid mask')
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -595,6 +604,7 @@ def main():
         VARIABLES=args.variables,
         PROJECTION=args.projection,
         SIGMA=args.sigma,
+        TOLERANCE=args.tolerance,
         OUTPUT=args.output,
         VERBOSE=args.verbose,
         MODE=args.mode)

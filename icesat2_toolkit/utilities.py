@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (07/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -41,6 +41,7 @@ import re
 import io
 import ssl
 import json
+import boto3
 import netrc
 import ftplib
 import shutil
@@ -134,6 +135,45 @@ def url_split(s):
     elif head in ('', posixpath.sep):
         return tail,
     return url_split(head) + (tail,)
+
+
+#-- PURPOSE: get a s3 bucket name from a presigned url
+def s3_bucket(presigned_url):
+    """
+    Get a s3 bucket name from a presigned url
+
+    Parameters
+    ----------
+    presigned_url: str
+        s3 presigned url
+
+    Returns
+    -------
+    bucket: str
+        s3 bucket name
+    """
+    host = url_split(presigned_url)
+    bucket = re.sub(r's3:\/\/', r'', host[0], re.IGNORECASE)
+    return bucket
+
+#-- PURPOSE: get a s3 bucket key from a presigned url
+def s3_key(presigned_url):
+    """
+    Get a s3 bucket key from a presigned url
+
+    Parameters
+    ----------
+    presigned_url: str
+        s3 presigned url
+
+    Returns
+    -------
+    key: str
+        s3 bucket key for object
+    """
+    host = url_split(presigned_url)
+    key = posixpath.join(*host[1:])
+    return key
 
 # PURPOSE: convert file lines to arguments
 def convert_arg_line_to_args(arg_line):
@@ -910,7 +950,7 @@ def from_nsidc(HOST, username=None, password=None, build=True,
         return (remote_buffer,None)
 
 # PURPOSE: build formatted query string for ICESat-2 release
-def query_release(release):
+def cmr_query_release(release):
     """
     Build formatted query string for ICESat-2 release
 
@@ -940,7 +980,7 @@ def query_release(release):
     return query_params
 
 # PURPOSE: check if the submitted cycles are valid
-def cycles(cycle):
+def cmr_cycles(cycle):
     """
     Check if the submitted cycles are valid
 
@@ -989,7 +1029,7 @@ def cycles(cycle):
         return cycle_list
 
 # PURPOSE: check if the submitted RGTs are valid
-def tracks(track):
+def cmr_tracks(track):
     """
     Check if the submitted RGTs are valid
 
@@ -1029,7 +1069,7 @@ def tracks(track):
         return track_list
 
 # PURPOSE: check if the submitted granule regions are valid
-def granules(granule):
+def cmr_granules(granule):
     """
     Check if the submitted granule regions are valid
 
@@ -1051,7 +1091,7 @@ def granules(granule):
         return ["??"]
     else:
         if isinstance(granule, (str,int)):
-            assert int(granule) > 0, "Cycle region must be positive"
+            assert int(granule) > 0, "Granule region must be positive"
             granule_list = [str(granule).zfill(granule_length)]
         elif isinstance(granule, list):
             granule_list = []
@@ -1059,15 +1099,15 @@ def granules(granule):
                 assert int(g) > 0, "Granule region must be positive"
                 granule_list.append(str(g).zfill(granule_length))
         else:
-            raise TypeError("Please enter the cycle number as a list or string")
+            raise TypeError("Please enter the granule region as a list or string")
         # check if user-entered granule is outside of currently available range
         if not set(all_granules) & set(granule_list):
             warnings.filterwarnings("always")
-            warnings.warn("Listed cycle is not presently available")
+            warnings.warn("Listed granule region is not presently available")
         return granule_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
-def regions(region):
+def cmr_regions(region):
     """
     Check if the submitted ATL14/ATL15 regions are valid
 
@@ -1103,7 +1143,7 @@ def regions(region):
         return region_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
-def resolutions(resolution):
+def cmr_resolutions(resolution):
     """
     Check if the submitted ATL14/ATL15 resolutions are valid
 
@@ -1138,7 +1178,7 @@ def resolutions(resolution):
             warnings.warn("Listed resolution is not presently available")
         return resolution_list
 
-def readable_granules(product, **kwargs):
+def cmr_readable_granules(product, **kwargs):
     """
     Create list of readable granule names for CMR queries
 
@@ -1152,6 +1192,10 @@ def readable_granules(product, **kwargs):
         Reference Ground Track (RGT) strings to query
     granules: str, list or NoneType, default None
         ICESat-2 granule region strings to query
+    regions: str, list or NoneType, default None
+        ICESat-2 ATL14/ATL15 region
+    resolutions: str, list or NoneType, default None
+        ICESat-2 ATL14/ATL15 spatial resolution
 
     Returns
     -------
@@ -1170,8 +1214,8 @@ def readable_granules(product, **kwargs):
     if product in ("ATL14","ATL15"):
         # gridded land ice products
         # for each ATL14/ATL15 parameter
-        for r in regions(kwargs["regions"]):
-            for s in resolutions(kwargs["resolutions"]):
+        for r in cmr_regions(kwargs["regions"]):
+            for s in cmr_resolutions(kwargs["resolutions"]):
                 args = (product, r, s)
                 pattern = "{0}_{1}_????_{2}_*"
                 # append the granule pattern
@@ -1179,11 +1223,11 @@ def readable_granules(product, **kwargs):
     else:
         # along-track products
         # for each available cycle of interest
-        for c in cycles(kwargs["cycles"]):
+        for c in cmr_cycles(kwargs["cycles"]):
             # for each available track of interest
-            for t in tracks(kwargs["tracks"]):
+            for t in cmr_tracks(kwargs["tracks"]):
                 # for each available granule region of interest
-                for g in granules(kwargs["granules"]):
+                for g in cmr_granules(kwargs["granules"]):
                     # use single character wildcards "?" for date strings,
                     # sea ice product hemispheres, and any unset parameters
                     if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
@@ -1310,7 +1354,7 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     # append product string
     CMR_KEYS.append('&short_name={0}'.format(product))
     # append release strings
-    CMR_KEYS.append(query_release(release))
+    CMR_KEYS.append(cmr_query_release(release))
     # append keys for start and end time
     # verify that start and end times are in ISO format
     start_date = isoformat(start_date) if start_date else ''
@@ -1323,7 +1367,7 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
     # append keys for querying specific granules
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")
-    readable_granule_list = readable_granules(product,
+    readable_granule_list = cmr_readable_granules(product,
         cycles=cycles, tracks=tracks, granules=granules,
         regions=regions, resolutions=resolutions)
     for gran in readable_granule_list:

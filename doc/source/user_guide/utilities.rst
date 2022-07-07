@@ -23,6 +23,10 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.url_split
 
+.. autofunction:: icesat2_toolkit.utilities.s3_bucket
+
+.. autofunction:: icesat2_toolkit.utilities.s3_key
+
 .. autofunction:: icesat2_toolkit.utilities.get_unix_time
 
 .. autofunction:: icesat2_toolkit.utilities.even
@@ -53,19 +57,19 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.from_nsidc
 
-.. autofunction:: icesat2_toolkit.utilities.query_release
+.. autofunction:: icesat2_toolkit.utilities.cmr_query_release
 
-.. autofunction:: icesat2_toolkit.utilities.cycles
+.. autofunction:: icesat2_toolkit.utilities.cmr_cycles
 
-.. autofunction:: icesat2_toolkit.utilities.tracks
+.. autofunction:: icesat2_toolkit.utilities.cmr_tracks
 
-.. autofunction:: icesat2_toolkit.utilities.granules
+.. autofunction:: icesat2_toolkit.utilities.cmr_granules
 
-.. autofunction:: icesat2_toolkit.utilities.regions
+.. autofunction:: icesat2_toolkit.utilities.cmr_regions
 
-.. autofunction:: icesat2_toolkit.utilities.resolutions
+.. autofunction:: icesat2_toolkit.utilities.cmr_resolutions
 
-.. autofunction:: icesat2_toolkit.utilities.readable_granules
+.. autofunction:: icesat2_toolkit.utilities.cmr_readable_granules
 
 .. autofunction:: icesat2_toolkit.utilities.cmr_filter_json
 

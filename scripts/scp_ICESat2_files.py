@@ -267,8 +267,8 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
         for sub in sorted(SUBDIRECTORY):
             #-- find files within local directory
             local_dir = os.path.join(DIRECTORY,sub)
-            remote_path = os.path.join(DIRECTORY,sub)
-            file_list = [f for f in os.listdir(local_dir) if rx2.match(f)]
+            remote_path = posixpath.join(REMOTE,sub)
+            file_list=[f for f in os.listdir(local_dir) if rx2.match(f)]
             for fi in sorted(file_list):
                 #-- check if data directory exists and recursively create if not
                 remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)

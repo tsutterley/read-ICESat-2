@@ -2,6 +2,7 @@ name: icesat2-docs
 channels:
   - conda-forge
 dependencies:
+  - boto3
   - docutils<0.18
   - fontconfig
   - freetype

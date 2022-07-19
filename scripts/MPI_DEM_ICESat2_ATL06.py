@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (07/2022)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: use delta time as output dimension for HDF5 variables
     Updated 10/2021: using python logging for handling verbose output
@@ -97,20 +98,40 @@ import os
 import re
 import uuid
 import h5py
-import fiona
 import pyproj
 import logging
 import tarfile
 import datetime
 import argparse
-import osgeo.gdal
+import warnings
 import numpy as np
 from mpi4py import MPI
 import scipy.interpolate
-from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+
+#-- attempt imports
+try:
+    import fiona
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("fiona not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    import osgeo.gdal
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("GDAL not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from shapely.geometry import MultiPoint, Polygon
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapely not available")
+    warnings.warn("Some functions will throw an exception if called")
+#-- ignore warnings
+warnings.filterwarnings("ignore")
 
 #-- digital elevation models
 elevation_dir = {}

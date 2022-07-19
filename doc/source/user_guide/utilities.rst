@@ -23,6 +23,8 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.url_split
 
+.. autofunction:: icesat2_toolkit.utilities.s3_client
+
 .. autofunction:: icesat2_toolkit.utilities.s3_bucket
 
 .. autofunction:: icesat2_toolkit.utilities.s3_key

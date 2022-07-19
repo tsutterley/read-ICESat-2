@@ -2,11 +2,11 @@ name: icesat2-docs
 channels:
   - conda-forge
 dependencies:
+  - boto3
   - docutils<0.18
   - fontconfig
   - freetype
   - future
-  - gdal
   - graphviz
   - h5py>=2.9=mpi*
   - lxml
@@ -17,6 +17,7 @@ dependencies:
   - numpy
   - numpydoc
   - pandas
+  - paramiko
   - pip
   - pyproj
   - python>=3.6
@@ -24,6 +25,7 @@ dependencies:
   - pyyaml
   - scipy
   - scikit-learn
+  - scp
   - sphinx
   - sphinx-argparse
   - sphinx_rtd_theme

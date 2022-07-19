@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 07/2022: filter warnings after import attempts
     Updated 06/2022: place netCDF4 import behind try/except statements
         added field_mapping options to netCDF4 and HDF5 reads
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -34,6 +35,7 @@ import logging
 import warnings
 import numpy as np
 
+#-- attempt imports
 try:
     import netCDF4
 except ModuleNotFoundError:
@@ -47,6 +49,8 @@ except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("GDAL not available")
     warnings.warn("Some functions will throw an exception if called")
+#-- ignore warnings
+warnings.filterwarnings("ignore")
 
 def case_insensitive_filename(filename):
     """

@@ -12,5 +12,5 @@ Utilities for converting ICESat-2 HDF5 files into different formats
 General Methods
 ===============
 
-.. autoclass:: icesat2_toolkit.convert
+.. autoclass:: icesat2_toolkit.convert.convert
    :members:

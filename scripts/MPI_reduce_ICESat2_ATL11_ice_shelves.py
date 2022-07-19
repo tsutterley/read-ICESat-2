@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (07/2022)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
         added parsing for converting file lines to arguments
@@ -59,14 +60,29 @@ import pyproj
 import logging
 import datetime
 import argparse
-import shapefile
+import warnings
 import numpy as np
 import collections
 from mpi4py import MPI
-from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+
+#-- attempt imports
+try:
+    import shapefile
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapefile not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from shapely.geometry import MultiPoint, Polygon
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapely not available")
+    warnings.warn("Some functions will throw an exception if called")
+#-- ignore warnings
+warnings.filterwarnings("ignore")
 
 #-- regional ice shelf files
 ice_shelf_file = {}

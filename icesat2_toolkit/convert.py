@@ -91,7 +91,7 @@ class convert():
             # output zarr file
             self.HDF5_to_zarr(**kwds)
         elif (self.reformat == 'HDF5'):
-            # output zarr file
+            # output rechunked HDF5 file
             self.HDF5_to_HDF5(**kwds)
         # elif (reformat == 'JPL'):
         #     # output JPL captoolkit formatted HDF5 files

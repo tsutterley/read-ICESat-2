@@ -17,6 +17,7 @@ dependencies:
   - numpy
   - numpydoc
   - pandas
+  - paramiko
   - pip
   - pyproj
   - python>=3.6

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_grounded.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (07/2022)
 
 Create masks for reducing ICESat-2 data into grounded ice regions
 
@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: add option for minimum area threshold for polygons
         use delta time as output dimension for HDF5 variables
@@ -70,13 +71,28 @@ import pyproj
 import logging
 import datetime
 import argparse
-import shapefile
+import warnings
 import numpy as np
 from mpi4py import MPI
-from shapely.geometry import MultiPoint, Polygon
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
+
+#-- attempt imports
+try:
+    import shapefile
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapefile not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from shapely.geometry import MultiPoint, Polygon
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapely not available")
+    warnings.warn("Some functions will throw an exception if called")
+#-- ignore warnings
+warnings.filterwarnings("ignore")
 
 #-- regional grounded ice files
 grounded_file = {}

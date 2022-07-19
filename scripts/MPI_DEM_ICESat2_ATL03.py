@@ -98,7 +98,6 @@ import os
 import re
 import uuid
 import h5py
-import fiona
 import pyproj
 import logging
 import tarfile
@@ -113,6 +112,12 @@ import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 
 #-- attempt imports
+try:
+    import fiona
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("fiona not available")
+    warnings.warn("Some functions will throw an exception if called")
 try:
     import osgeo.gdal
 except ModuleNotFoundError:

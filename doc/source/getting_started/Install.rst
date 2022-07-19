@@ -28,7 +28,7 @@ Installation
 ############
 
 ``read-ICESat-2`` is available for download from the `GitHub repository <https://github.com/tsutterley/read-ICESat-2>`_,
-and the `Python Package Index (pypi) <https://pypi.org/project/icesat2-toolkit/>`_,
+and the `Python Package Index (pypi) <https://pypi.org/project/icesat2-toolkit/>`_.
 The contents of the repository can be download as a
 `zipped file <https://github.com/tsutterley/read-ICESat-2/archive/main.zip>`_  or cloned.
 To use this repository, please fork into your own account and then clone onto your system.

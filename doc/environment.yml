@@ -6,7 +6,6 @@ dependencies:
   - fontconfig
   - freetype
   - future
-  - gdal
   - graphviz
   - h5py>=2.9=mpi*
   - lxml

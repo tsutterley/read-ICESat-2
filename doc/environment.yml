@@ -25,6 +25,7 @@ dependencies:
   - pyyaml
   - scipy
   - scikit-learn
+  - scp
   - sphinx
   - sphinx-argparse
   - sphinx_rtd_theme

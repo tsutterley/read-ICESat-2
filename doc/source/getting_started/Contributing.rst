@@ -12,7 +12,7 @@ Ways to Contribute
 1) Fixing typographical or coding errors
 2) Submitting bug reports or feature requests through the use of `GitHub issues <https://github.com/tsutterley/read-ICESat-2/issues>`_
 3) Improving documentation and testing
-4) Sharing use cases and examples (such as `Jupyter Notebooks <./Examples.html>`_)
+4) Sharing use cases and examples (such as `Jupyter Notebooks <../user_guide/Examples.html>`_)
 5) Providing code for everyone to use
 
 Requesting a Feature
@@ -57,7 +57,7 @@ Steps to Contribute
 
 Adding Examples
 ^^^^^^^^^^^^^^^
-Examples may be in the form of executable scripts or interactive `Jupyter Notebooks <./Examples.html>`_.
+Examples may be in the form of executable scripts or interactive `Jupyter Notebooks <../user_guide/Examples.html>`_.
 Fully working (but unrendered) examples should be submitted with the same steps as above.
 
 Continuous Integration

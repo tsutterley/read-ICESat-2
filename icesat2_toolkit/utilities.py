@@ -137,8 +137,29 @@ def url_split(s):
         return tail,
     return url_split(head) + (tail,)
 
+# NASA Cumulus AWS S3 credential endpoints
+_s3_endpoints = {
+    'gesdisc': 'https://data.gesdisc.earthdata.nasa.gov/s3credentials',
+    'ghrcdaac': 'https://data.ghrc.earthdata.nasa.gov/s3credentials',
+    'lpdaac': 'https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials',
+    'nsidc': 'https://data.nsidc.earthdatacloud.nasa.gov/s3credentials',
+    'ornldaac': 'https://data.ornldaac.earthdata.nasa.gov/s3credentials',
+    'podaac': 'https://archive.podaac.earthdata.nasa.gov/s3credentials'
+}
+
+# NASA Cumulus AWS S3 buckets
+_s3_buckets = {
+    'gesdisc': 'gesdisc-cumulus-prod-protected',
+    'ghrcdaac': 'ghrc-cumulus-dev',
+    'lpdaac': 'lp-prod-protected',
+    'nsidc': 'nsidc-cumulus-prod-protected',
+    'ornldaac': 'ornl-cumulus-prod-protected',
+    'podaac': 'podaac-ops-cumulus-protected'
+}
+
 #-- PURPOSE: get AWS s3 client for NSIDC Cumulus
-def s3_client(HOST=None, timeout=None, region_name='us-west-2'):
+def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
+    region_name='us-west-2'):
     """
     Get AWS s3 client for NSIDC data in the cloud
     https://data.nsidc.earthdatacloud.nasa.gov/s3credentials
@@ -207,7 +228,7 @@ def s3_key(presigned_url):
     # check if url is https url or s3 presigned url
     if presigned_url.startswith('http'):
         # use NSIDC format for s3 keys from https
-        parsed = ['/'.join(host[h].split('.')) for h in range(-4,-1)]
+        parsed = [p for part in host[-4:-1] for p in part.split('.')]
         key = posixpath.join(*parsed, host[-1])
     else:
         # join presigned url to form bucket key

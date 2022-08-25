@@ -29,6 +29,10 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.s3_key
 
+.. autofunction:: icesat2_toolkit.utilities.s3_presigned_url
+
+.. autofunction:: icesat2_toolkit.utilities.generate_presigned_url
+
 .. autofunction:: icesat2_toolkit.utilities.get_unix_time
 
 .. autofunction:: icesat2_toolkit.utilities.even

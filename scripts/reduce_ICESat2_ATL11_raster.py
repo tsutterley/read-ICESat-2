@@ -102,7 +102,23 @@ def get_projection(attributes, PROJECTION):
 #-- Attempt 2: rescale and center the inputs with option QbB
 #-- Attempt 3: joggle the inputs to find a triangulation with option QJ
 #-- if no passing triangulations: exit with empty list
-def find_valid_triangulation(x0,y0,max_points=1e6):
+def find_valid_triangulation(x0, y0, max_points=1e6):
+    """
+    Attempt to find a valid Delaunay triangulation for coordinates
+
+    - Attempt 1: ``Qt Qbb Qc Qz``
+    - Attempt 2: ``Qt Qc QbB``
+    - Attempt 3: ``QJ QbB``
+
+    Parameters
+    ----------
+    x0: float
+        x-coordinates
+    y0: float
+        y-coordinates
+    max_points: int or float, default 1e6
+        Maximum number of coordinates to attempt to triangulate
+    """
     #-- don't attempt triangulation if there are a large number of points
     if (len(x0) > max_points):
         #-- if too many points: set triangle as an empty list

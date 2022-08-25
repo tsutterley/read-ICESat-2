@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (07/2022)
+Written by Tyler Sutterley (08/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 08/2022: added s3 presigned url functions
     Updated 07/2022: renamed cmr functions, added s3 client function
     Updated 06/2022: add NASA CMR spatial bounding box queries
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -229,12 +230,61 @@ def s3_key(presigned_url):
     if presigned_url.startswith('http'):
         # use NSIDC format for s3 keys from https
         parsed = [p for part in host[-4:-1] for p in part.split('.')]
+        # join parsed url parts to form bucket key
         key = posixpath.join(*parsed, host[-1])
     else:
         # join presigned url to form bucket key
         key = posixpath.join(*host[1:])
     # return the s3 bucket key for object
     return key
+
+# PURPOSE: get a s3 presigned url from a bucket and key
+def s3_presigned_url(bucket, key):
+    """
+    Get a s3 presigned url from a bucket and object key
+
+    Parameters
+    ----------
+    bucket: str
+        s3 bucket name
+    key: str
+        s3 bucket key for object
+
+    Returns
+    -------
+    presigned_url: str
+        s3 presigned url
+    """
+    return posixpath.join('s3://', bucket, key)
+
+# PURPOSE: generate a s3 presigned https url from a bucket and key
+def generate_presigned_url(bucket, key, expiration=3600):
+    """
+    Generate a presigned https URL to share an S3 object
+
+    Parameters
+    ----------
+    bucket: str
+        s3 bucket name
+    key: str
+        s3 bucket key for object
+
+    Returns
+    -------
+    presigned_url: str
+        s3 presigned https url
+    """
+    # generate a presigned URL for S3 object
+    s3 = boto3.client('s3')
+    try:
+        response = s3.generate_presigned_url('get_object',
+            Params={'Bucket': bucket, 'Key': key},
+            ExpiresIn=expiration)
+    except Exception as e:
+        logging.error(e)
+        return None
+    # The response contains the presigned URL
+    return response
 
 # PURPOSE: convert file lines to arguments
 def convert_arg_line_to_args(arg_line):

@@ -59,7 +59,7 @@ def convert_delta_time(delta_time, gps_epoch=1198800018.0):
         gps_seconds - time_leaps, epoch1=(1980,1,6,0,0,0),
         epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
     #-- convert to calendar date
-    Y,M,D,h,m,s = icesat2_toolkit.time.convert_julian(time_julian,FORMAT='tuple')
+    Y,M,D,h,m,s = icesat2_toolkit.time.convert_julian(time_julian,format='tuple')
     #-- calculate year-decimal time (UTC)
     time_decimal = icesat2_toolkit.time.convert_calendar_decimal(Y,M,day=D,
         hour=h,minute=m,second=s)

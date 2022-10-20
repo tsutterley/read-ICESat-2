@@ -928,7 +928,7 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
     time_utc = convert_delta_time(np.array([tmn,tmx]))
     #-- convert to calendar date
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
-        FORMAT='tuple')
+        format='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
         int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))

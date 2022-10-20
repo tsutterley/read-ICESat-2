@@ -541,7 +541,7 @@ def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
         epoch1=(1980,1,6,0,0,0), epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
     #-- convert to calendar date
     YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(MJD + 2400000.5,
-        FORMAT='tuple')
+        format='tuple')
     #-- add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
         int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))

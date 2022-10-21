@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (10/2022)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 10/2022: verify data variable in netCDF4/HDF5 read functions
     Updated 07/2022: filter warnings after import attempts
     Updated 06/2022: place netCDF4 import behind try/except statements
         added field_mapping options to netCDF4 and HDF5 reads
@@ -95,7 +96,6 @@ def from_file(filename, format, **kwargs):
     else:
         raise ValueError('Invalid format {0}'.format(format))
     return dinput
-
 
 def from_netCDF4(filename, **kwargs):
     """
@@ -192,7 +192,7 @@ def from_netCDF4(filename, **kwargs):
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     #-- convert to masked array if fill values
-    if '_FillValue' in dinput['attributes']['data'].keys():
+    if 'data' in dinput.keys() and '_FillValue' in dinput['attributes']['data'].keys():
         dinput['data'] = np.ma.asarray(dinput['data'])
         dinput['data'].fill_value = dinput['attributes']['data']['_FillValue']
         dinput['data'].mask = (dinput['data'].data == dinput['data'].fill_value)
@@ -297,7 +297,7 @@ def from_HDF5(filename, **kwargs):
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     #-- convert to masked array if fill values
-    if '_FillValue' in dinput['attributes']['data'].keys():
+    if 'data' in dinput.keys() and '_FillValue' in dinput['attributes']['data'].keys():
         dinput['data'] = np.ma.asarray(dinput['data'])
         dinput['data'].fill_value = dinput['attributes']['data']['_FillValue']
         dinput['data'].mask = (dinput['data'].data == dinput['data'].fill_value)
@@ -600,11 +600,11 @@ def wrap_longitudes(lon):
     lon: float
         longitude (degrees east)
     """
-    phi = np.arctan2(np.sin(lon*np.pi/180.0),np.cos(lon*np.pi/180.0))
+    phi = np.arctan2(np.sin(lon*np.pi/180.0), np.cos(lon*np.pi/180.0))
     #-- convert phi from radians to degrees
     return phi*180.0/np.pi
 
-def to_cartesian(lon,lat,h=0.0,a_axis=6378137.0,flat=1.0/298.257223563):
+def to_cartesian(lon, lat, h=0.0, a_axis=6378137.0, flat=1.0/298.257223563):
     """
     Converts geodetic coordinates to Cartesian coordinates
 
@@ -644,7 +644,7 @@ def to_cartesian(lon,lat,h=0.0,a_axis=6378137.0,flat=1.0/298.257223563):
     #-- return the cartesian coordinates
     return (X,Y,Z)
 
-def to_sphere(x,y,z):
+def to_sphere(x, y, z):
     """
     Convert from cartesian coordinates to spherical coordinates
 
@@ -675,7 +675,7 @@ def to_sphere(x,y,z):
     #-- return latitude, longitude and radius
     return (lon,lat,rad)
 
-def to_geodetic(x,y,z,a_axis=6378137.0,flat=1.0/298.257223563):
+def to_geodetic(x, y, z, a_axis=6378137.0, flat=1.0/298.257223563):
     """
     Convert from cartesian coordinates to geodetic coordinates
     using a closed form solution

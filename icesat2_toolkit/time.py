@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 time.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (10/2022)
 Utilities for calculating time operations
 
 PYTHON DEPENDENCIES:
@@ -16,8 +16,13 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2022: added more time parsing for longer periods
+    Updated 08/2022: output variables to unit conversion to seconds
+        and the number of days per month for both leap and standard years
+    Updated 05/2022: changed keyword arguments to camel case
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 04/2021: updated NIST ftp server url for leap-seconds.list
+    Updated 03/2021: replaced numpy bool/int to prevent deprecation warnings
     Updated 02/2021: parse date strings "time-units since yyyy-mm-dd hh:mm:ss"
         replaced numpy int/float to prevent deprecation warnings
     Updated 01/2021: added ftp connection checks
@@ -27,10 +32,34 @@ UPDATE HISTORY:
     Written 07/2020
 """
 import re
+import copy
+import warnings
 import datetime
 import numpy as np
 import dateutil.parser
 import icesat2_toolkit.utilities
+
+#-- conversion factors between time units and seconds
+_to_sec = {'microseconds': 1e-6, 'microsecond': 1e-6,
+           'microsec': 1e-6, 'microsecs': 1e-6,
+           'milliseconds': 1e-3, 'millisecond': 1e-3,
+           'millisec': 1e-3, 'millisecs': 1e-3,
+           'msec': 1e-3, 'msecs': 1e-3, 'ms': 1e-3,
+           'seconds': 1.0, 'second': 1.0, 'sec': 1.0,
+           'secs': 1.0, 's': 1.0,
+           'minutes': 60.0, 'minute': 60.0,
+           'min': 60.0, 'mins': 60.0,
+           'hours': 3600.0, 'hour': 3600.0,
+           'hr': 3600.0, 'hrs': 3600.0, 'h': 3600.0,
+           'day': 86400.0, 'days': 86400.0, 'd': 86400.0}
+#-- approximate conversions for longer periods
+_to_sec['mon'] = 30.0 * 86400.0
+_to_sec['month'] = 30.0 * 86400.0
+_to_sec['months'] = 30.0 * 86400.0
+_to_sec['common_year'] = 365.0 * 86400.0
+_to_sec['common_years'] = 365.0 * 86400.0
+_to_sec['year'] = 365.25 * 86400.0
+_to_sec['years'] = 365.25 * 86400.0
 
 #-- PURPOSE: parse a date string into epoch and units scale
 def parse_date_string(date_string):
@@ -62,19 +91,10 @@ def parse_date_string(date_string):
         return (datetime_to_list(epoch),0.0)
     #-- split the date string into units and epoch
     units,epoch = split_date_string(date_string)
-    conversion_factors = {'microseconds': 1e-6,'microsecond': 1e-6,
-        'microsec': 1e-6,'microsecs': 1e-6,
-        'milliseconds': 1e-3,'millisecond': 1e-3,'millisec': 1e-3,
-        'millisecs': 1e-3,'msec': 1e-3,'msecs': 1e-3,'ms': 1e-3,
-        'seconds': 1.0,'second': 1.0,'sec': 1.0,'secs': 1.0,'s': 1.0,
-        'minutes': 60.0,'minute': 60.0,'min': 60.0,'mins': 60.0,
-        'hours': 3600.0,'hour': 3600.0,'hr': 3600.0,
-        'hrs': 3600.0,'h': 3600.0,
-        'day': 86400.0,'days': 86400.0,'d': 86400.0}
-    if units not in conversion_factors.keys():
+    if units not in _to_sec.keys():
         raise ValueError('Invalid units: {0}'.format(units))
     #-- return the epoch (as list) and the time unit conversion factors
-    return (datetime_to_list(epoch),conversion_factors[units])
+    return (datetime_to_list(epoch), _to_sec[units])
 
 #-- PURPOSE: split a date string into units and epoch
 def split_date_string(date_string):
@@ -87,11 +107,11 @@ def split_date_string(date_string):
         time-units since yyyy-mm-dd hh:mm:ss
     """
     try:
-        units,_,epoch = date_string.split(None,2)
+        units,_,epoch = date_string.split(None, 2)
     except ValueError:
         raise ValueError('Invalid format: {0}'.format(date_string))
     else:
-        return (units.lower(),dateutil.parser.parse(epoch))
+        return (units.lower(), dateutil.parser.parse(epoch))
 
 #-- PURPOSE: convert a datetime object into a list
 def datetime_to_list(date):
@@ -107,7 +127,13 @@ def datetime_to_list(date):
     date: list
         [year,month,day,hour,minute,second]
     """
-    return [date.year,date.month,date.day,date.hour,date.minute,date.second]
+    return [date.year, date.month, date.day,
+            date.hour, date.minute, date.second]
+
+#-- days per month in a leap and a standard year
+#-- only difference is February (29 vs. 28)
+_dpm_leap = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+_dpm_stnd = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 #-- PURPOSE: gets the number of days per month for a given year
 def calendar_days(year):
@@ -124,10 +150,6 @@ def calendar_days(year):
     dpm: list
         number of days for each month
     """
-    #-- days per month in a leap and a standard year
-    #-- only difference is February (29 vs. 28)
-    dpm_leap = np.array([31,29,31,30,31,30,31,31,30,31,30,31],dtype=np.float64)
-    dpm_stnd = np.array([31,28,31,30,31,30,31,31,30,31,30,31],dtype=np.float64)
     #-- Rules in the Gregorian calendar for a year to be a leap year:
     #-- divisible by 4, but not by 100 unless divisible by 400
     #-- True length of the year is about 365.2422 days
@@ -141,12 +163,12 @@ def calendar_days(year):
     m4000 = (year % 4000)
     #-- find indices for standard years and leap years using criteria
     if ((m4 == 0) & (m100 != 0) | (m400 == 0) & (m4000 != 0)):
-        return dpm_leap
+        return np.array(_dpm_leap, dtype=np.float64)
     elif ((m4 != 0) | (m100 == 0) & (m400 != 0) | (m4000 == 0)):
-        return dpm_stnd
+        return np.array(_dpm_stnd, dtype=np.float64)
 
 #-- PURPOSE: convert a numpy datetime array to delta times from the UNIX epoch
-def convert_datetime(date, epoch=(1970,1,1,0,0,0)):
+def convert_datetime(date, epoch=(1970, 1, 1, 0, 0, 0)):
     """
     Convert a numpy datetime array to seconds since ``epoch``
 
@@ -190,7 +212,7 @@ def convert_delta_time(delta_time, epoch1=None, epoch2=None, scale=1.0):
 #-- PURPOSE: calculate the delta time from calendar date
 #-- http://scienceworld.wolfram.com/astronomy/JulianDate.html
 def convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0,
-    epoch=(1992,1,1,0,0,0), scale=1.0):
+    epoch=(1992, 1, 1, 0, 0, 0), scale=1.0):
     """
     Calculate the time in time units since ``epoch`` from calendar dates
 
@@ -224,11 +246,11 @@ def convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0,
         np.floor(3.0*(np.floor((year + (month - 9.0)/7.0)/100.0) + 1.0)/4.0) + \
         np.floor(275.0*month/9.0) + day + hour/24.0 + minute/1440.0 + \
         second/86400.0 + 1721028.5 - 2400000.5
-    epoch1 = datetime.datetime(1858,11,17,0,0,0)
+    epoch1 = datetime.datetime(1858, 11, 17, 0, 0, 0)
     epoch2 = datetime.datetime(*epoch)
     delta_time_epochs = (epoch2 - epoch1).total_seconds()
     #-- return the date in days since epoch
-    return scale*np.array(MJD - delta_time_epochs/86400.0,dtype=np.float64)
+    return scale*np.array(MJD - delta_time_epochs/86400.0, dtype=np.float64)
 
 #-- PURPOSE: Converts from calendar dates into decimal years
 def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
@@ -289,8 +311,8 @@ def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
 
     #-- days per month in a leap and a standard year
     #-- only difference is February (29 vs. 28)
-    dpm_leap=np.array([31,29,31,30,31,30,31,31,30,31,30,31], dtype=np.float64)
-    dpm_stnd=np.array([31,28,31,30,31,30,31,31,30,31,30,31], dtype=np.float64)
+    dpm_leap = np.array(_dpm_leap, dtype=np.float64)
+    dpm_stnd = np.array(_dpm_stnd, dtype=np.float64)
 
     #-- Rules in the Gregorian calendar for a year to be a leap year:
     #-- divisible by 4, but not by 100 unless divisible by 400
@@ -380,7 +402,7 @@ def convert_calendar_decimal(year, month, day=None, hour=None, minute=None,
     return t_date
 
 #-- PURPOSE: Converts from Julian day to calendar date and time
-def convert_julian(JD, ASTYPE=None, FORMAT='dict'):
+def convert_julian(JD, **kwargs):
     """
     Converts from Julian day to calendar date and time
 
@@ -388,9 +410,9 @@ def convert_julian(JD, ASTYPE=None, FORMAT='dict'):
     ----------
     JD: float
         Julian Day (days since 01-01-4713 BCE at 12:00:00)
-    ASTYPE: str or NoneType, default None
+    astype: str or NoneType, default None
         convert output to variable type
-    FORMAT: str, default 'dict'
+    format: str, default 'dict'
         format of output variables
 
             - ``'dict'``: dictionary with variable keys
@@ -421,14 +443,27 @@ def convert_julian(JD, ASTYPE=None, FORMAT='dict'):
         Calendar Dates", Quarterly Journal of the Royal Astronomical
         Society, 25(1), 1984.
     """
+    #-- set default keyword arguments
+    kwargs.setdefault('astype', None)
+    kwargs.setdefault('format', 'dict')
+    #-- raise warnings for deprecated keyword arguments
+    deprecated_keywords = dict(ASTYPE='astype', FORMAT='format')
+    for old,new in deprecated_keywords.items():
+        if old in kwargs.keys():
+            warnings.warn("""Deprecated keyword argument {0}.
+                Changed to '{1}'""".format(old,new),
+                DeprecationWarning)
+            #-- set renamed argument to not break workflows
+            kwargs[new] = copy.copy(kwargs[old])
 
     #-- convert to array if only a single value was imported
     if (np.ndim(JD) == 0):
         JD = np.atleast_1d(JD)
-        SINGLE_VALUE = True
+        single_value = True
     else:
-        SINGLE_VALUE = False
+        single_value = False
 
+    #-- verify julian day
     JDO = np.floor(JD + 0.5)
     C = np.zeros_like(JD)
     #-- calculate C for dates before and after the switch to Gregorian
@@ -443,44 +478,44 @@ def convert_julian(JD, ASTYPE=None, FORMAT='dict'):
     E = np.floor((365.0 * D) + np.floor(D/4.0))
     F = np.floor((C - E)/30.6001)
     #-- calculate day, month, year and hour
-    DAY = np.floor(C - E + 0.5) - np.floor(30.6001*F)
-    MONTH = F - 1.0 - 12.0*np.floor(F/14.0)
-    YEAR = D - 4715.0 - np.floor((7.0+MONTH)/10.0)
-    HOUR = np.floor(24.0*(JD + 0.5 - JDO))
+    day = np.floor(C - E + 0.5) - np.floor(30.6001*F)
+    month = F - 1.0 - 12.0*np.floor(F/14.0)
+    year = D - 4715.0 - np.floor((7.0 + month)/10.0)
+    hour = np.floor(24.0*(JD + 0.5 - JDO))
     #-- calculate minute and second
-    G = (JD + 0.5 - JDO) - HOUR/24.0
-    MINUTE = np.floor(G*1440.0)
-    SECOND = (G - MINUTE/1440.0) * 86400.0
+    G = (JD + 0.5 - JDO) - hour/24.0
+    minute = np.floor(G*1440.0)
+    second = (G - minute/1440.0) * 86400.0
 
     #-- convert all variables to output type (from float)
-    if ASTYPE is not None:
-        YEAR = YEAR.astype(ASTYPE)
-        MONTH = MONTH.astype(ASTYPE)
-        DAY = DAY.astype(ASTYPE)
-        HOUR = HOUR.astype(ASTYPE)
-        MINUTE = MINUTE.astype(ASTYPE)
-        SECOND = SECOND.astype(ASTYPE)
+    if kwargs['astype'] is not None:
+        year = year.astype(kwargs['astype'])
+        month = month.astype(kwargs['astype'])
+        day = day.astype(kwargs['astype'])
+        hour = hour.astype(kwargs['astype'])
+        minute = minute.astype(kwargs['astype'])
+        second = second.astype(kwargs['astype'])
 
     #-- if only a single value was imported initially: remove singleton dims
-    if SINGLE_VALUE:
-        YEAR = YEAR.item(0)
-        MONTH = MONTH.item(0)
-        DAY = DAY.item(0)
-        HOUR = HOUR.item(0)
-        MINUTE = MINUTE.item(0)
-        SECOND = SECOND.item(0)
+    if single_value:
+        year = year.item(0)
+        month = month.item(0)
+        day = day.item(0)
+        hour = hour.item(0)
+        minute = minute.item(0)
+        second = second.item(0)
 
-    #-- return date variables in output format (default python dictionary)
-    if (FORMAT == 'dict'):
-        return dict(year=YEAR, month=MONTH, day=DAY,
-            hour=HOUR, minute=MINUTE, second=SECOND)
-    elif (FORMAT == 'tuple'):
-        return (YEAR, MONTH, DAY, HOUR, MINUTE, SECOND)
-    elif (FORMAT == 'zip'):
-        return zip(YEAR, MONTH, DAY, HOUR, MINUTE, SECOND)
+    #-- return date variables in output format
+    if (kwargs['format'] == 'dict'):
+        return dict(year=year, month=month, day=day,
+            hour=hour, minute=minute, second=second)
+    elif (kwargs['format'] == 'tuple'):
+        return (year, month, day, hour, minute, second)
+    elif (kwargs['format'] == 'zip'):
+        return zip(year, month, day, hour, minute, second)
 
 #-- PURPOSE: Count number of leap seconds that have passed for each GPS time
-def count_leap_seconds(GPS_Time):
+def count_leap_seconds(GPS_Time, truncate=True):
     """
     Counts the number of leap seconds between a given GPS time and UTC
 
@@ -488,6 +523,8 @@ def count_leap_seconds(GPS_Time):
     ----------
     GPS_Time: float
         seconds since January 6, 1980 at 00:00:00
+    truncate: bool, default True
+        Reduce list of leap seconds to positive GPS times
 
     Returns
     -------
@@ -495,7 +532,7 @@ def count_leap_seconds(GPS_Time):
         number of elapsed leap seconds
     """
     #-- get the valid leap seconds
-    leaps = get_leap_seconds()
+    leaps = get_leap_seconds(truncate=truncate)
     #-- number of leap seconds prior to GPS_Time
     n_leaps = np.zeros_like(GPS_Time,dtype=np.float64)
     for i,leap in enumerate(leaps):
@@ -507,13 +544,19 @@ def count_leap_seconds(GPS_Time):
     return n_leaps
 
 #-- PURPOSE: Define GPS leap seconds
-def get_leap_seconds():
+def get_leap_seconds(truncate=True):
     """
     Gets a list of GPS times for when leap seconds occurred
 
+    Parameters
+    ----------
+    truncate: bool, default True
+        Reduce list of leap seconds to positive GPS times
+
     Returns
     -------
-    GPS time (seconds since 1980-01-06T00:00:00) of leap seconds
+    GPS time: float
+        GPS seconds when leap seconds occurred
     """
     FILE = icesat2_toolkit.utilities.get_data_path(['data','leap-seconds.list'])
     #-- find line with file expiration as delta time
@@ -525,7 +568,7 @@ def get_leap_seconds():
     today = datetime.datetime.now()
     update_leap_seconds() if (expiry < today) else None
     #-- get leap seconds
-    leap_UTC,TAI_UTC=np.loadtxt(icesat2_toolkit.utilities.get_data_path(FILE)).T
+    leap_UTC,TAI_UTC = np.loadtxt(icesat2_toolkit.utilities.get_data_path(FILE)).T
     #-- TAI time is ahead of GPS by 19 seconds
     TAI_GPS = 19.0
     #-- convert leap second epochs from NTP to GPS
@@ -533,7 +576,10 @@ def get_leap_seconds():
     leap_GPS = convert_delta_time(leap_UTC+TAI_UTC-TAI_GPS-1,
         epoch1=(1900,1,1,0,0,0), epoch2=(1980,1,6,0,0,0))
     #-- return the GPS times of leap second occurance
-    return leap_GPS[leap_GPS >= 0].astype(np.float64)
+    if truncate:
+        return leap_GPS[leap_GPS >= 0].astype(np.float64)
+    else:
+        return leap_GPS.astype(np.float64)
 
 #-- PURPOSE: connects to servers and downloads leap second files
 def update_leap_seconds(timeout=20, verbose=False, mode=0o775):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (09/2022)
+Written by Tyler Sutterley (11/2022)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -11,7 +11,7 @@ ArcticDEM 2m digital elevation model tiles
     http://data.pgc.umn.edu/elev/dem/setsm/ArcticDEM/indexes/
 
 REMA 8m digital elevation model tiles
-    http://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v1.1/
+    http://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/
     http://data.pgc.umn.edu/elev/dem/setsm/REMA/indexes/
 
 GIMP 30m digital elevation model tiles computed with nsidc_convert_GIMP_DEM.py
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
     Updated 09/2022: use tar virtual file system to extract images
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -139,13 +140,13 @@ elevation_dir = {}
 elevation_tile_index = {}
 #-- ArcticDEM
 elevation_dir['ArcticDEM'] = ['ArcticDEM']
-elevation_tile_index['ArcticDEM'] = 'ArcticDEM_Tile_Index_Rel7.zip'
+elevation_tile_index['ArcticDEM'] = 'ArcticDEM_Mosaic_Index_v3_shp.zip'
 #-- GIMP DEM
 elevation_dir['GIMP'] = ['GIMP','30m']
 elevation_tile_index['GIMP'] = 'gimpdem_Tile_Index_Rel1.1.zip'
 #-- REMA DEM
 elevation_dir['REMA'] = ['REMA']
-elevation_tile_index['REMA'] = 'REMA_Tile_Index_Rel1.1.zip'
+elevation_tile_index['REMA'] = 'REMA_Mosaic_Index_v2_shp.zip'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -599,7 +600,7 @@ def main():
         #-- segment ID
         IS2_atl06_dem[gtx]['land_ice_segments']['segment_id'] = segment_id
         IS2_atl06_fill[gtx]['land_ice_segments']['segment_id'] = None
-        IS2_atl06_dims[gtx]['land_ice_segments']['longitude'] = ['delta_time']
+        IS2_atl06_dims[gtx]['land_ice_segments']['segment_id'] = ['delta_time']
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['segment_id'] = {}
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['segment_id']['units'] = "1"
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['segment_id']['contentType'] = "referenceInformation"
@@ -808,8 +809,9 @@ def main():
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['units'] = "meters"
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['contentType'] = "referenceInformation"
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['long_name'] = "DEM Height"
-        IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['description'] = ("Height of the DEM, "
-            "interpolated by cubic-spline interpolation in the DEM coordinate system to the segment location.")
+        IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['description'] = ("Height of "
+            "the DEM, interpolated by bivariate-spline interpolation in the DEM coordinate system "
+            "to the segment location.")
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['source'] = DEM_MODEL
         IS2_atl06_dem_attrs[gtx]['land_ice_segments']['dem']['dem_h']['coordinates'] = \
             "../segment_id ../delta_time ../latitude ../longitude"
@@ -876,7 +878,7 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
             fileID[gtx]['land_ice_segments'].attrs[att_name] = att_val
 
         #-- segment_id, geolocation, time and height variables
-        for k in ['segment_id','latitude','longitude','delta_time']:
+        for k in ['delta_time','latitude','longitude','segment_id']:
             #-- values and attributes
             v = IS2_atl06_dem[gtx]['land_ice_segments'][k]
             attrs = IS2_atl06_attrs[gtx]['land_ice_segments'][k]

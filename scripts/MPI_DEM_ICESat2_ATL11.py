@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL11.py
-Written by Tyler Sutterley (09/2022)
+Written by Tyler Sutterley (11/2022)
 Determines which digital elevation model tiles to read for a given ATL11 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL11 segments
@@ -11,7 +11,7 @@ ArcticDEM 2m digital elevation model tiles
     http://data.pgc.umn.edu/elev/dem/setsm/ArcticDEM/indexes/
 
 REMA 8m digital elevation model tiles
-    http://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v1.1/
+    http://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/
     http://data.pgc.umn.edu/elev/dem/setsm/REMA/indexes/
 
 GIMP 30m digital elevation model tiles computed with nsidc_convert_GIMP_DEM.py
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
     Updated 09/2022: use tar virtual file system to extract images
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -118,13 +119,13 @@ elevation_dir = {}
 elevation_tile_index = {}
 #-- ArcticDEM
 elevation_dir['ArcticDEM'] = ['ArcticDEM']
-elevation_tile_index['ArcticDEM'] = 'ArcticDEM_Tile_Index_Rel7.zip'
+elevation_tile_index['ArcticDEM'] = 'ArcticDEM_Mosaic_Index_v3_shp.zip'
 #-- GIMP DEM
 elevation_dir['GIMP'] = ['GIMP','30m']
 elevation_tile_index['GIMP'] = 'gimpdem_Tile_Index_Rel1.1.zip'
 #-- REMA DEM
 elevation_dir['REMA'] = ['REMA']
-elevation_tile_index['REMA'] = 'REMA_Tile_Index_Rel1.1.zip'
+elevation_tile_index['REMA'] = 'REMA_Mosaic_Index_v2_shp.zip'
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -789,8 +790,8 @@ def main():
         IS2_atl11_dem_attrs[ptx]['ref_surf']['dem_h']['contentType'] = "referenceInformation"
         IS2_atl11_dem_attrs[ptx]['ref_surf']['dem_h']['long_name'] = "DEM Height"
         IS2_atl11_dem_attrs[ptx]['ref_surf']['dem_h']['description'] = ("Height of the DEM, "
-            "interpolated by cubic-spline interpolation in the DEM coordinate system to the "
-            "segment location.")
+            "interpolated by bivariate-spline interpolation in the DEM coordinate system "
+            "to the segment location.")
         IS2_atl11_dem_attrs[ptx]['ref_surf']['dem_h']['source'] = DEM_MODEL
         IS2_atl11_dem_attrs[ptx]['ref_surf']['dem_h']['coordinates'] = \
             "../ref_pt ../delta_time ../latitude ../longitude"
@@ -844,6 +845,7 @@ def HDF5_ATL11_dem_write(IS2_atl11_dem, IS2_atl11_attrs, INPUT=None,
     pairs = [k for k in IS2_atl11_dem.keys() if bool(re.match(r'pt\d',k))]
     for ptx in pairs:
         fileID.create_group(ptx)
+        h5[ptx] = {}
         #-- add HDF5 group attributes for beam pair
         for att_name in ['description','beam_pair','ReferenceGroundTrack',
             'first_cycle','last_cycle','equatorial_radius','polar_radius']:

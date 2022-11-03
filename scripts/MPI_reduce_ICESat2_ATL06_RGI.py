@@ -426,6 +426,8 @@ def main():
 
         #-- subsetting variables
         IS2_atl06_mask[gtx]['land_ice_segments']['subsetting'] = {}
+        IS2_atl06_fill[gtx]['land_ice_segments']['subsetting'] = {}
+        IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'] = {}
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['Description'] = ("The subsetting group "
             "contains parameters used to reduce land ice segments to specific regions of interest.")

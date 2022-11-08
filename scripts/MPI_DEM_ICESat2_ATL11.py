@@ -61,6 +61,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
+        verify coordinate reference system attribute from shapefile
     Updated 09/2022: use tar virtual file system to extract images
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -183,7 +184,11 @@ def set_DEM_model(GRANULE):
 def read_DEM_index(index_file, DEM_MODEL):
     #-- read the compressed shapefile and extract entities
     shape = fiona.open('zip://{0}'.format(os.path.expanduser(index_file)))
-    epsg = shape.crs['init']
+    #-- extract coordinate reference system
+    if ('init' in shape.crs.keys()):
+        epsg = pyproj.CRS(shape.crs['init']).to_epsg()
+    else:
+        epsg = pyproj.CRS(shape.crs).to_epsg()
     #-- extract attribute indice for DEM tile (REMA,GIMP) or name (ArcticDEM)
     if (DEM_MODEL == 'REMA'):
         #-- REMA index file attributes:
@@ -418,7 +423,7 @@ def main():
     #-- pyproj transformer for converting from latitude/longitude
     #-- into DEM tile coordinates
     crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
-    crs2 = pyproj.CRS.from_string(tile_epsg)
+    crs2 = pyproj.CRS.from_epsg(tile_epsg)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
 
     #-- read each input beam pair within the file

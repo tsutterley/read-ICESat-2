@@ -6,39 +6,45 @@ on:
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   build:
 
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.8]
+    env:
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python-version }}
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - name: Set up conda ${{ matrix.python-version }}
+      uses: conda-incubator/setup-miniconda@v2
       with:
-        python-version: 3.8
-    - name: Install dependencies
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        activate-environment: icesat2_toolkit
+        environment-file: environment.yml
+    - name: Create conda Test Environment
       run: |
-        sudo apt-get update
-        sudo apt-get install libproj-dev proj-data proj-bin
-        sudo apt-get install gdal-bin libgdal-dev libgeos-dev
-        sudo apt-get install libhdf5-openmpi-dev libnetcdf-dev
-        sudo apt-get install libstdc++6 libxml2-dev libxslt1-dev libsqlite3-dev
-        pip install --upgrade pip
-        pip install --upgrade setuptools
-        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-        pip install --upgrade scipy scikit-learn h5py zarr netCDF4 lxml pandas
-    - name: Update required files
+        conda install flake8 pytest pytest-cov cython
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
       run: |
         pip install --no-deps .
         pytest test/test_leap_seconds.py
-    - name: Archive updated files
-      uses: actions/upload-artifact@v2
-      with:
-        name: leap-seconds
-        path: |
-            icesat2_toolkit/data/leap-seconds.list
     - name: Check for changes
       id: changes
       run: |

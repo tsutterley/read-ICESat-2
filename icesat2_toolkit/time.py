@@ -33,8 +33,10 @@ UPDATE HISTORY:
 """
 import re
 import copy
+import logging
 import warnings
 import datetime
+import traceback
 import numpy as np
 import dateutil.parser
 import icesat2_toolkit.utilities
@@ -613,7 +615,8 @@ def update_leap_seconds(timeout=20, verbose=False, mode=0o775):
         icesat2_toolkit.utilities.check_ftp_connection(HOST[0])
         icesat2_toolkit.utilities.from_ftp(HOST, timeout=timeout, local=LOCAL,
             hash=HASH, verbose=verbose, mode=mode)
-    except:
+    except Exception as e:
+        logging.debug(traceback.format_exc())
         pass
     else:
         return
@@ -623,7 +626,8 @@ def update_leap_seconds(timeout=20, verbose=False, mode=0o775):
     try:
         icesat2_toolkit.utilities.from_http(REMOTE, timeout=timeout, local=LOCAL,
             hash=HASH, verbose=verbose, mode=mode)
-    except:
+    except Exception as e:
+        logging.debug(traceback.format_exc())
         pass
     else:
         return

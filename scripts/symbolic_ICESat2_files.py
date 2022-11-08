@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -20,10 +20,12 @@ COMMAND LINE OPTIONS:
     --track X: ICESat-2 tracks to create symbolic links
     --scf_incoming X: directory on the SCF where the rscf sends PANS
     --scf_outgoing X: directory on the SCF where the data resides
+    -F, --flatten: SCF outgoing does not have daily subdirectories
     -V, --verbose: output information about each symbolic link
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 11/2022: added option if SCF outgoing is a flattened structure
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 11/2020: add exception for FileExistsError to skip files
@@ -95,11 +97,15 @@ def arguments():
         help='ICESat-2 Reference Ground Tracks (RGTs) to create symbolic links')
     #-- ICESat-2 Science Computing Facility (SCF) parameters
     parser.add_argument('--scf_incoming',
-        type=str,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Directory on the SCF where the rscf sends PANS')
     parser.add_argument('--scf_outgoing',
-        type=str,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Directory on the SCF where the data resides')
+    #-- directory structure on SCF
+    parser.add_argument('--flatten','-F',
+        default=False, action='store_true',
+        help='SCF outgoing does not have daily subdirectories')
     #-- verbose will output information about each symbolic link
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
@@ -124,11 +130,11 @@ def main():
     #-- run program
     symbolic_ICESat2_files(args.directory, args.scf_incoming, args.scf_outgoing,
         args.product, args.release, args.version, args.granule, args.cycle,
-        args.track, MODE=args.mode)
+        args.track, FLATTEN=args.flatten, MODE=args.mode)
 
 #-- PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
-    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, MODE=0o775):
+    RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, FLATTEN=True, MODE=0o775):
     #-- find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,10) if not np.any(CYCLES) else CYCLES
@@ -143,25 +149,41 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
     rx = re.compile(regex_pattern.format(*args),re.VERBOSE)
+
     #-- find files within scf_outgoing
-    file_transfers = [f for f in os.listdir(scf_outgoing) if rx.match(f)]
+    if FLATTEN:
+        #-- find files within flattened scf_outgoing
+        file_transfers = [f for f in os.listdir(scf_outgoing) if rx.match(f)]
+    else:
+        #-- create list of all file transfers
+        file_transfers = []
+        #-- find each subdirectory within scf_outgoing
+        s = [s for s in os.listdir(scf_outgoing) if re.match(r'(\d+)\.(\d+)\.(\d+)',s)]
+        for sd in s:
+            #-- find files within subdirectory
+            file_transfers.extend([os.path.join(sd,f)
+                for f in os.listdir(os.path.join(scf_outgoing,sd)) if rx.match(f)])
+
+    #-- for each file to transfer
     for f in sorted(file_transfers):
         #-- extract parameters from file
-        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = rx.findall(f).pop()
         #-- put symlinks in directories similar to NSIDC
         #-- check if data directory exists and recursively create if not
-        local_dir = os.path.join(base_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
+        local_dir = os.path.join(base_dir, f'{YY}.{MM}.{DD}')
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
+        #-- input source file and output symbolic file
+        source_file = os.path.join(scf_outgoing,f)
+        destination_file = os.path.join(local_dir, os.path.basename(f))
         #-- attempt to create the symbolic link else continue
         try:
             #-- create symbolic link of file from scf_outgoing to local
-            os.symlink(os.path.join(scf_outgoing,f), os.path.join(local_dir,f))
+            os.symlink(source_file, destination_file)
         except FileExistsError:
             continue
         else:
             #-- print original and symbolic link of file
-            args = (os.path.join(scf_outgoing,f),os.path.join(local_dir,f))
-            logging.info('{0} -->\n\t{1}'.format(*args))
+            logging.info(f'{source_file} -->\n\t{destination_file}')
 
 #-- run main program
 if __name__ == '__main__':

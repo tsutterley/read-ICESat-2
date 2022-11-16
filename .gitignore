@@ -46,6 +46,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+setup-miniconda-patched-environment.yml
 # OS generated files #
 ######################
 .DS_Store

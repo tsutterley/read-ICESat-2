@@ -214,7 +214,7 @@ def reduce_ICESat2_ATL10_raster(FILE,
         dinput['data'].T, kx=1, ky=1)
 
     #-- convert projection from input coordinates (EPSG) to data coordinates
-    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs1 = pyproj.CRS.from_epsg(4326)
     crs2 = get_projection(dinput['attributes'], PROJECTION)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
     logging.info(crs2.to_proj4())
@@ -549,7 +549,7 @@ def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
     tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
-    fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
+    fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
     #-- Closing the HDF5 file
     fileID.close()
 

@@ -358,7 +358,7 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info('{0} --> '.format(remote_file))
+        logging.info(f'{remote_file} -->')
         logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
         #-- if not only listing files
         if not LIST:

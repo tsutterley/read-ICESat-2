@@ -103,7 +103,7 @@ class convert():
             # output reduced files to pandas dataframe
             return self.HDF5_to_dataframe(**kwds)
         else:
-            raise ValueError('Unknown format {0}'.format(self.reformat))
+            raise ValueError(f'Unknown format {self.reformat}')
 
     # PURPOSE: convert the HDF5 file to zarr copying all file data
     def HDF5_to_zarr(self, **kwds):
@@ -121,9 +121,9 @@ class convert():
         else:
             fileBasename,fileExtension=os.path.splitext(self.filename.filename)
         # output zarr file
-        zarr_file = os.path.expanduser('{0}.zarr'.format(fileBasename))
+        zarr_file = os.path.expanduser(f'{fileBasename}.zarr')
         # copy everything from the HDF5 file to the zarr file
-        with h5py.File(self.filename,mode='r') as source:
+        with h5py.File(self.filename, mode='r') as source:
             dest = zarr.open_group(zarr_file,mode='w')
             # value checks on output zarr
             if not hasattr(dest, 'create_dataset'):
@@ -148,7 +148,7 @@ class convert():
         else:
             fileBasename,fileExtension=os.path.splitext(self.filename.filename)
         # output HDF5 file
-        hdf5_file = os.path.expanduser('{0}.h5'.format(fileBasename))
+        hdf5_file = os.path.expanduser(f'{fileBasename}.h5')
         # copy everything from the HDF5 file
         with h5py.File(self.filename,mode='r') as source:
             dest = h5py.File(hdf5_file,mode='w')
@@ -333,7 +333,7 @@ class convert():
                         vattrs[v]['units'] = 'count'
                     else:
                         vattrs[v]['precision'] = 'double_precision'
-                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
+                    vattrs[v]['comment'] = f'column {i+1:d}'
             elif (PRD == 'ATL07'):
                 # sea ice height
                 var = source[gtx]['sea_ice_segments']
@@ -368,7 +368,7 @@ class convert():
                         vattrs[v]['precision'] = 'integer'
                     else:
                         vattrs[v]['precision'] = 'double_precision'
-                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
+                    vattrs[v]['comment'] = f'column {i+1:d}'
             elif (PRD == 'ATL08'):
                 # land and vegetation height
                 var = source[gtx]['land_segments']
@@ -394,14 +394,14 @@ class convert():
                         vattrs[v]['units'] = 'count'
                     else:
                         vattrs[v]['precision'] = 'double_precision'
-                    vattrs[v]['comment'] = 'column {0:d}'.format(i+1)
+                    vattrs[v]['comment'] = f'column {i+1:d}'
 
             # column stack of valid output segment values
             output = np.column_stack([values[v][valid] for v in vnames])
 
             # output ascii file
-            ascii_file = '{0}_{1}.{2}'.format(fileBasename,gtx,self.reformat)
-            fid = open(os.path.expanduser(ascii_file),'w')
+            ascii_file = f'{fileBasename}_{gtx}.{self.reformat}'
+            fid = open(os.path.expanduser(ascii_file), mode='w', encoding='utf8')
             # print YAML header to top of file
             fid.write('{0}:\n'.format('header'))
             # global attributes for file

@@ -105,11 +105,11 @@ warnings.filterwarnings("ignore")
 
 #-- PURPOSE: keep track of MPI threads
 def info(rank, size):
-    logging.info('Rank {0:d} of {1:d}'.format(rank+1,size))
-    logging.info('module name: {0}'.format(__name__))
+    logging.info(f'Rank {rank+1:d} of {size:d}')
+    logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
-        logging.info('parent process: {0:d}'.format(os.getppid()))
-    logging.info('process id: {0:d}'.format(os.getpid()))
+        logging.info(f'parent process: {os.getppid():d}')
+    logging.info(f'process id: {os.getpid():d}')
 
 #-- PURPOSE: create argument parser
 def arguments():
@@ -221,7 +221,7 @@ def main():
     #-- output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info('{0} -->'.format(args.file))
+        logging.info(r'{args.file} -->')
 
     #-- Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -629,7 +629,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
-    fileID.attrs['time_coverage_duration'] = '{0:0.0f}'.format(tmx-tmn)
+    fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
     #-- Closing the HDF5 file
     fileID.close()
 

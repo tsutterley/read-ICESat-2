@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/nsidc_icesat2_sync.py
+    :filename: nsidc_icesat2_sync.py
     :func: arguments
     :prog: nsidc_icesat2_sync.py
     :nodescription:

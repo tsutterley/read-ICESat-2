@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/reduce_ICESat2_ATL06_raster.py
+    :filename: reduce_ICESat2_ATL06_raster.py
     :func: arguments
     :prog: reduce_ICESat2_ATL06_raster.py
     :nodescription:

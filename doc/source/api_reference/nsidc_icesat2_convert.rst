@@ -16,7 +16,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/nsidc_icesat2_convert.py
+    :filename: nsidc_icesat2_convert.py
     :func: arguments
     :prog: nsidc_icesat2_convert.py
     :nodescription:

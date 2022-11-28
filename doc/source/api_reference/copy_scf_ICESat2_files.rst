@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/copy_scf_ICESat2_files.py
+    :filename: copy_scf_ICESat2_files.py
     :func: arguments
     :prog: copy_scf_ICESat2_files.py
     :nodescription:

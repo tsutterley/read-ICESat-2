@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/nsidc_icesat2_sync_s3.py
+    :filename: nsidc_icesat2_sync_s3.py
     :func: arguments
     :prog: nsidc_icesat2_sync_s3.py
     :nodescription:

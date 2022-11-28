@@ -214,7 +214,7 @@ def custom_colormap(N, map_name, **kwargs):
         for i in range(N):
             color_map[i,:] = colorsys.hsv_to_rgb(h[i],s[i],v[i])
     else:
-        raise ValueError('Incorrect color map specified ({0})'.format(map_name))
+        raise ValueError(f'Incorrect color map specified ({map_name})')
 
     # output RGB lists containing normalized location and colors
     Xnorm = len(color_map) - 1.0

@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/convert_ICESat2_format.py
+    :filename: convert_ICESat2_format.py
     :func: arguments
     :prog: convert_ICESat2_format.py
     :nodescription:

@@ -27,11 +27,11 @@ dependencies:
   - scikit-learn
   - scp
   - sphinx
-  - sphinx-argparse
   - sphinx_rtd_theme
   - texlive-core
   - zarr
   - pip:
+    - sphinx-argparse>=0.4
     - git+https://github.com/tsutterley/yapc.git
     - ..
 

@@ -16,7 +16,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/MPI_ICESat2_ATL03_histogram.py
+    :filename: MPI_ICESat2_ATL03_histogram.py
     :func: arguments
     :prog: MPI_ICESat2_ATL03_histogram.py
     :nodescription:

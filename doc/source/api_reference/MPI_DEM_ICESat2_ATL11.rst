@@ -28,7 +28,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/MPI_DEM_ICESat2_ATL11.py
+    :filename: MPI_DEM_ICESat2_ATL11.py
     :func: arguments
     :prog: MPI_DEM_ICESat2_ATL11.py
     :nodescription:

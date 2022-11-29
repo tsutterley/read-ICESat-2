@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/symbolic_ICESat2_files.py
+    :filename: symbolic_ICESat2_files.py
     :func: arguments
     :prog: symbolic_ICESat2_files.py
     :nodescription:

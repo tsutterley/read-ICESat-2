@@ -89,174 +89,174 @@ import lxml.etree
 import multiprocessing as mp
 import icesat2_toolkit.utilities
 
-#-- PURPOSE: download the ICESat-2 elevation data from NSIDC matching an file
+# PURPOSE: download the ICESat-2 elevation data from NSIDC matching an file
 def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
     AUXILIARY=False, FLATTEN=False, PROCESSES=0, TIMEOUT=None,
     RETRY=1, MODE=0o775):
 
-    #-- compile HTML parser for lxml
+    # compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
-    #-- logging to standard output
+    # logging to standard output
     logging.basicConfig(level=logging.INFO)
 
-    #-- remote https server for ICESat-2 Data
+    # remote https server for ICESat-2 Data
     HOST = 'https://n5eil01u.ecs.nsidc.org'
-    #-- regular expression operator for extracting information from files
+    # regular expression operator for extracting information from files
     rx = re.compile(r'(processed_)?(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    #-- regular expression pattern for finding specific files
+    # regular expression pattern for finding specific files
     regex_suffix = '(.*?)$' if AUXILIARY else '(h5)$'
     remote_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_(\d{{2}})(.*?).{5}')
 
-    #-- build list of remote files, remote modification times and local files
+    # build list of remote files, remote modification times and local files
     original_files = []
     remote_files = []
     remote_mtimes = []
     local_files = []
-    #-- for each input file
+    # for each input file
     for input_file in file_list:
-        #-- extract parameters from ICESat-2 ATLAS HDF5 file name
+        # extract parameters from ICESat-2 ATLAS HDF5 file name
         SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
             rx.findall(input_file).pop()
-        #-- get directories from remote directory
+        # get directories from remote directory
         product_directory = '{0}.{1}'.format(PRODUCT,RL)
         sd = '{0}.{1}.{2}'.format(YY,MM,DD)
         PATH = [HOST,'ATLAS',product_directory,sd]
-        #-- local and remote data directories
+        # local and remote data directories
         remote_dir=posixpath.join(*PATH)
         temp=os.path.dirname(input_file) if (DIRECTORY is None) else DIRECTORY
         local_dir=os.path.expanduser(temp) if FLATTEN else os.path.join(temp,sd)
-        #-- create output directory if not currently existing
+        # create output directory if not currently existing
         if not os.access(local_dir, os.F_OK):
             os.makedirs(local_dir, MODE)
-        #-- compile regular expression operator for file parameters
+        # compile regular expression operator for file parameters
         args = (PRODUCT,TRK,CYC,GRN,RL,regex_suffix)
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
-        #-- find associated ICESat-2 data file
-        #-- find matching files (for granule, release, version, track)
+        # find associated ICESat-2 data file
+        # find matching files (for granule, release, version, track)
         colnames,collastmod,colerror=icesat2_toolkit.utilities.nsidc_list(PATH,
             build=False,
             timeout=TIMEOUT,
             parser=parser,
             pattern=R1,
             sort=True)
-        #-- print if file was not found
+        # print if file was not found
         if not colnames:
             logging.critical(colerror)
             continue
-        #-- add to lists
+        # add to lists
         for colname,remote_mtime in zip(colnames,collastmod):
-            #-- save original file to list (expands if getting auxiliary files)
+            # save original file to list (expands if getting auxiliary files)
             original_files.append(input_file)
-            #-- remote and local versions of the file
+            # remote and local versions of the file
             remote_files.append(posixpath.join(remote_dir,colname))
             local_files.append(os.path.join(local_dir,colname))
             remote_mtimes.append(remote_mtime)
 
-    #-- download in series if PROCESSES = 0
+    # download in series if PROCESSES = 0
     if (PROCESSES == 0):
-        #-- download each associated ICESat-2 data file
+        # download each associated ICESat-2 data file
         for i,input_file in enumerate(original_files):
-            #-- download associated ICESat-2 files with NSIDC server
+            # download associated ICESat-2 files with NSIDC server
             args = (remote_files[i],remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
             out = http_pull_file(*args,**kwds)
-            #-- print the output string
+            # print the output string
             logging.info('{0}\n{1}'.format(input_file,out))
     else:
-        #-- set multiprocessing start method
+        # set multiprocessing start method
         ctx = mp.get_context("fork")
-        #-- download in parallel with multiprocessing Pool
+        # download in parallel with multiprocessing Pool
         pool = ctx.Pool(processes=PROCESSES)
-        #-- download each associated ICESat-2 data file
+        # download each associated ICESat-2 data file
         output = []
         for i,input_file in enumerate(original_files):
-            #-- download associated ICESat-2 files with NSIDC server
+            # download associated ICESat-2 files with NSIDC server
             args = (remote_files[i],remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
             out=pool.apply_async(multiprocess_sync,args=args,kwds=kwds)
             output.append('{0}\n{1}'.format(input_file,out))
-        #-- start multiprocessing jobs
-        #-- close the pool
-        #-- prevents more tasks from being submitted to the pool
+        # start multiprocessing jobs
+        # close the pool
+        # prevents more tasks from being submitted to the pool
         pool.close()
-        #-- exit the completed processes
+        # exit the completed processes
         pool.join()
-        #-- print the output string
+        # print the output string
         for out in output:
             logging.info(out.get())
 
-#-- PURPOSE: wrapper for running the sync program in multiprocessing mode
+# PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(*args, **kwds):
     try:
         output = http_pull_file(*args, **kwds)
     except Exception as e:
-        #-- if there has been an error exception
-        #-- print the type, value, and stack trace of the
-        #-- current exception being handled
+        # if there has been an error exception
+        # print the type, value, and stack trace of the
+        # current exception being handled
         logging.critical('process id {0:d} failed'.format(os.getpid()))
         logging.error(traceback.format_exc())
     else:
         return output
 
-#-- PURPOSE: pull file from a remote host checking if file exists locally
-#-- and if the remote file is newer than the local file
+# PURPOSE: pull file from a remote host checking if file exists locally
+# and if the remote file is newer than the local file
 def http_pull_file(remote_file,remote_mtime,local_file,
     TIMEOUT=None, RETRY=1, MODE=0o775):
-    #-- Printing files transferred
+    # Printing files transferred
     output = '{0} -->\n\t{1}\n'.format(remote_file,local_file)
-    #-- chunked transfer encoding size
+    # chunked transfer encoding size
     CHUNK = 16 * 1024
-    #-- attempt to download a file up to a set number of times
+    # attempt to download a file up to a set number of times
     retry_download(remote_file, LOCAL=local_file, TIMEOUT=TIMEOUT,
         RETRY=RETRY, CHUNK=CHUNK)
-    #-- keep remote modification time of file and local access time
+    # keep remote modification time of file and local access time
     os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
     os.chmod(local_file, MODE)
-    #-- return the output string
+    # return the output string
     return output
 
-#-- PURPOSE: Try downloading a file up to a set number of times
+# PURPOSE: Try downloading a file up to a set number of times
 def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
-    #-- attempt to download up to the number of retries
+    # attempt to download up to the number of retries
     retry_counter = 0
     while (retry_counter < RETRY):
-        #-- attempt to retrieve file from https server
+        # attempt to retrieve file from https server
         try:
-            #-- Create and submit request.
-            #-- There are a range of exceptions that can be thrown here
-            #-- including HTTPError and URLError.
+            # Create and submit request.
+            # There are a range of exceptions that can be thrown here
+            # including HTTPError and URLError.
             request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
             response=icesat2_toolkit.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
-            #-- get the length of the remote file
+            # get the length of the remote file
             remote_length = int(response.headers['content-length'])
-            #-- copy contents to file using chunked transfer encoding
-            #-- transfer should work with ascii and binary data formats
+            # copy contents to file using chunked transfer encoding
+            # transfer should work with ascii and binary data formats
             with open(LOCAL, 'wb') as f:
                 shutil.copyfileobj(response, f, CHUNK)
             local_length = os.path.getsize(LOCAL)
         except:
             pass
         else:
-            #-- check that downloaded file matches original length
+            # check that downloaded file matches original length
             if (local_length == remote_length):
                 break
-        #-- add to retry counter
+        # add to retry counter
         retry_counter += 1
-    #-- check if maximum number of retries were reached
+    # check if maximum number of retries were reached
     if (retry_counter == RETRY):
         raise TimeoutError('Maximum number of retries reached')
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Program to acquire ICESat-2 datafiles from the NSIDC
             server that is associated with an input file
             """
     )
-    #-- ICESat-2 Products
+    # ICESat-2 Products
     PRODUCTS = {}
     PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
     PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
@@ -267,11 +267,11 @@ def arguments():
     PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
     PRODUCTS['ATL12'] = 'Ocean Surface Height'
     PRODUCTS['ATL13'] = 'Inland Water Surface Height'
-    #-- command line parameters
+    # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='ICESat-2 products to associate')
-    #-- NASA Earthdata credentials
+    # NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
@@ -282,37 +282,37 @@ def arguments():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- ICESat-2 parameters
-    #-- ICESat-2 data product
+    # ICESat-2 parameters
+    # ICESat-2 data product
     parser.add_argument('--product','-p',
         metavar='PRODUCTS', type=str,
         choices=PRODUCTS.keys(), default='ATL06',
         help='Associated ICESat-2 data product to download')
-    #-- download auxiliary files
+    # download auxiliary files
     parser.add_argument('--auxiliary','-a',
         default=False, action='store_true',
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
-    #-- output subdirectories
+    # output subdirectories
     parser.add_argument('--flatten','-F',
         default=False, action='store_true',
         help='Do not create subdirectories')
-    #-- run download in series if processes is 0
+    # run download in series if processes is 0
     parser.add_argument('--np','-P',
         metavar='PROCESSES', type=int, default=0,
         help='Number of processes to use in downloading files')
-    #-- connection timeout and number of retry attempts
+    # connection timeout and number of retry attempts
     parser.add_argument('--timeout','-T',
         type=int, default=120,
         help='Timeout in seconds for blocking operations')
     parser.add_argument('--retry','-R',
         type=int, default=5,
         help='Connection retry attempts')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permissions mode of output files')
@@ -321,24 +321,24 @@ def arguments():
 
 # This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- NASA Earthdata hostname
+    # NASA Earthdata hostname
     HOST = 'urs.earthdata.nasa.gov'
-    #-- build a urllib opener for NASA Earthdata
-    #-- check internet connection before attempting to run program
+    # build a urllib opener for NASA Earthdata
+    # check internet connection before attempting to run program
     opener = icesat2_toolkit.utilities.attempt_login(HOST,
         username=args.user, password=args.password,
         netrc=args.netrc)
 
-    #-- check NASA earthdata credentials before attempting to run program
+    # check NASA earthdata credentials before attempting to run program
     nsidc_icesat2_associated(args.file, args.product,
         DIRECTORY=args.directory, AUXILIARY=args.auxiliary,
         FLATTEN=args.flatten, PROCESSES=args.np, TIMEOUT=args.timeout,
         RETRY=args.retry, MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/MPI_reduce_ICESat2_ATL11_drainages.py
+    :filename: MPI_reduce_ICESat2_ATL11_drainages.py
     :func: arguments
     :prog: MPI_reduce_ICESat2_ATL11_drainages.py
     :nodescription:

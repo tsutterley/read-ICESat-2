@@ -158,7 +158,7 @@ _s3_buckets = {
     'podaac': 'podaac-ops-cumulus-protected'
 }
 
-#-- PURPOSE: get AWS s3 client for NSIDC Cumulus
+# PURPOSE: get AWS s3 client for NSIDC Cumulus
 def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
     region_name='us-west-2'):
     """
@@ -182,16 +182,16 @@ def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
     request = urllib2.Request(HOST)
     response = urllib2.urlopen(request, timeout=timeout)
     cumulus = json.loads(response.read())
-    #-- get AWS client object
+    # get AWS client object
     client = boto3.client('s3',
         aws_access_key_id=cumulus['accessKeyId'],
         aws_secret_access_key=cumulus['secretAccessKey'],
         aws_session_token=cumulus['sessionToken'],
         region_name=region_name)
-    #-- return the AWS client for region
+    # return the AWS client for region
     return client
 
-#-- PURPOSE: get a s3 bucket name from a presigned url
+# PURPOSE: get a s3 bucket name from a presigned url
 def s3_bucket(presigned_url):
     """
     Get a s3 bucket name from a presigned url
@@ -210,7 +210,7 @@ def s3_bucket(presigned_url):
     bucket = re.sub(r's3:\/\/', r'', host[0], re.IGNORECASE)
     return bucket
 
-#-- PURPOSE: get a s3 bucket key from a presigned url
+# PURPOSE: get a s3 bucket key from a presigned url
 def s3_key(presigned_url):
     """
     Get a s3 bucket key from a presigned url
@@ -387,7 +387,7 @@ def copy(source, destination, move=False, **kwargs):
     source = os.path.abspath(os.path.expanduser(source))
     destination = os.path.abspath(os.path.expanduser(destination))
     # log source and destination
-    logging.info('{0} -->\n\t{1}'.format(source,destination))
+    logging.info(f'{source} -->\n\t{destination}')
     shutil.copyfile(source, destination)
     shutil.copystat(source, destination)
     if move:
@@ -456,7 +456,7 @@ def ftp_list(HOST, username=None, password=None, timeout=None,
     try:
         ftp = ftplib.FTP(HOST[0],timeout=timeout)
     except (socket.gaierror,IOError):
-        raise RuntimeError('Unable to connect to {0}'.format(HOST[0]))
+        raise RuntimeError(f'Unable to connect to {HOST[0]}')
     else:
         ftp.login(username,password)
         # list remote path
@@ -467,7 +467,7 @@ def ftp_list(HOST, username=None, password=None, timeout=None,
         for i,f in enumerate(output):
             try:
                 # try sending modification time command
-                mdtm = ftp.sendcmd('MDTM {0}'.format(f))
+                mdtm = ftp.sendcmd(f'MDTM {f}')
             except ftplib.error_perm:
                 # directories will return with an error
                 pass
@@ -540,14 +540,14 @@ def from_ftp(HOST, username=None, password=None, timeout=None,
         # try to connect to ftp host
         ftp = ftplib.FTP(HOST[0],timeout=timeout)
     except (socket.gaierror,IOError):
-        raise RuntimeError('Unable to connect to {0}'.format(HOST[0]))
+        raise RuntimeError(f'Unable to connect to {HOST[0]}')
     else:
         ftp.login(username,password)
         # remote path
         ftp_remote_path = posixpath.join(*HOST[1:])
         # copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO()
-        ftp.retrbinary('RETR {0}'.format(ftp_remote_path),
+        ftp.retrbinary(f'RETR {ftp_remote_path}',
             remote_buffer.write, blocksize=chunk)
         remote_buffer.seek(0)
         # save file basename with bytesIO object
@@ -555,7 +555,7 @@ def from_ftp(HOST, username=None, password=None, timeout=None,
         # generate checksum hash for remote file
         remote_hash = hashlib.md5(remote_buffer.getvalue()).hexdigest()
         # get last modified date of remote file and convert into unix time
-        mdtm = ftp.sendcmd('MDTM {0}'.format(ftp_remote_path))
+        mdtm = ftp.sendcmd(f'MDTM {ftp_remote_path}')
         remote_mtime = get_unix_time(mdtm[4:], format="%Y%m%d%H%M%S")
         # compare checksums
         if local and (hash != remote_hash):
@@ -793,9 +793,9 @@ def attempt_login(urs, context=ssl.SSLContext(),
         pass
     # if username or password are not available
     if not username:
-        username = builtins.input('Username for {0}: '.format(urs))
+        username = builtins.input(f'Username for {urs}: ')
     if not password:
-        prompt = 'Password for {0}@{1}: '.format(username, urs)
+        prompt = f'Password for {username}@{urs}: '
         password = getpass.getpass(prompt=prompt)
     # for each retry
     for retry in range(kwargs['retries']):
@@ -815,7 +815,7 @@ def attempt_login(urs, context=ssl.SSLContext(),
         else:
             return opener
         # reattempt login
-        username = builtins.input('Username for {0}: '.format(urs))
+        username = builtins.input(f'Username for {urs}: ')
         password = getpass.getpass(prompt=prompt)
     # reached end of available retries
     raise RuntimeError('End of Retries: Check NASA Earthdata credentials')
@@ -876,7 +876,7 @@ def build_opener(username, password, context=ssl.SSLContext(),
     # Encode username/password for request authorization headers
     # add Authorization header to opener
     if authorization_header:
-        b64 = base64.b64encode('{0}:{1}'.format(username,password).encode())
+        b64 = base64.b64encode(f'{username}:{password}'.encode())
         opener.addheaders = [("Authorization","Basic {0}".format(b64.decode()))]
     # Now all calls to urllib2.urlopen use our opener.
     urllib2.install_opener(opener)
@@ -1080,13 +1080,13 @@ def cmr_query_release(release):
     # maximum length of version in CMR queries
     desired_pad_length = 3
     if len(str(release)) > desired_pad_length:
-        raise RuntimeError('Release string too long: "{0}"'.format(release))
+        raise RuntimeError(f'Release string too long: "{release}"')
     # Strip off any leading zeros
     release = str(release).lstrip('0')
     query_params = ''
     while len(release) <= desired_pad_length:
         padded_release = release.zfill(desired_pad_length)
-        query_params += '&version={0}'.format(padded_release)
+        query_params += f'&version={padded_release}'
         desired_pad_length -= 1
     return query_params
 
@@ -1327,10 +1327,9 @@ def cmr_readable_granules(product, **kwargs):
         # for each ATL14/ATL15 parameter
         for r in cmr_regions(kwargs["regions"]):
             for s in cmr_resolutions(kwargs["resolutions"]):
-                args = (product, r, s)
-                pattern = "{0}_{1}_????_{2}_*"
                 # append the granule pattern
-                readable_granule_list.append(pattern.format(*args))
+                pattern = f"{product}_{r}_????_{s}_*"
+                readable_granule_list.append(pattern)
     else:
         # along-track products
         # for each available cycle of interest
@@ -1342,16 +1341,13 @@ def cmr_readable_granules(product, **kwargs):
                     # use single character wildcards "?" for date strings,
                     # sea ice product hemispheres, and any unset parameters
                     if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
-                        args = (product, 14 * "?", t, c, g)
-                        pattern = "{0}-??_{1}_{2}{3}{4}_*"
+                        pattern = f"{product}-??_{14 * '?'}_{t}{c}{g}_*"
                     elif product in ("ATL11",):
-                        args = (product, t, g)
-                        pattern = "{0}_{1}{2}_*"
+                        pattern = f"{product}_{t}{g}_*"
                     else:
-                        args = (product, 14 * "?", t, c, g)
-                        pattern = "{0}_{1}_{2}{3}{4}_*"
+                        pattern = f"{product}_{14 * '?'}_{t}{c}{g}_*"
                     # append the granule pattern
-                    readable_granule_list.append(pattern.format(*args))
+                    readable_granule_list.append(pattern)
     # return readable granules list
     return readable_granule_list
 
@@ -1455,30 +1451,31 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
         # create "opener" (OpenerDirector instance)
         opener = urllib2.build_opener(*handler)
     # build CMR query
+    cmr_query_type = 'granules'
     cmr_format = 'json'
     cmr_page_size = 2000
     CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
-        'granules.{0}'.format(cmr_format)]
+        f'{cmr_query_type}.{cmr_format}']
     # build list of CMR query parameters
     CMR_KEYS = []
-    CMR_KEYS.append('?provider={0}'.format(provider))
+    CMR_KEYS.append(f'?provider={provider}')
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
     CMR_KEYS.append('&scroll=true')
-    CMR_KEYS.append('&page_size={0}'.format(cmr_page_size))
+    CMR_KEYS.append(f'&page_size={cmr_page_size}')
     # append product string
-    CMR_KEYS.append('&short_name={0}'.format(product))
+    CMR_KEYS.append(f'&short_name={product}')
     # append release strings
     CMR_KEYS.append(cmr_query_release(release))
     # append keys for start and end time
     # verify that start and end times are in ISO format
     start_date = isoformat(start_date) if start_date else ''
     end_date = isoformat(end_date) if end_date else ''
-    CMR_KEYS.append('&temporal={0},{1}'.format(start_date, end_date))
+    CMR_KEYS.append(f'&temporal={start_date},{end_date}')
     # append keys for spatial bounding box
     if bbox is not None:
         bounding_box = ','.join([str(b) for b in bbox])
-        CMR_KEYS.append('&bounding_box={0}'.format(bounding_box))
+        CMR_KEYS.append(f'&bounding_box={bounding_box}')
     # append keys for querying specific granules
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")
@@ -1486,10 +1483,10 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
         cycles=cycles, tracks=tracks, granules=granules,
         regions=regions, resolutions=resolutions)
     for gran in readable_granule_list:
-        CMR_KEYS.append("&readable_granule_name[]={0}".format(gran))
+        CMR_KEYS.append(f"&readable_granule_name[]={gran}")
     # full CMR query url
     cmr_query_url = "".join([posixpath.join(*CMR_HOST),*CMR_KEYS])
-    logging.info('CMR request={0}'.format(cmr_query_url))
+    logging.info(f'CMR request={cmr_query_url}')
     # output list of granule names and urls
     producer_granule_ids = []
     granule_urls = []

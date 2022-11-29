@@ -92,8 +92,8 @@ def test_ATL07_download_and_read(username,password):
 # PURPOSE: Download an ATL11 file from NSIDC and check that read program runs
 def test_ATL11_download_and_read(username,password):
     # attempt download from on-prem NSIDC
-    HOST = ['https://n5eil01u.ecs.nsidc.org','ATLAS','ATL11.004','2019.03.29',
-        'ATL11_000103_0311_004_01.h5']
+    HOST = ['https://n5eil01u.ecs.nsidc.org','ATLAS','ATL11.005','2019.03.29',
+        'ATL11_000103_0315_005_03.h5']
     buffer, error = icesat2_toolkit.utilities.from_nsidc(HOST,
         username=username, password=password,
         local=HOST[-1], verbose=True)

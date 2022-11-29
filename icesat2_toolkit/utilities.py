@@ -158,7 +158,7 @@ _s3_buckets = {
     'podaac': 'podaac-ops-cumulus-protected'
 }
 
-#-- PURPOSE: get AWS s3 client for NSIDC Cumulus
+# PURPOSE: get AWS s3 client for NSIDC Cumulus
 def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
     region_name='us-west-2'):
     """
@@ -182,16 +182,16 @@ def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
     request = urllib2.Request(HOST)
     response = urllib2.urlopen(request, timeout=timeout)
     cumulus = json.loads(response.read())
-    #-- get AWS client object
+    # get AWS client object
     client = boto3.client('s3',
         aws_access_key_id=cumulus['accessKeyId'],
         aws_secret_access_key=cumulus['secretAccessKey'],
         aws_session_token=cumulus['sessionToken'],
         region_name=region_name)
-    #-- return the AWS client for region
+    # return the AWS client for region
     return client
 
-#-- PURPOSE: get a s3 bucket name from a presigned url
+# PURPOSE: get a s3 bucket name from a presigned url
 def s3_bucket(presigned_url):
     """
     Get a s3 bucket name from a presigned url
@@ -210,7 +210,7 @@ def s3_bucket(presigned_url):
     bucket = re.sub(r's3:\/\/', r'', host[0], re.IGNORECASE)
     return bucket
 
-#-- PURPOSE: get a s3 bucket key from a presigned url
+# PURPOSE: get a s3 bucket key from a presigned url
 def s3_key(presigned_url):
     """
     Get a s3 bucket key from a presigned url

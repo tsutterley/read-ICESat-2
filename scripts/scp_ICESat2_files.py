@@ -61,14 +61,14 @@ import paramiko
 import posixpath
 import numpy as np
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Copies ICESat-2 HDF5 data from between a local host and
             remote host
             """
     )
-    #-- ICESat-2 Products
+    # ICESat-2 Products
     PRODUCTS = {}
     PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'
     PRODUCTS['ATL04'] = 'Normalized Relative Backscatter'
@@ -79,15 +79,15 @@ def arguments():
     PRODUCTS['ATL10'] = 'Sea Ice Freeboard'
     PRODUCTS['ATL12'] = 'Ocean Surface Height'
     PRODUCTS['ATL13'] = 'Inland Water Surface Height'
-    #-- command line parameters
-    #-- remote server credentials
+    # command line parameters
+    # remote server credentials
     parser.add_argument('--host','-H',
         type=str, default='',
         help='Hostname of the remote server')
     parser.add_argument('--user','-U',
         type=str, default='',
         help='Remote server username')
-    #-- working data directories
+    # working data directories
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
@@ -95,51 +95,51 @@ def arguments():
     parser.add_argument('--remote','-R',
         type=str, default='',
         help='Remote working directory')
-    #-- ICESat-2 parameters
-    #-- ICESat-2 data product
+    # ICESat-2 parameters
+    # ICESat-2 data product
     parser.add_argument('--product','-p',
         metavar='PRODUCTS', type=str,
         choices=PRODUCTS.keys(), default='ATL06',
         help='ICESat-2 data product to copy')
-    #-- ICESat-2 data release
+    # ICESat-2 data release
     parser.add_argument('--release','-r',
         type=str, default='004',
         help='ICESat-2 data release to copy')
-    #-- ICESat-2 data version
+    # ICESat-2 data version
     parser.add_argument('--version','-v',
         type=int, nargs='+', default=range(1,10),
         help='ICESat-2 data versions to copy')
-    #-- ICESat-2 granule region
+    # ICESat-2 granule region
     parser.add_argument('--granule','-g',
         metavar='REGION', type=int, nargs='+',
         choices=range(1,15), default=range(1,15),
         help='ICESat-2 granule regions to copy')
-    #-- ICESat-2 orbital cycle
+    # ICESat-2 orbital cycle
     parser.add_argument('--cycle','-c',
         type=int, nargs='+',
         default=range(1,10),
         help='ICESat-2 orbital cycles to copy')
-    #-- ICESat-2 reference ground tracks
+    # ICESat-2 reference ground tracks
     parser.add_argument('--track','-t',
         metavar='RGT', type=int, nargs='+',
         choices=range(1,1388), default=range(1,1388),
         help='ICESat-2 Reference Ground Tracks (RGTs) to copy')
-    #-- sync options
+    # sync options
     parser.add_argument('--push','-P',
         default=False, action='store_true',
         help='Transfer files from local computer to remote server')
     parser.add_argument('--list','-L',
         default=False, action='store_true',
         help='Only print files that could be transferred')
-    #-- verbose will output information about each copied file
+    # verbose will output information about each copied file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
         help='Verbose output of run')
-    #-- clobber will overwrite the existing data
+    # clobber will overwrite the existing data
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permissions mode of output directories and files')
@@ -148,79 +148,79 @@ def arguments():
 
 # This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- use entered host and username
+    # use entered host and username
     client_kwds = {}
     client_kwds.setdefault('hostname',args.host)
     client_kwds.setdefault('username',args.user)
-    #-- use ssh configuration file to extract hostname, user and identityfile
+    # use ssh configuration file to extract hostname, user and identityfile
     user_config_file = os.path.join(os.environ['HOME'],".ssh","config")
     if os.path.exists(user_config_file):
-        #-- read ssh configuration file and parse with paramiko
+        # read ssh configuration file and parse with paramiko
         ssh_config = paramiko.SSHConfig()
         with open(user_config_file) as f:
             ssh_config.parse(f)
-        #-- lookup hostname from list of hosts
+        # lookup hostname from list of hosts
         user_config = ssh_config.lookup(args.host)
         client_kwds['hostname'] = user_config['hostname']
-        #-- get username if not entered from command-line
+        # get username if not entered from command-line
         if args.user is None and 'username' in user_config.keys():
             client_kwds['username'] = user_config['user']
-        #-- use identityfile if in ssh configuration file
+        # use identityfile if in ssh configuration file
         if 'identityfile' in user_config.keys():
             client_kwds['key_filename'] = user_config['identityfile']
 
-    #-- open HOST ssh client for USER (and use password if no IDENTITYFILE)
+    # open HOST ssh client for USER (and use password if no IDENTITYFILE)
     client = attempt_login(**client_kwds)
-    #-- open secure FTP client
+    # open secure FTP client
     client_ftp = client.open_sftp()
-    #-- verbosity settings
+    # verbosity settings
     if args.verbose or args.list:
         logging.getLogger("paramiko").setLevel(logging.INFO)
         logging.basicConfig(level=logging.INFO)
     else:
         logging.basicConfig(level=logging.CRITICAL)
-    #-- print username for remote client
+    # print username for remote client
     logging.info('{0}@{1}:\n'.format(client_kwds['username'],
         client_kwds['hostname']))
 
-    #-- run program
+    # run program
     scp_ICESat2_files(client, client_ftp, args.directory, args.remote,
         args.product, args.release, args.version, args.granule, args.cycle,
         args.track, PUSH=args.push, LIST=args.list, CLOBBER=args.clobber,
         MODE=args.mode)
 
-    #-- close the secure FTP server
+    # close the secure FTP server
     client_ftp.close()
-    #-- close the ssh client
+    # close the ssh client
     client = None
 
-#-- PURPOSE: try logging onto the server and catch authentication errors
+# PURPOSE: try logging onto the server and catch authentication errors
 def attempt_login(**client_kwds):
-    #-- open HOST ssh client
+    # open HOST ssh client
     kwds = client_kwds.copy()
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     tryagain = True
-    #-- add initial attempt
+    # add initial attempt
     attempts = 1
-    #-- use identification file
+    # use identification file
     try:
         client.connect(**kwds)
     except paramiko.ssh_exception.AuthenticationException:
         pass
     else:
         return client
-    #-- add attempt
+    # add attempt
     attempts += 1
-    #-- phrase for entering password
+    # phrase for entering password
     phrase = 'Password for {0}@{1}: '.format(kwds['username'],kwds['hostname'])
-    #-- remove key_filename from keywords
+    # remove key_filename from keywords
     kwds.pop('key_filename') if 'key_filename' in kwds.keys() else None
-    #-- enter password securely from command-line
+    # enter password securely from command-line
     while tryagain:
         kwds['password'] = getpass.getpass(phrase)
         try:
@@ -230,19 +230,19 @@ def attempt_login(**client_kwds):
         else:
             kwds.pop('password')
             return client
-        #-- retry with new password
+        # retry with new password
         logging.critical('Authentication Failed (Attempt {0:d})'.format(attempts))
         tryagain = builtins.input('Try Different Password? (Y/N): ') in ('Y','y')
-        #-- add attempt
+        # add attempt
         attempts += 1
-    #-- exit program if not trying again
+    # exit program if not trying again
     sys.exit()
 
-#-- PURPOSE: copies ICESat-2 HDF5 files between a remote host and a local host
+# PURPOSE: copies ICESat-2 HDF5 files between a remote host and a local host
 def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
     PUSH=False, LIST=False, MODE=0o775):
-    #-- find ICESat-2 HDF5 files in the subdirectory for product and release
+    # find ICESat-2 HDF5 files in the subdirectory for product and release
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
     GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
@@ -251,49 +251,49 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
     regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
     regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
-    #-- compile regular expression operator for finding subdirectories
-    #-- and extracting date information from the subdirectory
+    # compile regular expression operator for finding subdirectories
+    # and extracting date information from the subdirectory
     rx1 = re.compile(r'(\d+)\.(\d+)\.(\d+)',re.VERBOSE)
-    #-- compile regular expression operator for extracting data from files
+    # compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
     rx2 = re.compile(regex_pattern.format(*args,re.VERBOSE))
-    #-- if pushing from local directory to remote directory
+    # if pushing from local directory to remote directory
     if PUSH:
-        #-- find all local subdirectories
+        # find all local subdirectories
         SUBDIRECTORY = [s for s in os.listdir(DIRECTORY) if rx1.match(s)]
-        #-- for each subdirectory to run
+        # for each subdirectory to run
         for sub in sorted(SUBDIRECTORY):
-            #-- find files within local directory
+            # find files within local directory
             local_dir = os.path.join(DIRECTORY,sub)
             remote_path = posixpath.join(REMOTE,sub)
             file_list=[f for f in os.listdir(local_dir) if rx2.match(f)]
             for fi in sorted(file_list):
-                #-- check if data directory exists and recursively create if not
+                # check if data directory exists and recursively create if not
                 remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
-                #-- push file from local to remote
+                # push file from local to remote
                 scp_push_file(client, client_ftp, fi, local_dir, remote_path,
                     CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
     else:
-        #-- find all remote subdirectories
+        # find all remote subdirectories
         SUBDIRECTORY = [s for s in client_ftp.listdir(REMOTE) if rx1.match(s)]
-        #-- for each subdirectory to run
+        # for each subdirectory to run
         for sub in sorted(SUBDIRECTORY):
-            #-- local and remote directories
+            # local and remote directories
             local_dir = os.path.join(DIRECTORY,sub)
             remote_path = posixpath.join(REMOTE,sub)
-            #-- find remote files for hemisphere
+            # find remote files for hemisphere
             file_list=[f for f in client_ftp.listdir(remote_path) if rx2.match(f)]
             for fi in sorted(file_list):
-                #-- check if data directory exists and recursively create if not
+                # check if data directory exists and recursively create if not
                 if not os.access(local_dir, os.F_OK) and not LIST:
                     os.makedirs(local_dir, MODE)
-                #-- push file from local to remote
+                # push file from local to remote
                 scp_pull_file(client, client_ftp, fi, local_dir, remote_path,
                     CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
 
-#-- PURPOSE: recursively create directories on remote server
+# PURPOSE: recursively create directories on remote server
 def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
     dirs = remote_dir.split(posixpath.sep)
     remote_path = dirs[0] if dirs[0] else posixpath.sep
@@ -302,76 +302,76 @@ def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
             client_ftp.mkdir(posixpath.join(remote_path,s), MODE)
         remote_path = posixpath.join(remote_path,s)
 
-#-- PURPOSE: push a local file to a remote host checking if file exists
-#-- and if the local file is newer than the remote file (reprocessed)
-#-- set the permissions mode of the remote transferred file to MODE
+# PURPOSE: push a local file to a remote host checking if file exists
+# and if the local file is newer than the remote file (reprocessed)
+# set the permissions mode of the remote transferred file to MODE
 def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
     CLOBBER=False, LIST=False, MODE=0o775):
-    #-- local and remote versions of file
+    # local and remote versions of file
     local_file = os.path.join(local_dir,transfer_file)
     remote_file = posixpath.join(remote_dir,transfer_file)
-    #-- check if local file is newer than the remote file
+    # check if local file is newer than the remote file
     TEST = False
     OVERWRITE = 'clobber'
     if (transfer_file in client_ftp.listdir(remote_dir)):
         local_mtime = os.stat(local_file).st_mtime
         remote_mtime = client_ftp.stat(remote_file).st_mtime
-        #-- if local file is newer: overwrite the remote file
+        # if local file is newer: overwrite the remote file
         if (even(local_mtime) > even(remote_mtime)):
             TEST = True
             OVERWRITE = 'overwrite'
     else:
         TEST = True
         OVERWRITE = 'new'
-    #-- if file does not exist remotely, is to be overwritten, or CLOBBER is set
+    # if file does not exist remotely, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         logging.info('{0} --> '.format(local_file))
         logging.info('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
-        #-- if not only listing files
+        # if not only listing files
         if not LIST:
-            #-- copy local files to remote server
+            # copy local files to remote server
             with scp.SCPClient(client.get_transport(), socket_timeout=20) as s:
                 s.put(local_file, remote_file, preserve_times=True)
-            #-- change the permissions level of the transported file to MODE
+            # change the permissions level of the transported file to MODE
             client_ftp.chmod(remote_file, MODE)
 
-#-- PURPOSE: pull file from a remote host checking if file exists locally
-#-- and if the remote file is newer than the local file (reprocessed)
-#-- set the permissions mode of the local transferred file to MODE
+# PURPOSE: pull file from a remote host checking if file exists locally
+# and if the remote file is newer than the local file (reprocessed)
+# set the permissions mode of the local transferred file to MODE
 def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
     CLOBBER=False, LIST=False, MODE=0o775):
-    #-- local and remote versions of file
+    # local and remote versions of file
     local_file = os.path.join(local_dir,transfer_file)
     remote_file = posixpath.join(remote_dir,transfer_file)
-    #-- check if remote file is newer than the local file
+    # check if remote file is newer than the local file
     TEST = False
     OVERWRITE = 'clobber'
     if os.access(local_file, os.F_OK):
         local_mtime = os.stat(local_file).st_mtime
         remote_mtime = client_ftp.stat(remote_file).st_mtime
-        #-- if remote file is newer: overwrite the local file
+        # if remote file is newer: overwrite the local file
         if (even(remote_mtime) > even(local_mtime)):
             TEST = True
             OVERWRITE = 'overwrite'
     else:
         TEST = True
         OVERWRITE = 'new'
-    #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
+    # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         logging.info(f'{remote_file} -->')
         logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
-        #-- if not only listing files
+        # if not only listing files
         if not LIST:
-            #-- copy local files from remote server
+            # copy local files from remote server
             with scp.SCPClient(client.get_transport(), socket_timeout=20) as s:
                 s.get(remote_file, local_path=local_file, preserve_times=True)
-            #-- change the permissions level of the transported file to MODE
+            # change the permissions level of the transported file to MODE
             os.chmod(local_file, MODE)
 
-#-- PURPOSE: rounds a number to an even number less than or equal to original
+# PURPOSE: rounds a number to an even number less than or equal to original
 def even(i):
     return 2*int(i//2)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

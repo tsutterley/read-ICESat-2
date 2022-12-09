@@ -46,7 +46,7 @@ except:
 else:
     log.info(f"GDAL version from via gdal-config: {gdal_output[3]}")
 # if setting GDAL version from via gdal-config
-if gdal_output[3]:
+if gdal_output[3] and ('gdal' in install_requires):
     # add version information to gdal in install_requires
     gdal_index = install_requires.index('gdal')
     install_requires[gdal_index] = f'gdal=={gdal_output[3]}'

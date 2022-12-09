@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (07/2022)
+Written by Tyler Sutterley (12/2022)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -64,9 +65,7 @@ import warnings
 import numpy as np
 import collections
 from mpi4py import MPI
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # attempt imports
 try:
@@ -113,8 +112,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -199,7 +197,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(r'{args.file} -->')
+        logging.info(f'{args.file} -->')
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -415,9 +413,9 @@ def main():
             IS2_atl11_dims[ptx]['subsetting'][key] = ['ref_pt']
             IS2_atl11_mask_attrs[ptx]['subsetting'][key] = collections.OrderedDict()
             IS2_atl11_mask_attrs[ptx]['subsetting'][key]['contentType'] = "referenceInformation"
-            IS2_atl11_mask_attrs[ptx]['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
+            IS2_atl11_mask_attrs[ptx]['subsetting'][key]['long_name'] = f'{key} Mask'
             IS2_atl11_mask_attrs[ptx]['subsetting'][key]['description'] = ('Mask calculated '
-                'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
+                f'using delineations from the {ice_shelf_description[HEM]}.')
             IS2_atl11_mask_attrs[ptx]['subsetting'][key]['reference'] = ice_shelf_reference[HEM]
             IS2_atl11_mask_attrs[ptx]['subsetting'][key]['source'] = args.buffer
             IS2_atl11_mask_attrs[ptx]['subsetting'][key]['coordinates'] = \
@@ -431,7 +429,7 @@ def main():
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['contentType'] = "referenceInformation"
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['long_name'] = 'Ice Shelf Mask'
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['description'] = ('Mask calculated '
-            'using delineations from the {0}.'.format(ice_shelf_description[HEM]))
+            f'using delineations from the {ice_shelf_description[HEM]}.')
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['reference'] = ice_shelf_reference[HEM]
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['source'] = args.buffer
         IS2_atl11_mask_attrs[ptx]['subsetting']['ice_shelf']['coordinates'] = \
@@ -447,7 +445,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.info('\t{0}'.format(output_file))
+        logging.into(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
@@ -595,9 +593,9 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -607,6 +605,10 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

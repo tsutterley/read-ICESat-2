@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_scf_ICESat2_files.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Copies ICESat-2 HDF5 files from the SCF server to a remote host using the
     SCF-authorized local computer as a proxy server
 
@@ -40,6 +40,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
@@ -209,9 +210,8 @@ def main():
     else:
         logging.basicConfig(level=logging.CRITICAL)
     # print username for scf and remote client
-    logging.info('{0}@{1} --> {2}@{3}\n'.format(
-        scf_kwds['username'],scf_kwds['hostname'],
-        client_kwds['username'],client_kwds['hostname']))
+    logging.info(f'{scf_kwds["username"]}@{scf_kwds["hostname"]} -->')
+    logging.info(f'\t{client_kwds["username"]}@{client_kwds["hostname"]}\n')
 
     # run program
     scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, args.remote,
@@ -235,10 +235,10 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
     GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
     VERSIONS = np.arange(1,10) if not np.any(VERSIONS) else VERSIONS
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_track = '|'.join([rf'{T:04d}' for T in TRACKS])
+    regex_cycle = '|'.join([rf'{C:02d}' for C in CYCLES])
+    regex_granule = '|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = '|'.join([rf'{V:02d}' for V in VERSIONS])
     # compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
@@ -251,7 +251,7 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
         SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         # put data in directories similar to NSIDC
         # check if data directory exists and recursively create if not
-        remote_path = posixpath.join(remote_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
+        remote_path = posixpath.join(remote_dir,f'{YY}.{MM}.{DD}')
         remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
         # pull file from scf to remote
         scp_pull_file(client_ftp, scf_client_ftp, f, remote_path, scf_outgoing,
@@ -291,8 +291,8 @@ def scp_pull_file(client_ftp, scf_client_ftp, transfer_file, remote_dir,
         OVERWRITE = 'new'
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info('{0} --> '.format(outgoing_file))
-        logging.info('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
+        logging.info(f'{outgoing_file} --> ')
+        logging.info(f'\t{remote_file} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # load scf file contents to BytesIO object

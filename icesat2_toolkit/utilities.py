@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (08/2022)
+Written by Tyler Sutterley (12/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,8 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 12/2022: add variables for NASA DAAC and s3 providers
+        add functions for managing and maintaining git repositories
     Updated 08/2022: added s3 presigned url functions
     Updated 07/2022: renamed cmr functions, added s3 client function
     Updated 06/2022: add NASA CMR spatial bounding box queries
@@ -59,6 +61,7 @@ import dateutil
 import warnings
 import posixpath
 import lxml.etree
+import subprocess
 import calendar,time
 if sys.version_info[0] == 2:
     from cookielib import CookieJar
@@ -121,6 +124,43 @@ def get_hash(local, algorithm='MD5'):
     else:
         return ''
 
+# PURPOSE: get the git hash value
+def get_git_revision_hash(refname='HEAD', short=False):
+    """
+    Get the git hash value for a particular reference
+
+    Parameters
+    ----------
+    refname: str, default HEAD
+        Symbolic reference name
+    short: bool, default False
+        Return the shorted hash value
+    """
+    # get path to .git directory from current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
+    gitpath = os.path.join(basepath,'.git')
+    # build command
+    cmd = ['git', f'--git-dir={gitpath}', 'rev-parse']
+    cmd.append('--short') if short else None
+    cmd.append(refname)
+    # get output
+    with warnings.catch_warnings():
+        return str(subprocess.check_output(cmd), encoding='utf8').strip()
+
+# PURPOSE: get the current git status
+def get_git_status():
+    """Get the status of a git repository as a boolean value
+    """
+    # get path to .git directory from current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
+    gitpath = os.path.join(basepath,'.git')
+    # build command
+    cmd = ['git', f'--git-dir={gitpath}', 'status', '--porcelain']
+    with warnings.catch_warnings():
+        return bool(subprocess.check_output(cmd))
+
 # PURPOSE: recursively split a url path
 def url_split(s):
     """
@@ -137,6 +177,26 @@ def url_split(s):
     elif head in ('', posixpath.sep):
         return tail,
     return url_split(head) + (tail,)
+
+# NASA on-prem DAAC providers
+_daac_providers = {
+    'gesdisc': 'GES_DISC',
+    'ghrcdaac': 'GHRC_DAAC',
+    'lpdaac': 'LPDAAC_ECS',
+    'nsidc': 'NSIDC_ECS',
+    'ornldaac': 'ORNL_DAAC',
+    'podaac': 'PODAAC',
+}
+
+# NASA Cumulus AWS providers
+_s3_providers = {
+    'gesdisc': 'GES_DISC',
+    'ghrcdaac': 'GHRC_DAAC',
+    'lpdaac': 'LPCLOUD',
+    'nsidc': 'NSIDC_CPRD',
+    'ornldaac': 'ORNL_CLOUD',
+    'podaac': 'POCLOUD',
+}
 
 # NASA Cumulus AWS S3 credential endpoints
 _s3_endpoints = {

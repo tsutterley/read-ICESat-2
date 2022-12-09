@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL03.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Determines which digital elevation model tiles to read for a given ATL03 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to ICESat-2 ATL03 photon event locations
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
         verify coordinate reference system attribute from shapefile
     Updated 09/2022: use tar virtual file system to extract images
@@ -110,9 +111,7 @@ import warnings
 import numpy as np
 from mpi4py import MPI
 import scipy.interpolate
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # attempt imports
 try:
@@ -164,8 +163,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -203,7 +201,7 @@ def set_DEM_model(GRANULE):
 # PURPOSE: read zip file containing index shapefiles for finding DEM tiles
 def read_DEM_index(index_file, DEM_MODEL):
     # read the compressed shapefile and extract entities
-    shape = fiona.open('zip://{0}'.format(os.path.expanduser(index_file)))
+    shape = fiona.open(f'zip://{os.path.expanduser(index_file)}')
     # extract coordinate reference system
     if ('init' in shape.crs.keys()):
         epsg = pyproj.CRS(shape.crs['init']).to_epsg()
@@ -308,7 +306,7 @@ def read_DEM_file(elevation_file, nd_value):
     # find dem geotiff file within tar file
     member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     # use GDAL virtual file systems to read dem
-    mmap_name = "/vsitar/{0}/{1}".format(elevation_file,member.name)
+    mmap_name = f"/vsitar/{elevation_file}/{member.name}"
     ds = osgeo.gdal.Open(mmap_name)
     # read data matrix
     im = ds.GetRasterBand(1).ReadAsArray()
@@ -348,7 +346,7 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     # find dem geotiff file within tar file
     member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     # use GDAL virtual file systems to read dem
-    mmap_name = "/vsitar/{0}/{1}".format(elevation_file,member.name)
+    mmap_name = f"/vsitar/{elevation_file}/{member.name}"
     ds = osgeo.gdal.Open(mmap_name)
     # get geotiff info
     info_geotiff = ds.GetGeoTransform()
@@ -404,7 +402,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(r'{args.file} -->')
+        logging.info(f'{args.file} -->')
 
     # read data from input file
     # Open the HDF5 file for reading
@@ -613,7 +611,7 @@ def main():
             IS2_atl03_dims[gtx]['subsetting'][key] = ['delta_time']
             IS2_atl03_dem_attrs[gtx]['subsetting'][key] = {}
             IS2_atl03_dem_attrs[gtx]['subsetting'][key]['contentType'] = "referenceInformation"
-            IS2_atl03_dem_attrs[gtx]['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
+            IS2_atl03_dem_attrs[gtx]['subsetting'][key]['long_name'] = f'{key} Mask'
             IS2_atl03_dem_attrs[gtx]['land_ice_segments']['subsetting'][key]['description'] = ('Name '
                 'of DEM tile {0} encapsulating the land ice segments.').format(tile_attrs[key]['tile'])
             IS2_atl03_dem_attrs[gtx]['subsetting'][key]['source'] = DEM_MODEL
@@ -630,7 +628,7 @@ def main():
             sub = tile_attrs[key]['tile']
             name = tile_attrs[key]['name']
             # read central DEM file (geotiff within gzipped tar file)
-            tar = '{0}.tar.gz'.format(name)
+            tar = f'{name}.tar.gz'
             elevation_file = os.path.join(elevation_directory,sub,tar)
             DEM,MASK,xi,yi = read_DEM_file(elevation_file,fv)
             # buffer DEM using values from adjacent tiles
@@ -665,15 +663,16 @@ def main():
                 ytiles=[IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] # BMTBTBMT
                 for xtl,ytl,xlim,ylim in zip(xtiles,ytiles,xlimits,ylimits):
                     # read DEM file (geotiff within gzipped tar file)
-                    bkey = '{0:02d}_{1:02d}'.format(ytl,xtl)
+                    bkey = f'{ytl:02d}_{xtl:02d}'
                     # if buffer file is a valid tile within the DEM
                     # if file doesn't exist: will be all fill value with all mask
                     if bkey in tile_attrs.keys():
                         bsub = tile_attrs[bkey]['tile']
-                        btar = '{0}.tar.gz'.format(tile_attrs[bkey]['name'])
+                        bname = tile_attrs[bkey]['name']
+                        btar = f'{bname}.tar.gz'
                         buffer_file = os.path.join(elevation_directory,bkey,btar)
                         if not os.access(buffer_file, os.F_OK):
-                            raise IOError('{0} not found'.format(buffer_file))
+                            raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
                         xmax = int((x1[-1] - x[0])//dx) + 1
@@ -691,15 +690,16 @@ def main():
                 ytiles=[IMy-1,IMy,IMy+1,IMy-1,IMy+1,IMy-1,IMy,IMy+1] # BMTBTBMT
                 for xtl,ytl,xlim,ylim in zip(xtiles,ytiles,xlimits,ylimits):
                     # read DEM file (geotiff within gzipped tar file)
-                    bkey = '{0:d}_{1:d}'.format(xtl,ytl)
+                    bkey = f'{xtl:d}_{ytl:d}'
                     # if buffer file is a valid tile within the DEM
                     # if file doesn't exist: will be all fill value with all mask
                     if bkey in tile_attrs.keys():
                         bsub = tile_attrs[bkey]['tile']
-                        btar = '{0}.tar.gz'.format(tile_attrs[bkey]['name'])
+                        bname = tile_attrs[bkey]['name']
+                        btar = f'{bname}.tar.gz'
                         buffer_file = os.path.join(elevation_directory,bkey,btar)
                         if not os.access(buffer_file, os.F_OK):
-                            raise IOError('{0} not found'.format(buffer_file))
+                            raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
                         xmax = int((x1[-1] - x[0])//dx) + 1
@@ -729,16 +729,16 @@ def main():
                 kwargs = (xtiles,ytiles,xsubtiles,ysubtiles,xlimits,ylimits)
                 for xtl,ytl,xs,ys,xlim,ylim in zip(*kwargs):
                     # read DEM file (geotiff within gzipped tar file)
-                    arg = (ytl,xtl,xs,ys,res,vers)
-                    bkey = '{0:02d}_{1:02d}_{2}_{3}'.format(*arg)
+                    bkey = f'{ytl:02d}_{xtl:02d}_{xs}_{ys}'
                     # if buffer file is a valid sub-tile within the DEM
                     # if file doesn't exist: all fill value with all mask
                     if bkey in tile_attrs.keys():
                         bsub = tile_attrs[bkey]['tile']
-                        btar = '{0}.tar.gz'.format(tile_attrs[bkey]['name'])
+                        bname = tile_attrs[bkey]['name']
+                        btar = f'{bname}.tar.gz'
                         buffer_file = os.path.join(elevation_directory,bsub,btar)
                         if not os.access(buffer_file, os.F_OK):
-                            raise IOError('{0} not found'.format(buffer_file))
+                            raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
                         xmax = int((x1[-1] - x[0])//dx) + 1
@@ -796,7 +796,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.info('\t{0}'.format(output_file))
+        logging.into(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
@@ -931,9 +931,9 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -943,6 +943,10 @@ def HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_attrs, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

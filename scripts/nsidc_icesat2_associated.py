@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_associated.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     server that is associated with an input file
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 10/2021: using python logging for handling verbose output
@@ -87,7 +88,7 @@ import traceback
 import posixpath
 import lxml.etree
 import multiprocessing as mp
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # PURPOSE: download the ICESat-2 elevation data from NSIDC matching an file
 def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
@@ -120,8 +121,8 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
             rx.findall(input_file).pop()
         # get directories from remote directory
-        product_directory = '{0}.{1}'.format(PRODUCT,RL)
-        sd = '{0}.{1}.{2}'.format(YY,MM,DD)
+        product_directory = f'{PRODUCT}.{RL}'
+        sd = f'{YY}.{MM}.{DD}'
         PATH = [HOST,'ATLAS',product_directory,sd]
         # local and remote data directories
         remote_dir=posixpath.join(*PATH)
@@ -135,7 +136,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
         # find associated ICESat-2 data file
         # find matching files (for granule, release, version, track)
-        colnames,collastmod,colerror=icesat2_toolkit.utilities.nsidc_list(PATH,
+        colnames,collastmod,colerror=is2tk.utilities.nsidc_list(PATH,
             build=False,
             timeout=TIMEOUT,
             parser=parser,
@@ -163,7 +164,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
             out = http_pull_file(*args,**kwds)
             # print the output string
-            logging.info('{0}\n{1}'.format(input_file,out))
+            logging.info(f'{input_file}\n{out}')
     else:
         # set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -176,7 +177,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             args = (remote_files[i],remote_mtimes[i],local_files[i])
             kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
             out=pool.apply_async(multiprocess_sync,args=args,kwds=kwds)
-            output.append('{0}\n{1}'.format(input_file,out))
+            output.append(f'{input_file}\n{out}')
         # start multiprocessing jobs
         # close the pool
         # prevents more tasks from being submitted to the pool
@@ -195,7 +196,7 @@ def multiprocess_sync(*args, **kwds):
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
-        logging.critical('process id {0:d} failed'.format(os.getpid()))
+        logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
     else:
         return output
@@ -205,7 +206,7 @@ def multiprocess_sync(*args, **kwds):
 def http_pull_file(remote_file,remote_mtime,local_file,
     TIMEOUT=None, RETRY=1, MODE=0o775):
     # Printing files transferred
-    output = '{0} -->\n\t{1}\n'.format(remote_file,local_file)
+    output = f'{remote_file} -->\n\t{local_file}\n'
     # chunked transfer encoding size
     CHUNK = 16 * 1024
     # attempt to download a file up to a set number of times
@@ -227,8 +228,8 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
             # Create and submit request.
             # There are a range of exceptions that can be thrown here
             # including HTTPError and URLError.
-            request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+            request=is2tk.utilities.urllib2.Request(remote_file)
+            response=is2tk.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
             # get the length of the remote file
             remote_length = int(response.headers['content-length'])
@@ -329,7 +330,7 @@ def main():
     HOST = 'urs.earthdata.nasa.gov'
     # build a urllib opener for NASA Earthdata
     # check internet connection before attempting to run program
-    opener = icesat2_toolkit.utilities.attempt_login(HOST,
+    opener = is2tk.utilities.attempt_login(HOST,
         username=args.user, password=args.password,
         netrc=args.netrc)
 

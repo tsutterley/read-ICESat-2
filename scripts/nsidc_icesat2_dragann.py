@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -58,6 +58,7 @@ PROGRAM DEPENDENCIES:
     read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
@@ -83,8 +84,7 @@ import lxml.etree
 import numpy as np
 import calendar, time
 import multiprocessing as mp
-import icesat2_toolkit.utilities
-from icesat2_toolkit.read_ICESat2_ATL03 import find_HDF5_ATL03_beams
+import icesat2_toolkit as is2tk
 
 # PURPOSE: sync ATL03 geolocated photon height products and appends the
 # ATL08 DRAGANN classifications from NSIDC
@@ -99,10 +99,10 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     if LOG:
         # format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NSIDC_ICESat-2_sync_{0}.log'.format(today)
+        LOGFILE = f'NSIDC_ICESat-2_sync_{today}.log'
         logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
-        logging.info('ICESat-2 DRAGANN Sync Log ({0})'.format(today))
+        logging.info(f'ICESat-2 DRAGANN Sync Log ({today})')
     else:
         # standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
@@ -115,26 +115,26 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     # regular expression operator for finding files of a particular granule
     # find ICESat-2 HDF5 files in the subdirectory for product and release
     if TRACKS:
-        regex_track = r'|'.join(['{0:04d}'.format(T) for T in TRACKS])
+        regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
     else:
         regex_track = r'\d{4}'
     if CYCLES:
-        regex_cycle = r'|'.join(['{0:02d}'.format(C) for C in CYCLES])
+        regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
     else:
         regex_cycle = r'\d{2}'
-    regex_granule = r'|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = r'|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
     regex_suffix = r'(h5)'
     remote_regex_pattern=(r'({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{6}$')
     # regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         # Sync particular subdirectories for product
-        R2 = re.compile(r'('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
+        R2 = re.compile(r'('+r'|'.join(SUBDIRECTORY)+r')', re.VERBOSE)
     elif YEARS:
         # Sync particular years for product
-        regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-        R2 = re.compile(r'({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
+        regex_pattern = r'|'.join(rf'{y:d}' for y in YEARS)
+        R2 = re.compile(rf'({regex_pattern}).(\d+).(\d+)', re.VERBOSE)
     else:
         # Sync all available subdirectories for product
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
@@ -148,7 +148,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
           regex_version,regex_suffix)
     R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
     # read and parse request for subdirectories (find column names)
-    remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
+    remote_sub,_,error = is2tk.utilities.nsidc_list(PATH,
         build=False,
         timeout=TIMEOUT,
         parser=parser,
@@ -164,7 +164,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
         # find ICESat-2 data files
         PATH = [HOST,'ATLAS',atl08_directory,sd]
         # find matching files (for granule, release, version, track)
-        atl08s,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
+        atl08s,lastmod,error = is2tk.utilities.nsidc_list(PATH,
             build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
         # print if file was not found
         if not atl08s:
@@ -180,7 +180,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             R3 = re.compile(remote_regex_pattern.format(*args))
             PATH = [HOST,'ATLAS',atl03_directory,sd]
             # find associated ATL03 files
-            atl03s,lastmod,error=icesat2_toolkit.utilities.nsidc_list(PATH,
+            atl03s,lastmod,error=is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
@@ -204,11 +204,11 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                 # append ATL08 dragann classifications
                 PATH = [HOST,'ATLAS',atl08_directory,sd,atl08]
                 logging.info(posixpath.join(*PATH))
-                remote_buffer,_ = icesat2_toolkit.utilities.from_nsidc(PATH,
+                remote_buffer,_ = is2tk.utilities.from_nsidc(PATH,
                     build=False,
                     timeout=TIMEOUT)
                 # for each beam in the ATL03 file
-                for gtx in find_HDF5_ATL03_beams(local_file):
+                for gtx in is2tk.find_HDF5_ATL03_beams(local_file):
                     # open ATL03 file in append mode
                     fileID = h5py.File(local_file, 'a')
                     # check if DRAGANN variables are already appended
@@ -268,7 +268,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # output string for printing files transferred
-        output = '{0} -->\n\t{1}{2}\n'.format(remote_file,local_file,OVERWRITE)
+        output = f'{remote_file} -->\n\t{local_file}{OVERWRITE}\n'
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size
@@ -281,8 +281,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                     # Create and submit request.
                     # There are a range of exceptions that can be thrown here
                     # including HTTPError and URLError.
-                    request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
-                    response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+                    request=is2tk.utilities.urllib2.Request(remote_file)
+                    response=is2tk.utilities.urllib2.urlopen(request,
                         timeout=TIMEOUT)
                     # copy contents to file using chunked transfer encoding
                     # transfer should work with ascii and binary data formats
@@ -462,7 +462,7 @@ def main():
     HOST = 'urs.earthdata.nasa.gov'
     # build a urllib opener for NASA Earthdata
     # check internet connection before attempting to run program
-    opener = icesat2_toolkit.utilities.attempt_login(HOST,
+    opener = is2tk.utilities.attempt_login(HOST,
         username=args.user, password=args.password,
         netrc=args.netrc)
 

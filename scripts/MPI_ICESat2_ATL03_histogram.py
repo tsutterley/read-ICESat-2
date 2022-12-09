@@ -113,10 +113,10 @@ from __future__ import print_function, division
 import sys
 import os
 import re
-import h5py
 import logging
 import argparse
 import datetime
+import warnings
 import numpy as np
 import scipy.stats
 import scipy.signal
@@ -124,9 +124,29 @@ import scipy.optimize
 import scipy.interpolate
 import sklearn.neighbors
 import sklearn.cluster
-from mpi4py import MPI
 import icesat2_toolkit as is2tk
-import yapc.classify_photons
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from mpi4py import MPI
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("mpi4py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    import yapc.classify_photons
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("pyYAPC not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: keep track of MPI threads
 def info(rank, size):

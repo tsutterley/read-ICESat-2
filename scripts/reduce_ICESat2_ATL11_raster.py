@@ -53,7 +53,6 @@ from __future__ import print_function
 import sys
 import os
 import re
-import h5py
 import pyproj
 import logging
 import argparse
@@ -65,6 +64,15 @@ import scipy.ndimage
 import scipy.spatial
 import scipy.interpolate
 import icesat2_toolkit as is2tk
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
 warnings.filterwarnings("ignore")
 
 # PURPOSE: try to get the projection information for the input file

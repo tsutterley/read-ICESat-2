@@ -79,7 +79,6 @@ import sys
 import os
 import re
 import uuid
-import h5py
 import pyproj
 import logging
 import tarfile
@@ -88,7 +87,6 @@ import argparse
 import warnings
 import collections
 import numpy as np
-from mpi4py import MPI
 import scipy.interpolate
 import icesat2_toolkit as is2tk
 
@@ -98,6 +96,18 @@ try:
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("fiona not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from mpi4py import MPI
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("mpi4py not available")
     warnings.warn("Some functions will throw an exception if called")
 try:
     import osgeo.gdal

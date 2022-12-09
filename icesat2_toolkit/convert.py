@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (12/2022)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -21,6 +21,7 @@ PROGRAM DEPENDENCIES:
     time.py: Utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: place some imports behind try/except statements
     Updated 06/2022: place zarr and pandas imports behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2022: added ascii and dataframe outputs for ATL07
@@ -33,26 +34,33 @@ UPDATE HISTORY:
 """
 import os
 import re
-import h5py
 import warnings
 import itertools
 import posixpath
 import numpy as np
 from icesat2_toolkit.convert_delta_time import convert_delta_time
 
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
 try:
     import pandas
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("pandas not available")
     warnings.warn("Some functions will throw an exception if called")
-
 try:
     import zarr
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("zarr not available")
     warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 class convert():
     np.seterr(invalid='ignore')

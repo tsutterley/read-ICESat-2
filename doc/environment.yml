@@ -8,11 +8,8 @@ dependencies:
   - freetype
   - future
   - graphviz
-  - h5py>=2.9=mpi*
   - lxml
   - matplotlib
-  - mpi4py
-  - netCDF4
   - notebook
   - numpy
   - numpydoc
@@ -28,10 +25,7 @@ dependencies:
   - scp
   - sphinx
   - sphinx_rtd_theme
-  - texlive-core
-  - zarr
   - pip:
     - sphinx-argparse>=0.4
-    - git+https://github.com/tsutterley/yapc.git
     - ..
 

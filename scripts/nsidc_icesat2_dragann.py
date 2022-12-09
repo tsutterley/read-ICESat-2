@@ -74,10 +74,10 @@ import sys
 import os
 import io
 import re
-import h5py
 import shutil
 import logging
 import argparse
+import warnings
 import posixpath
 import traceback
 import lxml.etree
@@ -85,6 +85,16 @@ import numpy as np
 import calendar, time
 import multiprocessing as mp
 import icesat2_toolkit as is2tk
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: sync ATL03 geolocated photon height products and appends the
 # ATL08 DRAGANN classifications from NSIDC

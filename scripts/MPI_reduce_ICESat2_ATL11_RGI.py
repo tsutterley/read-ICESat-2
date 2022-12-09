@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_RGI.py
-Written by Tyler Sutterley (07/2022)
+Written by Tyler Sutterley (12/2022)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -59,6 +59,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -74,7 +75,6 @@ import sys
 import os
 import re
 import io
-import h5py
 import logging
 import zipfile
 import datetime
@@ -82,12 +82,21 @@ import argparse
 import warnings
 import numpy as np
 import collections
-from mpi4py import MPI
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from mpi4py import MPI
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("mpi4py not available")
+    warnings.warn("Some functions will throw an exception if called")
 try:
     import shapefile
 except ModuleNotFoundError:
@@ -119,8 +128,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -171,7 +179,7 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
     RGI_files.append('19_rgi60_AntarcticSubantarctic')
     # read input zipfile containing RGI shapefiles
     zs = zipfile.ZipFile(os.path.join(RGI_DIRECTORY,
-        '{0}.zip'.format(RGI_files[RGI_REGION-1])))
+        f'{RGI_files[RGI_REGION-1]}.zip'))
     dbf,prj,shp,shx = [io.BytesIO(zs.read(s)) for s in sorted(zs.namelist())
         if re.match(r'(.*?)\.(dbf|prj|shp|shx)$',s)]
     # read the shapefile and extract entities
@@ -221,7 +229,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(r'{args.file} -->')
+        logging.info(f'{args.file} -->')
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -434,11 +442,11 @@ def main():
         IS2_atl11_dims[ptx]['subsetting'][RGI_NAME] = ['ref_pt']
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME] = collections.OrderedDict()
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['contentType'] = "referenceInformation"
-        IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['long_name'] = '{0} Mask'.format(key)
+        IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['long_name'] = f'{key} Mask'
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['description'] = ('Mask calculated '
-            'using the {0} region from the Randolph Glacier Inventory.').format(key)
+            f'using the {key} region from the Randolph Glacier Inventory.')
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['source'] = \
-            'RGIv{0}'.format(RGI_VERSION)
+            f'RGIv{RGI_VERSION}'
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['reference'] = \
             'https://www.glims.org/RGI/'
         IS2_atl11_mask_attrs[ptx]['subsetting'][RGI_NAME]['coordinates'] = \
@@ -452,9 +460,9 @@ def main():
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['contentType'] = "referenceInformation"
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['long_name'] = "RGI Identifier"
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['description'] = ('Identification '
-            'code within version {0} of the Randolph Glacier Inventory (RGI).').format(RGI_VERSION)
+            f'code within version {RGI_VERSION} of the Randolph Glacier Inventory (RGI).')
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['source'] = \
-            'RGIv{0}'.format(RGI_VERSION)
+            f'RGIv{RGI_VERSION}'
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['reference'] = \
             'https://www.glims.org/RGI/'
         IS2_atl11_mask_attrs[ptx]['subsetting']['RGIId']['coordinates'] = \
@@ -470,7 +478,7 @@ def main():
         file_format = '{0}_RGI{1}_{2}_{3}{4}_{5}{6}_{7}_{8}{9}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.info('\t{0}'.format(output_file))
+        logging.into(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
@@ -618,9 +626,9 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -630,6 +638,10 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

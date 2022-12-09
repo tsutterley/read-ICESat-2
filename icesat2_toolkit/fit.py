@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 fit.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (12/2021)
 Utilities for calculating average fits from ATL03 Geolocated Photon Data
 
 PYTHON DEPENDENCIES:
@@ -15,16 +15,26 @@ PYTHON DEPENDENCIES:
         https://github.com/scikit-learn/scikit-learn
 
 UPDATE HISTORY:
+    Updated 12/2022: place some imports behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 05/2021
 """
 import operator
+import warnings
 import itertools
 import numpy as np
 import scipy.stats
 import scipy.signal
 import scipy.optimize
-import sklearn.neighbors
+
+# attempt imports
+try:
+    import sklearn.neighbors
+except (ImportError, ModuleNotFoundError) as e:
+    warnings.filterwarnings("always")
+    warnings.warn("scikit-learn not available")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: compress complete list of valid indices into a set of ranges
 def compress_list(i,n):

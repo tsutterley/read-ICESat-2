@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03.py (06/2022)
+MPI_ICESat2_ATL03.py (12/2022)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
     classify_photons.py: Yet Another Photon Classifier for Geolocated Photon Data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 06/2022: update classify photons to match current GSFC version
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -75,21 +76,42 @@ from __future__ import print_function, division
 import sys
 import os
 import re
-import h5py
 import logging
 import argparse
 import datetime
+import warnings
 import numpy as np
 import scipy.signal
 import scipy.interpolate
-import sklearn.neighbors
-import sklearn.cluster
-from mpi4py import MPI
-import icesat2_toolkit.fit
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-from yapc.classify_photons import classify_photons
+import icesat2_toolkit as is2tk
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from mpi4py import MPI
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("mpi4py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    import sklearn.neighbors
+    import sklearn.cluster
+except (ImportError, ModuleNotFoundError) as e:
+    warnings.filterwarnings("always")
+    warnings.warn("scikit-learn not available")
+try:
+    import yapc.classify_photons
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("pyYAPC not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -107,8 +129,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     # first file listed contains the ATL03 file
     # second file listed is the associated ATL09 file
@@ -152,7 +173,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info('{0} -->'.format(args.ATL03))
+        logging.info(f'{args.ATL03} -->')
     # directory setup
     ATL03_dir = os.path.dirname(args.ATL03)
 
@@ -287,7 +308,7 @@ def main():
         # ATL03 recommends subsetting between 15-30 ns to avoid secondary
         tep_hist_time = np.copy(fileID[tep1][pce][tep2]['tep_hist_time'][:])
         tep_hist = np.copy(fileID[tep1][pce][tep2]['tep_hist'][:])
-        t_TX,p_TX,W_TX,FWHM,TXs,TXe = icesat2_toolkit.fit.extract_tep_histogram(
+        t_TX,p_TX,W_TX,FWHM,TXs,TXe = is2tk.fit.extract_tep_histogram(
             tep_hist_time, tep_hist, tep_range_prim)
         # save tep information and statistics
         tep[gtx] = {}
@@ -324,7 +345,7 @@ def main():
         # delta time of fit photons
         # use reference photon delta time as initial guess
         # will fill in with segment center delta times
-        Distributed_delta_time = icesat2_toolkit.fit.segment_mean(
+        Distributed_delta_time = is2tk.fit.segment_mean(
             fileID[gtx]['geolocation']['delta_time'][:])
         # segment fit heights
         Distributed_Height = np.ma.zeros((n_seg),fill_value=fill_value)
@@ -357,10 +378,10 @@ def main():
         Distributed_Y_atc = np.ma.zeros((n_seg),fill_value=fill_value)
         Distributed_Y_atc.mask = np.ones((n_seg),dtype=bool)
         # longitude of fit photons
-        Distributed_Longitude = icesat2_toolkit.fit.segment_mean(
+        Distributed_Longitude = is2tk.fit.segment_mean(
             fileID[gtx]['geolocation']['reference_photon_lon'][:])
         # latitude of fit photons
-        Distributed_Latitude = icesat2_toolkit.fit.segment_mean(
+        Distributed_Latitude = is2tk.fit.segment_mean(
             fileID[gtx]['geolocation']['reference_photon_lat'][:])
         # number of photons in fit
         Distributed_N_Fit = np.ma.zeros((n_seg),fill_value=-1,dtype=int)
@@ -481,9 +502,10 @@ def main():
                     # add telemetry height to window width
                     h_win_width += tlm_height[b][idx]
             # calculate photon event weights
-            Distributed_Weights[i1[i2]] = classify_photons(x_atc[i1], h_ph[i1],
-                h_win_width, i2, K=0, min_knn=5, min_ph=3, min_xspread=1.0,
-                min_hspread=0.01, win_x=15.0, win_h=6.0, method='linear')
+            Distributed_Weights[i1[i2]] = yapc.classify_photons(x_atc[i1],
+                h_ph[i1], h_win_width, i2, K=0, min_knn=5, min_ph=3,
+                min_xspread=1.0, min_hspread=0.01, win_x=15.0, win_h=6.0,
+                method='linear')
         # photon event weights
         pe_weights = np.zeros((n_pe),dtype=np.float64)
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \
@@ -588,7 +610,7 @@ def main():
                     Distributed_Clusters.mask[j] = (n_clusters > 0)
                     # perform a surface fit procedure
                     Segment_X = Segment_Distance[gtx][j] + Segment_Length[gtx][j]
-                    valid,fit,centroid = icesat2_toolkit.fit.try_surface_fit(
+                    valid,fit,centroid = is2tk.fit.try_surface_fit(
                         distance_along_X, distance_along_Y, segment_heights,
                         pe_sig_conf, Segment_X, SURF_TYPE='linear', ITERATE=20,
                         CONFIDENCE=[1,0])
@@ -612,13 +634,13 @@ def main():
                         Distributed_Y_atc.mask[j] = False
                         # fit geolocation to the along-track distance of segment
                         Distributed_delta_time[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_times[ifit],
+                            is2tk.fit.fit_geolocation(segment_times[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Longitude[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_lons[ifit],
+                            is2tk.fit.fit_geolocation(segment_lons[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Latitude[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_lats[ifit],
+                            is2tk.fit.fit_geolocation(segment_lats[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         # number of photons used in fit
                         Distributed_N_Fit.data[j] = len(ifit)
@@ -660,7 +682,7 @@ def main():
                         ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
                             (height_residuals <= Distributed_Window.data[j]))
                         try:
-                            FPB = icesat2_toolkit.fit.calc_first_photon_bias(
+                            FPB = is2tk.fit.calc_first_photon_bias(
                                 temporal_residuals[ii], n_pulses, n_pixels,
                                 mean_dead_time[gtx], 5e-11, ITERATE=20)
                         except:
@@ -684,7 +706,7 @@ def main():
                         try:
                             W_RX = 2.0*Distributed_RDE.data[j]/c
                             dt_W = 2.0*Distributed_Window.data[j]/c
-                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                            TPS = is2tk.fit.calc_transmit_pulse_shape(t_TX,
                                 p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
                                 ITERATE=50)
                         except:
@@ -782,7 +804,7 @@ def main():
                     Distributed_Clusters.mask[j] = (n_clusters > 0)
                     # perform a surface fit procedure
                     Segment_X = Segment_Distance[gtx][j] + Segment_Length[gtx][j]
-                    valid,fit,centroid = icesat2_toolkit.fit.try_surface_fit(
+                    valid,fit,centroid = is2tk.fit.try_surface_fit(
                         distance_along_X, distance_along_Y, segment_heights,
                         pe_sig_conf, Segment_X, SURF_TYPE='quadratic',
                         ITERATE=20, CONFIDENCE=[0])
@@ -806,13 +828,13 @@ def main():
                         Distributed_Y_atc.mask[j] = False
                         # fit geolocation to the along-track distance of segment
                         Distributed_delta_time[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_times[ifit],
+                            is2tk.fit.fit_geolocation(segment_times[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Longitude[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_lons[ifit],
+                            is2tk.fit.fit_geolocation(segment_lons[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         Distributed_Latitude[j] = \
-                            icesat2_toolkit.fit.fit_geolocation(segment_lats[ifit],
+                            is2tk.fit.fit_geolocation(segment_lats[ifit],
                             distance_along_X[ifit], Distributed_X_atc[j])
                         # number of photons used in fit
                         Distributed_N_Fit.data[j] = len(ifit)
@@ -854,7 +876,7 @@ def main():
                         try:
                             ii, = np.nonzero((height_residuals >= -Distributed_Window.data[j]) &
                                 (height_residuals <= Distributed_Window.data[j]))
-                            FPB = icesat2_toolkit.fit.calc_first_photon_bias(
+                            FPB = is2tk.fit.calc_first_photon_bias(
                                 temporal_residuals[ii], n_pulses, n_pixels,
                                 mean_dead_time[gtx], 5e-11, ITERATE=20)
                         except:
@@ -878,7 +900,7 @@ def main():
                         try:
                             W_RX = 2.0*Distributed_RDE.data[j]/c
                             dt_W = 2.0*Distributed_Window.data[j]/c
-                            TPS = icesat2_toolkit.fit.calc_transmit_pulse_shape(t_TX,
+                            TPS = is2tk.fit.calc_transmit_pulse_shape(t_TX,
                                 p_TX, W_TX, W_RX, dt_W, Distributed_SNR.data[j],
                                 ITERATE=50)
                         except:
@@ -1498,7 +1520,7 @@ def main():
         # geoid height
         fv = fileID[gtx]['geophys_corr']['geoid'].attrs['_FillValue']
         geoid = np.ma.array(fileID[gtx]['geophys_corr']['geoid'][:], fill_value=fv)
-        geoid_h = icesat2_toolkit.fit.segment_mean(geoid)
+        geoid_h = is2tk.fit.segment_mean(geoid)
         IS2_atl03_fit[gtx]['land_ice_segments']['dem']['geoid_h'] = geoid_h
         IS2_atl03_fill[gtx]['land_ice_segments']['dem']['geoid_h'] = geoid_h.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['dem']['geoid_h'] = {}
@@ -1524,7 +1546,7 @@ def main():
             "are stored at the land_ice_segments segment rate.")
 
         # background rate
-        bckgrd = icesat2_toolkit.fit.segment_mean(Segment_Background[gtx])
+        bckgrd = is2tk.fit.segment_mean(Segment_Background[gtx])
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['bckgrd'] = np.copy(bckgrd)
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['bckgrd'] = None
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['bckgrd'] = {}
@@ -1647,7 +1669,7 @@ def main():
         # range bias correction
         fv = fileID[gtx]['geolocation']['range_bias_corr'].attrs['_FillValue']
         range_bias_corr = np.ma.array(fileID[gtx]['geolocation']['range_bias_corr'][:], fill_value=fv)
-        segment_range_bias = icesat2_toolkit.fit.segment_mean(range_bias_corr)
+        segment_range_bias = is2tk.fit.segment_mean(range_bias_corr)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['range_bias_corr'] = segment_range_bias
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['range_bias_corr'] = segment_range_bias.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['range_bias_corr'] = {}
@@ -1660,7 +1682,7 @@ def main():
         # total neutral atmosphere delay correction
         fv = fileID[gtx]['geolocation']['neutat_delay_total'].attrs['_FillValue']
         neutat_delay_total = np.ma.array(fileID[gtx]['geolocation']['neutat_delay_total'][:], fill_value=fv)
-        segment_neutat_delay = icesat2_toolkit.fit.segment_mean(neutat_delay_total)
+        segment_neutat_delay = is2tk.fit.segment_mean(neutat_delay_total)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['neutat_delay_total'] = segment_neutat_delay
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['neutat_delay_total'] = segment_neutat_delay.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['neutat_delay_total'] = {}
@@ -1673,7 +1695,7 @@ def main():
         # solar elevation
         fv = fileID[gtx]['geolocation']['solar_elevation'].attrs['_FillValue']
         solar_elevation = np.ma.array(fileID[gtx]['geolocation']['solar_elevation'][:], fill_value=fv)
-        segment_solar_elevation = icesat2_toolkit.fit.segment_mean(solar_elevation)
+        segment_solar_elevation = is2tk.fit.segment_mean(solar_elevation)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_elevation'] = segment_solar_elevation
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['solar_elevation'] = segment_solar_elevation.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['solar_elevation'] = {}
@@ -1688,7 +1710,7 @@ def main():
         # solar azimuth
         fv = fileID[gtx]['geolocation']['solar_azimuth'].attrs['_FillValue']
         solar_azimuth = np.ma.array(fileID[gtx]['geolocation']['solar_azimuth'][:], fill_value=fv)
-        segment_solar_azimuth = icesat2_toolkit.fit.segment_mean(solar_azimuth)
+        segment_solar_azimuth = is2tk.fit.segment_mean(solar_azimuth)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['solar_azimuth'] = segment_solar_azimuth
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['solar_azimuth'] = segment_solar_azimuth.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['solar_azimuth'] = {}
@@ -1704,7 +1726,7 @@ def main():
         # dynamic atmospheric correction
         fv = fileID[gtx]['geophys_corr']['dac'].attrs['_FillValue']
         dac = np.ma.array(fileID[gtx]['geophys_corr']['dac'][:], fill_value=fv)
-        segment_dac = icesat2_toolkit.fit.segment_mean(dac)
+        segment_dac = is2tk.fit.segment_mean(dac)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['dac'] = segment_dac
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['dac'] = segment_dac.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['dac'] = {}
@@ -1719,7 +1741,7 @@ def main():
         # solid earth tide
         fv = fileID[gtx]['geophys_corr']['tide_earth'].attrs['_FillValue']
         tide_earth = np.ma.array(fileID[gtx]['geophys_corr']['tide_earth'][:], fill_value=fv)
-        segment_earth_tide = icesat2_toolkit.fit.segment_mean(tide_earth)
+        segment_earth_tide = is2tk.fit.segment_mean(tide_earth)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_earth'] = segment_earth_tide
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['tide_earth'] = segment_earth_tide.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['tide_earth'] = {}
@@ -1732,7 +1754,7 @@ def main():
         # load tide
         fv = fileID[gtx]['geophys_corr']['tide_load'].attrs['_FillValue']
         tide_load = np.ma.array(fileID[gtx]['geophys_corr']['tide_load'][:], fill_value=fv)
-        segment_load_tide = icesat2_toolkit.fit.segment_mean(tide_load)
+        segment_load_tide = is2tk.fit.segment_mean(tide_load)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_load'] = segment_load_tide
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['tide_load'] = segment_load_tide.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['tide_load'] = {}
@@ -1746,7 +1768,7 @@ def main():
         # ocean tide
         fv = fileID[gtx]['geophys_corr']['tide_ocean'].attrs['_FillValue']
         tide_ocean = np.ma.array(fileID[gtx]['geophys_corr']['tide_ocean'][:], fill_value=fv)
-        segment_ocean_tide = icesat2_toolkit.fit.segment_mean(tide_ocean)
+        segment_ocean_tide = is2tk.fit.segment_mean(tide_ocean)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_ocean'] = segment_ocean_tide
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['tide_ocean'] = segment_ocean_tide.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['tide_ocean'] = {}
@@ -1761,7 +1783,7 @@ def main():
         # ocean pole tide
         fv = fileID[gtx]['geophys_corr']['tide_oc_pole'].attrs['_FillValue']
         tide_oc_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_oc_pole'][:], fill_value=fv)
-        segment_oc_pole_tide = icesat2_toolkit.fit.segment_mean(tide_oc_pole)
+        segment_oc_pole_tide = is2tk.fit.segment_mean(tide_oc_pole)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_oc_pole'] = segment_oc_pole_tide
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['tide_oc_pole'] = segment_oc_pole_tide.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['tide_oc_pole'] = {}
@@ -1775,7 +1797,7 @@ def main():
         # pole tide
         fv = fileID[gtx]['geophys_corr']['tide_pole'].attrs['_FillValue']
         tide_pole = np.ma.array(fileID[gtx]['geophys_corr']['tide_pole'][:], fill_value=fv)
-        segment_pole_tide = icesat2_toolkit.fit.segment_mean(tide_pole)
+        segment_pole_tide = is2tk.fit.segment_mean(tide_pole)
         IS2_atl03_fit[gtx]['land_ice_segments']['geophysical']['tide_pole'] = segment_pole_tide
         IS2_atl03_fill[gtx]['land_ice_segments']['geophysical']['tide_pole'] = segment_pole_tide.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['geophysical']['tide_pole'] = {}
@@ -2130,7 +2152,7 @@ def main():
         # elevation
         fv = fileID[gtx]['geolocation']['ref_elev'].attrs['_FillValue']
         ref_elev = np.ma.array(fileID[gtx]['geolocation']['ref_elev'][:], fill_value=fv)
-        segment_ref_elev = icesat2_toolkit.fit.segment_mean(ref_elev)
+        segment_ref_elev = is2tk.fit.segment_mean(ref_elev)
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_elev'] = segment_ref_elev
         IS2_atl03_fill[gtx]['land_ice_segments']['ground_track']['ref_elev'] = segment_ref_elev.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['ground_track']['ref_elev'] = {}
@@ -2145,7 +2167,7 @@ def main():
         # azimuth
         fv = fileID[gtx]['geolocation']['ref_azimuth'].attrs['_FillValue']
         ref_azimuth = np.ma.array(fileID[gtx]['geolocation']['ref_azimuth'][:], fill_value=fv)
-        segment_ref_azimuth = icesat2_toolkit.fit.segment_mean(ref_azimuth)
+        segment_ref_azimuth = is2tk.fit.segment_mean(ref_azimuth)
         IS2_atl03_fit[gtx]['land_ice_segments']['ground_track']['ref_azimuth'] = segment_ref_azimuth
         IS2_atl03_fill[gtx]['land_ice_segments']['ground_track']['ref_azimuth'] = segment_ref_azimuth.fill_value
         IS2_atl03_attrs[gtx]['land_ice_segments']['ground_track']['ref_azimuth'] = {}
@@ -2427,10 +2449,9 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -2440,6 +2461,10 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

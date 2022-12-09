@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL06_raster.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (12/2022)
 
 Create masks for reducing ICESat-2 ATL06 data using raster imagery
 
@@ -43,6 +43,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 06/2022: added option sigma to Gaussian filter raster images
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Written 11/2021
@@ -52,7 +53,6 @@ from __future__ import print_function
 import sys
 import os
 import re
-import h5py
 import pyproj
 import logging
 import argparse
@@ -62,11 +62,16 @@ import numpy as np
 import scipy.ndimage
 import scipy.spatial
 import scipy.interpolate
-import icesat2_toolkit.spatial
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-from icesat2_toolkit.read_ICESat2_ATL06 import read_HDF5_ATL06
+import icesat2_toolkit as is2tk
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
 warnings.filterwarnings("ignore")
 
 # PURPOSE: try to get the projection information for the input file
@@ -80,7 +85,7 @@ def get_projection(attributes, PROJECTION):
         return crs
     # EPSG projection code
     try:
-        crs = pyproj.CRS.from_string("epsg:{0:d}".format(int(PROJECTION)))
+        crs = pyproj.CRS.from_epsg(int(PROJECTION))
     except (ValueError,pyproj.exceptions.CRSError):
         pass
     else:
@@ -142,7 +147,7 @@ def find_valid_triangulation(x0, y0, max_points=1e6):
     # try each set of qhull_options
     points = np.concatenate((x0[:,None],y0[:,None]),axis=1)
     for i,opt in enumerate(['Qt Qbb Qc Qz','Qt Qc QbB','QJ QbB']):
-        logging.info('qhull option: {0}'.format(opt))
+        logging.info(f'qhull option: {opt}')
         try:
             triangle = scipy.spatial.Delaunay(points.data, qhull_options=opt)
         except scipy.spatial.qhull.QhullError:
@@ -171,9 +176,9 @@ def reduce_ICESat2_ATL06_raster(FILE,
     logging.basicConfig(level=loglevel)
 
     # read data from input file
-    logging.info('{0} -->'.format(os.path.basename(FILE)))
-    IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = read_HDF5_ATL06(FILE,
-        ATTRIBUTES=True)
+    logging.info(f'{os.path.basename(FILE)} -->')
+    IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams = \
+        is2tk.read_HDF5_ATL06(FILE, ATTRIBUTES=True)
     DIRECTORY = os.path.dirname(FILE)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
@@ -181,7 +186,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
     SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = rx.findall(FILE).pop()
 
     # read raster image for spatial coordinates and data
-    dinput = icesat2_toolkit.spatial.from_file(MASK, FORMAT,
+    dinput = is2tk.spatial.from_file(MASK, FORMAT,
         xname=VARIABLES[0], yname=VARIABLES[1], varname=VARIABLES[2])
     # raster extents
     xmin,xmax,ymin,ymax = np.copy(dinput['attributes']['extent'])
@@ -383,7 +388,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     # print file information
-    logging.info('\t{0}'.format(output_file))
+    logging.into(f'\t{output_file}')
     # write to output HDF5 file
     HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE),
@@ -539,9 +544,9 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -551,6 +556,10 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 
@@ -562,8 +571,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),

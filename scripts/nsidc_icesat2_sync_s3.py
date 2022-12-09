@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync_s3.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     and transfers to an AWS S3 bucket using a local machine as pass through
@@ -72,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
     Updated 02/2022: added option to sync specific orbital cycles
@@ -113,7 +114,7 @@ import posixpath
 import traceback
 import lxml.etree
 import multiprocessing as mp
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
@@ -143,15 +144,15 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     # regular expression operator for finding files of a particular granule
     # find ICESat-2 HDF5 files in the subdirectory for product and release
     if TRACKS:
-        regex_track = r'|'.join(['{0:04d}'.format(T) for T in TRACKS])
+        regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
     else:
         regex_track = r'\d{4}'
     if CYCLES:
-        regex_cycle = r'|'.join(['{0:02d}'.format(C) for C in CYCLES])
+        regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
     else:
         regex_cycle = r'\d{2}'
-    regex_granule = r'|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = r'|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
     regex_suffix = r'(.*?)' if AUXILIARY else r'(h5|nc)'
     default_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{6}$')
@@ -161,11 +162,11 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     # regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         # Sync particular subdirectories for product
-        R2 = re.compile(r'('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
+        R2 = re.compile(r'('+r'|'.join(SUBDIRECTORY)+r')', re.VERBOSE)
     elif YEARS:
         # Sync particular years for product
-        regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-        R2 = re.compile(r'({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
+        regex_pattern = r'|'.join(rf'{y:d}' for y in YEARS)
+        R2 = re.compile(rf'({regex_pattern}).(\d+).(\d+)', re.VERBOSE)
     else:
         # Sync all available subdirectories for product
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
@@ -177,7 +178,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     # build lists of files or use existing index file
     if INDEX:
         # read the index file, split at lines and remove all commented lines
-        with open(os.path.expanduser(INDEX),'r') as f:
+        with open(os.path.expanduser(INDEX), mode='r', encoding='utf8') as f:
             files = [i for i in f.read().splitlines() if re.match(r'^(?!\#)',i)]
         # regular expression operator for extracting information from files
         rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
@@ -187,8 +188,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
             # extract parameters from ICESat-2 ATLAS HDF5 file
             PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
             # get directories from remote directory
-            product_directory = '{0}.{1}'.format(PRD,RL)
-            sd = '{0}.{1}.{2}'.format(YY,MM,DD)
+            product_directory = f'{PRD}.{RL}'
+            sd = f'{YY}.{MM}.{DD}'
             PATH = [HOST,'ATLAS',product_directory,sd]
             remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
             # AWS S3 directory for product and subdirectory
@@ -198,7 +199,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                 s3_path = posixpath.join(s3_bucket_path,product_directory,sd)
             # find ICESat-2 data file to get last modified time
             # find matching files (for granule, release, version, track)
-            names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
+            names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
@@ -216,9 +217,9 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     else:
         # for each ICESat-2 product listed
         for p in PRODUCTS:
-            logging.info('PRODUCT={0}'.format(p))
+            logging.info(f'PRODUCT={p}')
             # get directories from remote directory
-            product_directory = '{0}.{1}'.format(p,RELEASE)
+            product_directory = f'{p}.{RELEASE}'
             PATH = [HOST,'ATLAS',product_directory]
             # compile regular expression operator
             if p in ('ATL11',):
@@ -233,7 +234,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                     regex_cycle,regex_granule,RELEASE,regex_version,
                     regex_suffix))
             # read and parse request for subdirectories (find column names)
-            remote_sub,_,error = icesat2_toolkit.utilities.nsidc_list(PATH,
+            remote_sub,_,error = is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
@@ -250,12 +251,12 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                     s3_path = posixpath.expanduser(s3_bucket_path)
                 else:
                     s3_path = posixpath.join(s3_bucket_path,product_directory,sd)
-                logging.info("Building file list: {0}".format(sd))
+                logging.info(f"Building file list: {sd}")
                 # find ICESat-2 data files
                 PATH = [HOST,'ATLAS',product_directory,sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 # find matching files (for granule, release, version, track)
-                names,lastmod,error = icesat2_toolkit.utilities.nsidc_list(PATH,
+                names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                     build=False,
                     timeout=TIMEOUT,
                     parser=parser,
@@ -314,7 +315,7 @@ def multiprocess_sync(*args, **kwds):
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
-        logging.critical('process id {0:d} failed'.format(os.getpid()))
+        logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
     else:
         return output
@@ -342,7 +343,7 @@ def http_pull_file(bucket, remote_file, remote_mtime, s3_file,
     # if file does not exist on S3, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # output string for printing files transferred
-        output = '{0} -->\n\t{1}{2}\n'.format(remote_file,s3_file,OVERWRITE)
+        output = f'{remote_file} -->\n\t{s3_file}{OVERWRITE}\n'
         # copy bytes to s3 object
         retry_download(remote_file, BUCKET=bucket, LOCAL=s3_file,
             TIMEOUT=TIMEOUT, RETRY=RETRY)
@@ -359,8 +360,8 @@ def retry_download(remote_file, BUCKET=None, LOCAL=None, TIMEOUT=None, RETRY=1):
             # Create and submit request.
             # There are a range of exceptions that can be thrown here
             # including HTTPError and URLError.
-            request=icesat2_toolkit.utilities.urllib2.Request(remote_file)
-            response=icesat2_toolkit.utilities.urllib2.urlopen(request,
+            request=is2tk.utilities.urllib2.Request(remote_file)
+            response=is2tk.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
             # get the length of the remote file
             remote_length = int(response.headers['content-length'])
@@ -497,7 +498,7 @@ def main():
     HOST = 'urs.earthdata.nasa.gov'
     # build a urllib opener for NASA Earthdata
     # check internet connection before attempting to run program
-    opener = icesat2_toolkit.utilities.attempt_login(HOST,
+    opener = is2tk.utilities.attempt_login(HOST,
         username=args.user, password=args.password,
         netrc=args.netrc)
 

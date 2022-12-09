@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-read_ICESat2_ATL06.py (04/2022)
+read_ICESat2_ATL06.py (12/2022)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -16,6 +16,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 12/2022: place some imports behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: add check if input streaming from bytes
@@ -31,9 +32,19 @@ from __future__ import print_function
 import os
 import io
 import re
-import h5py
 import logging
+import warnings
 import numpy as np
+
+# attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: read ICESat-2 ATL06 HDF5 data files
 def read_HDF5_ATL06(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,

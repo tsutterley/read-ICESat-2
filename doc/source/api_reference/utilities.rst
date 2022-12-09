@@ -21,6 +21,10 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.get_hash
 
+.. autofunction:: icesat2_toolkit.utilities.get_git_revision_hash
+
+.. autofunction:: icesat2_toolkit.utilities.get_git_status
+
 .. autofunction:: icesat2_toolkit.utilities.url_split
 
 .. autofunction:: icesat2_toolkit.utilities.s3_client

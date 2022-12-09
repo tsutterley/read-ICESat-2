@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_grounded.py
-Written by Tyler Sutterley (07/2022)
+Written by Tyler Sutterley (12/2022)
 
 Create masks for reducing ICESat-2 data into grounded ice regions
 
@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 11/2021: add option for minimum area threshold for polygons
@@ -66,19 +67,27 @@ from __future__ import print_function
 import sys
 import os
 import re
-import h5py
 import pyproj
 import logging
 import datetime
 import argparse
 import warnings
 import numpy as np
-from mpi4py import MPI
-from icesat2_toolkit.convert_delta_time import convert_delta_time
-import icesat2_toolkit.time
-import icesat2_toolkit.utilities
+import icesat2_toolkit as is2tk
 
 # attempt imports
+try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    from mpi4py import MPI
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("mpi4py not available")
+    warnings.warn("Some functions will throw an exception if called")
 try:
     import shapefile
 except ModuleNotFoundError:
@@ -123,8 +132,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -217,7 +225,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(r'{args.file} -->')
+        logging.info(f'{args.file} -->')
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
@@ -434,9 +442,9 @@ def main():
             IS2_atl06_dims[gtx]['land_ice_segments']['subsetting'][key] = ['delta_time']
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key] = {}
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['contentType'] = "referenceInformation"
-            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = '{0} Mask'.format(key)
+            IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['long_name'] = f'{key} Mask'
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['description'] = ('Mask calculated '
-                'using delineations from the {0}.'.format(grounded_description[HEM]))
+                f'using delineations from the {grounded_description[HEM]}.')
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['reference'] = grounded_reference[HEM]
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['source'] = args.buffer
             IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting'][key]['coordinates'] = \
@@ -450,7 +458,7 @@ def main():
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['contentType'] = "referenceInformation"
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['long_name'] = 'Grounded Ice Mask'
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['description'] = ('Mask calculated '
-            'using delineations from the {0}.'.format(grounded_description[HEM]))
+            f'using delineations from the {grounded_description[HEM]}.')
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['reference'] = grounded_reference[HEM]
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['source'] = args.buffer
         IS2_atl06_mask_attrs[gtx]['land_ice_segments']['subsetting']['land_ice']['coordinates'] = \
@@ -466,7 +474,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.info('\t{0}'.format(output_file))
+        logging.into(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs, CLOBBER=True,
             INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl06_fill,
@@ -622,9 +630,9 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = convert_delta_time(np.array([tmn,tmx]))
+    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
     # convert to calendar date
-    YY,MM,DD,HH,MN,SS = icesat2_toolkit.time.convert_julian(time_utc['julian'],
+    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
         format='tuple')
     # add attributes with measurement date start, end and duration
     tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
@@ -634,6 +642,10 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
         int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
     fileID.attrs['time_coverage_end'] = tce.isoformat()
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
+    # add software information
+    fileID.attrs['software_reference'] = is2tk.version.project_name
+    fileID.attrs['software_version'] = is2tk.version.full_version
+    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

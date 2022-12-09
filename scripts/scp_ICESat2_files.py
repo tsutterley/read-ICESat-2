@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
@@ -184,8 +185,7 @@ def main():
     else:
         logging.basicConfig(level=logging.CRITICAL)
     # print username for remote client
-    logging.info('{0}@{1}:\n'.format(client_kwds['username'],
-        client_kwds['hostname']))
+    logging.info(f'{client_kwds["username"]}@{client_kwds["hostname"]}:\n')
 
     # run program
     scp_ICESat2_files(client, client_ftp, args.directory, args.remote,
@@ -217,7 +217,7 @@ def attempt_login(**client_kwds):
     # add attempt
     attempts += 1
     # phrase for entering password
-    phrase = 'Password for {0}@{1}: '.format(kwds['username'],kwds['hostname'])
+    phrase = f'Password for {kwds["username"]}@{kwds["hostname"]}: '
     # remove key_filename from keywords
     kwds.pop('key_filename') if 'key_filename' in kwds.keys() else None
     # enter password securely from command-line
@@ -231,7 +231,7 @@ def attempt_login(**client_kwds):
             kwds.pop('password')
             return client
         # retry with new password
-        logging.critical('Authentication Failed (Attempt {0:d})'.format(attempts))
+        logging.critical(f'Authentication Failed (Attempt {attempts:d})')
         tryagain = builtins.input('Try Different Password? (Y/N): ') in ('Y','y')
         # add attempt
         attempts += 1
@@ -247,10 +247,10 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
     GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
     VERSIONS = np.arange(1,10) if not np.any(VERSIONS) else VERSIONS
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_track = '|'.join([rf'{T:04d}' for T in TRACKS])
+    regex_cycle = '|'.join([rf'{C:02d}' for C in CYCLES])
+    regex_granule = '|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = '|'.join([rf'{V:02d}' for V in VERSIONS])
     # compile regular expression operator for finding subdirectories
     # and extracting date information from the subdirectory
     rx1 = re.compile(r'(\d+)\.(\d+)\.(\d+)',re.VERBOSE)
@@ -325,8 +325,8 @@ def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     # if file does not exist remotely, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info('{0} --> '.format(local_file))
-        logging.info('\t{0} ({1})\n'.format(remote_file,OVERWRITE))
+        logging.info(f'{local_file} --> ')
+        logging.info(f'\t{remote_file} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # copy local files to remote server
@@ -359,7 +359,7 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         logging.info(f'{remote_file} -->')
-        logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
+        logging.info(f'\t{local_file} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # copy local files from remote server

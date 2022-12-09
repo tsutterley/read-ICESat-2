@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 convert_ICESat2_format.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 
 Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 06/2022: use explicit import of convert functions
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -76,8 +77,7 @@ import logging
 import argparse
 import traceback
 import multiprocessing as mp
-import icesat2_toolkit.utilities
-from icesat2_toolkit.convert import convert
+import icesat2_toolkit as is2tk
 
 # PURPOSE: convert the ICESat-2 elevation data from HDF5 to zarr
 # or rechunked HDF5 formats
@@ -91,20 +91,20 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
 
     # regular expression operator for finding files of a particular granule
     # find ICESat-2 HDF5 files in the subdirectory for product and release
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_track = '|'.join([rf'{T:04d}' for T in TRACKS])
+    regex_granule = '|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = '|'.join([rf'{V:02d}' for V in VERSIONS])
     file_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).(h5)$')
 
     # regular expression operator for finding subdirectories
     if SUBDIRECTORY:
         # convert particular subdirectories for product
-        R2 = re.compile(r'('+'|'.join(SUBDIRECTORY)+')', re.VERBOSE)
+        R2 = re.compile(r'('+r'|'.join(SUBDIRECTORY)+r')', re.VERBOSE)
     elif YEARS:
         # convert particular years for product
-        regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-        R2 = re.compile(r'({0}).(\d+).(\d+)'.format(regex_pattern), re.VERBOSE)
+        regex_pattern = '|'.join(rf'{y:d}' for y in YEARS)
+        R2 = re.compile(rf'({regex_pattern}).(\d+).(\d+)', re.VERBOSE)
     else:
         # convert all available subdirectories for product
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
@@ -113,9 +113,9 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     hdf5_file_list = []
     # for each ICESat-2 product listed
     for p in PRODUCTS:
-        logging.info('PRODUCT={0}'.format(p))
+        logging.info(f'PRODUCT={p}')
         # local file directory
-        ddir = os.path.join(DIRECTORY,'{0}.{1}'.format(p,RELEASE))
+        ddir = os.path.join(DIRECTORY,f'{p}.{RELEASE}')
         subdirectories = [sd for sd in os.listdir(ddir) if R2.match(sd)]
         # compile regular expression operator for product, release and version
         args = (p,regex_track,regex_granule,RELEASE,regex_version)
@@ -169,7 +169,7 @@ def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
-        logging.critical('process id {0:d} failed'.format(os.getpid()))
+        logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
     else:
         return output
@@ -180,9 +180,9 @@ def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
     fileBasename,fileExtension = os.path.splitext(hdf5_file)
     # convert HDF5 file into output format
     if (FORMAT == 'zarr'):
-        output_file = '{0}.zarr'.format(fileBasename)
+        output_file = f'{fileBasename}.zarr'
     elif (FORMAT == 'HDF5'):
-        output_file = '{0}.h5'.format(fileBasename)
+        output_file = f'{fileBasename}.h5'
     # if output file exists in file system: check if HDF5 file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -205,7 +205,7 @@ def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
         # output string for printing files transferred
         output = '{0} -->\n\t{1}{2}\n'.format(hdf5_file,output_file,OVERWRITE)
         # copy everything from the HDF5 file to the output file
-        conv = convert(filename=hdf5_file, reformat=FORMAT)
+        conv = is2tk.convert(filename=hdf5_file, reformat=FORMAT)
         conv.file_converter(chunks=CHUNKS)
         # keep remote modification time of file and local access time
         os.utime(output_file, (os.stat(output_file).st_atime, hdf5_mtime))
@@ -221,8 +221,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = \
-        icesat2_toolkit.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # ICESat-2 Products
     PRODUCTS = {}
     PRODUCTS['ATL03'] = 'Global Geolocated Photon Data'

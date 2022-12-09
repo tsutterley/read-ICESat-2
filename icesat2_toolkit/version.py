@@ -9,3 +9,5 @@ from pkg_resources import get_distribution
 version = get_distribution("icesat2_toolkit").version
 # append "v" before the version
 full_version = f"v{version}"
+# get project name
+project_name = get_distribution('icesat2_toolkit').project_name

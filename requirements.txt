@@ -1,21 +1,10 @@
 boto3
-cartopy --no-binary=cartopy
-fiona
 future
-gdal
-h5py --no-binary=h5py
 lxml
 matplotlib
-mpi4py
-netCDF4
 numpy
-pandas
 paramiko
 pyproj
 python-dateutil
-pyYAPC
-scikit-learn
 scipy
 scp
-shapely
-zarr

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
         https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 10/2020: using argparse to set parameters
@@ -188,8 +189,7 @@ def main():
     else:
         logging.basicConfig(level=logging.CRITICAL)
     # print username for scf
-    logging.info('{0}@{1}:\n'.format(scf_kwds['username'],
-        scf_kwds['hostname']))
+    logging.info(f"{scf_kwds['username']}@{scf_kwds['hostname']}:\n")
 
     # run SCF copy program
     copy_scf_files(client, client_ftp, args.directory, args.scf_incoming,
@@ -210,10 +210,10 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
     TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
     CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
     GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
+    regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
+    regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
     # compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
@@ -226,7 +226,7 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
         SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
         # local directory set by product
         # check if data directory exists and recursively create if not
-        local_dir = os.path.join(base_dir,'{0}.{1}.{2}'.format(YY,MM,DD))
+        local_dir = os.path.join(base_dir,f'{YY}.{MM}.{DD}')
         os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
         # pull file from remote to local
         scp_pull_file(client, client_ftp, f, local_dir, scf_outgoing,
@@ -258,7 +258,7 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         logging.info(f'{remote_file} -->')
-        logging.info('\t{0} ({1})\n'.format(local_file,OVERWRITE))
+        logging.info(f'\t{local_file} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # copy local files from remote server

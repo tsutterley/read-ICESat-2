@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -25,6 +25,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 11/2022: added option if SCF outgoing is a flattened structure
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -140,10 +141,10 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
     CYCLES = np.arange(1,10) if not np.any(CYCLES) else CYCLES
     GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
     VERSIONS = np.arange(1,10) if not np.any(VERSIONS) else VERSIONS
-    regex_track = '|'.join(['{0:04d}'.format(T) for T in TRACKS])
-    regex_cycle = '|'.join(['{0:02d}'.format(C) for C in CYCLES])
-    regex_granule = '|'.join(['{0:02d}'.format(G) for G in GRANULES])
-    regex_version = '|'.join(['{0:02d}'.format(V) for V in VERSIONS])
+    regex_track = '|'.join([rf'{T:04d}' for T in TRACKS])
+    regex_cycle = '|'.join([rf'{C:02d}' for C in CYCLES])
+    regex_granule = '|'.join([rf'{G:02d}' for G in GRANULES])
+    regex_version = '|'.join([rf'{V:02d}' for V in VERSIONS])
     # compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'

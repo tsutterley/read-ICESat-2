@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (10/2022)
+Written by Tyler Sutterley (12/2022)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 12/2022: place some imports behind try/except statements
     Updated 10/2022: verify data variable in netCDF4/HDF5 read functions
     Updated 07/2022: filter warnings after import attempts
     Updated 06/2022: place netCDF4 import behind try/except statements
@@ -31,19 +32,23 @@ import io
 import copy
 import gzip
 import uuid
-import h5py
 import logging
 import warnings
 import numpy as np
 
 # attempt imports
 try:
+    import h5py
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("h5py not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
     import netCDF4
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("netCDF4 not available")
     warnings.warn("Some functions will throw an exception if called")
-
 try:
     import osgeo.gdal, osgeo.osr, osgeo.gdalconst
 except ModuleNotFoundError:

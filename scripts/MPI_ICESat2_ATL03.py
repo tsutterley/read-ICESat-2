@@ -83,8 +83,6 @@ import warnings
 import numpy as np
 import scipy.signal
 import scipy.interpolate
-import sklearn.neighbors
-import sklearn.cluster
 import icesat2_toolkit as is2tk
 
 # attempt imports
@@ -100,6 +98,12 @@ except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("mpi4py not available")
     warnings.warn("Some functions will throw an exception if called")
+try:
+    import sklearn.neighbors
+    import sklearn.cluster
+except (ImportError, ModuleNotFoundError) as e:
+    warnings.filterwarnings("always")
+    warnings.warn("scikit-learn not available")
 try:
     import yapc.classify_photons
 except ModuleNotFoundError:

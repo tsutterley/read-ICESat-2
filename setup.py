@@ -44,13 +44,13 @@ try:
 except:
     log.warning('Failed to get options via gdal-config')
 else:
-    log.info("GDAL version from via gdal-config: {0}".format(gdal_output[3]))
+    log.info(f"GDAL version from via gdal-config: {gdal_output[3]}")
 # if setting GDAL version from via gdal-config
 if gdal_output[3]:
     # add version information to gdal in install_requires
     gdal_index = install_requires.index('gdal')
-    install_requires[gdal_index] = 'gdal=={0}'.format(gdal_output[3])
-elif any(install_requires):
+    install_requires[gdal_index] = f'gdal=={gdal_output[3]}'
+elif any(install_requires) and ('gdal' in install_requires):
     # gdal version not found
     gdal_index = install_requires.index('gdal')
     install_requires.pop(gdal_index)

@@ -6,6 +6,5 @@ numpy
 paramiko
 pyproj
 python-dateutil
-scikit-learn
 scipy
 scp

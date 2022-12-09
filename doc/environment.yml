@@ -13,7 +13,6 @@ dependencies:
   - notebook
   - numpy
   - numpydoc
-  - pandas
   - paramiko
   - pip
   - pyproj
@@ -21,7 +20,6 @@ dependencies:
   - python-dateutil
   - pyyaml
   - scipy
-  - scikit-learn
   - scp
   - sphinx
   - sphinx_rtd_theme

@@ -1,6 +1,6 @@
-=======
-time.py
-=======
+====
+time
+====
 
 Utilities for calculating time operations
 

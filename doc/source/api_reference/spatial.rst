@@ -1,6 +1,6 @@
-==========
-spatial.py
-==========
+=======
+spatial
+=======
 
 Utilities for reading and operating on spatial data
 

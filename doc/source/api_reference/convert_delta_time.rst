@@ -1,6 +1,6 @@
-=====================
-convert_delta_time.py
-=====================
+==================
+convert_delta_time
+==================
 
 - Converts time from delta seconds into Julian and year-decimal
 

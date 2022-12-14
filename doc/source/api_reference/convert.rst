@@ -1,6 +1,6 @@
-==========
-convert.py
-==========
+=======
+convert
+=======
 
 Utilities for converting ICESat-2 HDF5 files into different formats
 

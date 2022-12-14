@@ -31,12 +31,12 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     api_reference/convert.rst
     api_reference/convert_delta_time.rst
     api_reference/fit.rst
-    api_reference/read_ICESat2_ATL03.rst
-    api_reference/read_ICESat2_ATL06.rst
-    api_reference/read_ICESat2_ATL07.rst
-    api_reference/read_ICESat2_ATL10.rst
-    api_reference/read_ICESat2_ATL11.rst
-    api_reference/read_ICESat2_ATL12.rst
+    api_reference/io/ATL03.rst
+    api_reference/io/ATL06.rst
+    api_reference/io/ATL07.rst
+    api_reference/io/ATL10.rst
+    api_reference/io/ATL11.rst
+    api_reference/io/ATL12.rst
     api_reference/spatial.rst
     api_reference/time.rst
     api_reference/tools.rst

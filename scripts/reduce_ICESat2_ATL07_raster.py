@@ -36,7 +36,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/pyproj/
 
 PROGRAM DEPENDENCIES:
-    read_ICESat2_ATL07.py: reads ICESat-2 sea ice height data files
+    io/ATL07.py: reads ICESat-2 sea ice height data files
     convert_delta_time.py: converts from delta time into Julian and year-decimal
     spatial.py: utilities for reading and writing spatial data
     time.py: Utilities for calculating time operations
@@ -44,6 +44,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of altimetry tools
+        refactored ICESat-2 data product read programs under io
     Updated 06/2022: added option sigma to Gaussian filter raster images
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Written 11/2021
@@ -178,7 +179,7 @@ def reduce_ICESat2_ATL07_raster(FILE,
     # read data from input file
     logging.info(f'{os.path.basename(FILE)} -->')
     IS2_atl07_mds,IS2_atl07_attrs,IS2_atl07_beams = \
-        is2tk.read_HDF5_ATL07(FILE, ATTRIBUTES=True)
+        is2tk.io.ATL07.read_granule(FILE, ATTRIBUTES=True)
     DIRECTORY = os.path.dirname(FILE)
     # extract parameters from ICESat-2 ATLAS HDF5 sea ice file name
     rx = re.compile(r'(processed_)?(ATL\d{2})-(\d{2})_(\d{4})(\d{2})(\d{2})'

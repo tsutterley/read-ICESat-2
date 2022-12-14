@@ -1,6 +1,6 @@
-======
-fit.py
-======
+===
+fit
+===
 
 Utilities for calculating average fits from ATL03 Geolocated Photon Data
 

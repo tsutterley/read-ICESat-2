@@ -55,7 +55,6 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
-    read_ICESat2_ATL03.py: reads ICESat-2 global geolocated photon data files
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of altimetry tools

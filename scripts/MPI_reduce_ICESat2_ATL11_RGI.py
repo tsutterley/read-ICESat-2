@@ -478,7 +478,7 @@ def main():
         file_format = '{0}_RGI{1}_{2}_{3}{4}_{5}{6}_{7}_{8}{9}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.into(f'\t{output_file}')
+        logging.info(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),

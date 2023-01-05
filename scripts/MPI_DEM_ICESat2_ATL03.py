@@ -806,7 +806,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.into(f'\t{output_file}')
+        logging.info(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL03_dem_write(IS2_atl03_dem, IS2_atl03_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),

@@ -838,7 +838,7 @@ def main():
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
         # print file information
-        logging.into(f'\t{output_file}')
+        logging.info(f'\t{output_file}')
         # write to output HDF5 file
         HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_dem_attrs,
             CLOBBER=True, INPUT=os.path.basename(args.file),
@@ -1011,7 +1011,6 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
     # add software information
     fileID.attrs['software_reference'] = is2tk.version.project_name
     fileID.attrs['software_version'] = is2tk.version.full_version
-    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

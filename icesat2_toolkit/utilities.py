@@ -94,7 +94,7 @@ def get_data_path(relpath):
 # PURPOSE: get the hash value of a file
 def get_hash(local, algorithm='MD5'):
     """
-    Get the hash value from a local file or BytesIO object
+    Get the hash value from a local file or ``BytesIO`` object
 
     Parameters
     ----------
@@ -127,7 +127,7 @@ def get_hash(local, algorithm='MD5'):
 # PURPOSE: get the git hash value
 def get_git_revision_hash(refname='HEAD', short=False):
     """
-    Get the git hash value for a particular reference
+    Get the ``git`` hash value for a particular reference
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ def get_git_revision_hash(refname='HEAD', short=False):
 
 # PURPOSE: get the current git status
 def get_git_status():
-    """Get the status of a git repository as a boolean value
+    """Get the status of a ``git`` repository as a boolean value
     """
     # get path to .git directory from current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
@@ -673,9 +673,9 @@ def http_list(HOST, timeout=None, context=ssl.SSLContext(),
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
     context: obj, default ssl.SSLContext()
-        SSL context for url opener object
+        SSL context for ``urllib`` opener object
     parser: obj, default lxml.etree.HTMLParser()
-        HTML parser for lxml
+        HTML parser for ``lxml``
     format: str, default '%Y-%m-%d %H:%M'
         format for input time string
     pattern: str, default ''
@@ -739,7 +739,7 @@ def from_http(HOST, timeout=None, context=ssl.SSLContext(),
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
     context: obj, default ssl.SSLContext()
-        SSL context for url opener object
+        SSL context for ``urllib`` opener object
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
     local: str or NoneType, default None
@@ -814,7 +814,7 @@ def attempt_login(urs, context=ssl.SSLContext(),
     urs: str
         Earthdata login URS 3 host
     context: obj, default ssl.SSLContext()
-        SSL context for url opener object
+        SSL context for ``urllib`` opener object
     password_manager: bool, default True
         Create password manager context using default realm
     get_ca_certs: bool, default False
@@ -885,7 +885,7 @@ def build_opener(username, password, context=ssl.SSLContext(),
     password_manager=True, get_ca_certs=False, redirect=False,
     authorization_header=False, urs='https://urs.earthdata.nasa.gov'):
     """
-    build urllib opener for NASA Earthdata with supplied credentials
+    Build ``urllib`` opener for NASA Earthdata with supplied credentials
 
     Parameters
     ----------
@@ -894,7 +894,7 @@ def build_opener(username, password, context=ssl.SSLContext(),
     password: str or NoneType, default None
         NASA Earthdata password
     context: obj, default ssl.SSLContext()
-        SSL context for url opener object
+        SSL context for ``urllib`` opener object
     password_manager: bool, default True
         Create password manager context using default realm
     get_ca_certs: bool, default False
@@ -983,7 +983,7 @@ def nsidc_list(HOST, username=None, password=None, build=True,
     urs: str, default 'urs.earthdata.nasa.gov'
         NASA Earthdata URS 3 host
     parser: obj, default lxml.etree.HTMLParser()
-        HTML parser for lxml
+        HTML parser for ``lxml``
     pattern: str, default ''
         regular expression pattern for reducing list
     sort: bool, default False

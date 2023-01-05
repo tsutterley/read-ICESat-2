@@ -389,7 +389,7 @@ def reduce_ICESat2_ATL06_raster(FILE,
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
         output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
     # print file information
-    logging.into(f'\t{output_file}')
+    logging.info(f'\t{output_file}')
     # write to output HDF5 file
     HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs,
         CLOBBER=True, INPUT=os.path.basename(FILE),
@@ -442,7 +442,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
             fileID[gtx]['land_ice_segments'].attrs[att_name] = att_val
 
         # segment_id, geolocation, time and height variables
-        for k in ['segment_id','latitude','longitude','delta_time']:
+        for k in ['delta_time','segment_id','latitude','longitude']:
             # values and attributes
             v = IS2_atl06_mask[gtx]['land_ice_segments'][k]
             attrs = IS2_atl06_attrs[gtx]['land_ice_segments'][k]
@@ -450,7 +450,6 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
             # Defining the HDF5 dataset variables
             val = '{0}/{1}/{2}'.format(gtx,'land_ice_segments',k)
             if fillvalue:
-                print(k)
                 h5[gtx]['land_ice_segments'][k] = fileID.create_dataset(val,
                     np.shape(v), data=v, dtype=v.dtype, fillvalue=fillvalue,
                     compression='gzip')
@@ -560,7 +559,6 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     # add software information
     fileID.attrs['software_reference'] = is2tk.version.project_name
     fileID.attrs['software_version'] = is2tk.version.full_version
-    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

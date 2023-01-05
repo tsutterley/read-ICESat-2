@@ -2733,7 +2733,6 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     # add software information
     fileID.attrs['software_reference'] = is2tk.version.project_name
     fileID.attrs['software_version'] = is2tk.version.full_version
-    fileID.attrs['software_revision'] = is2tk.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 

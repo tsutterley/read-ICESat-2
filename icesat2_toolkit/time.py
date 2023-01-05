@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 time.py
-Written by Tyler Sutterley (10/2022)
+Written by Tyler Sutterley (12/2022)
 Utilities for calculating time operations
 
 PYTHON DEPENDENCIES:
@@ -16,6 +16,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: output variables for some standard epochs
     Updated 10/2022: added more time parsing for longer periods
     Updated 08/2022: output variables to unit conversion to seconds
         and the number of days per month for both leap and standard years
@@ -62,6 +63,13 @@ _to_sec['common_year'] = 365.0 * 86400.0
 _to_sec['common_years'] = 365.0 * 86400.0
 _to_sec['year'] = 365.25 * 86400.0
 _to_sec['years'] = 365.25 * 86400.0
+
+# standard epochs
+_mjd_epoch = (1858, 11, 17, 0, 0, 0)
+_ntp_epoch = (1900, 1, 1, 0, 0, 0)
+_unix_epoch = (1970, 1, 1, 0, 0, 0)
+_gps_epoch = (1980, 1, 6, 0, 0, 0)
+_atlas_sdp_epoch = (2018, 1, 1, 0, 0, 0)
 
 # PURPOSE: parse a date string into epoch and units scale
 def parse_date_string(date_string):
@@ -248,7 +256,7 @@ def convert_calendar_dates(year, month, day, hour=0.0, minute=0.0, second=0.0,
         np.floor(3.0*(np.floor((year + (month - 9.0)/7.0)/100.0) + 1.0)/4.0) + \
         np.floor(275.0*month/9.0) + day + hour/24.0 + minute/1440.0 + \
         second/86400.0 + 1721028.5 - 2400000.5
-    epoch1 = datetime.datetime(1858, 11, 17, 0, 0, 0)
+    epoch1 = datetime.datetime(*_mjd_epoch)
     epoch2 = datetime.datetime(*epoch)
     delta_time_epochs = (epoch2 - epoch1).total_seconds()
     # return the date in days since epoch
@@ -565,7 +573,7 @@ def get_leap_seconds(truncate=True):
         secs, = [re.findall(r'\d+',i).pop() for i in fid.read().splitlines()
             if re.match(r'^(?=#@)',i)]
     # check that leap seconds file is still valid
-    expiry = datetime.datetime(1900,1,1) + datetime.timedelta(seconds=int(secs))
+    expiry = datetime.datetime(*_ntp_epoch) + datetime.timedelta(seconds=int(secs))
     today = datetime.datetime.now()
     update_leap_seconds() if (expiry < today) else None
     # get leap seconds
@@ -575,7 +583,7 @@ def get_leap_seconds(truncate=True):
     # convert leap second epochs from NTP to GPS
     # convert from time of 2nd leap second to time of 1st leap second
     leap_GPS = convert_delta_time(leap_UTC+TAI_UTC-TAI_GPS-1,
-        epoch1=(1900,1,1,0,0,0), epoch2=(1980,1,6,0,0,0))
+        epoch1=_ntp_epoch, epoch2=_gps_epoch)
     # return the GPS times of leap second occurance
     if truncate:
         return leap_GPS[leap_GPS >= 0].astype(np.float64)

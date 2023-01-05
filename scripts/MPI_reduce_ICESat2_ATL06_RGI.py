@@ -536,7 +536,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
             fileID[gtx]['land_ice_segments'].attrs[att_name] = att_val
 
         # segment_id, geolocation, time and height variables
-        for k in ['segment_id','latitude','longitude','delta_time']:
+        for k in ['delta_time','segment_id','latitude','longitude']:
             # values and attributes
             v = IS2_atl06_mask[gtx]['land_ice_segments'][k]
             attrs = IS2_atl06_attrs[gtx]['land_ice_segments'][k]

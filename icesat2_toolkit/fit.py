@@ -31,8 +31,8 @@ import scipy.optimize
 try:
     import sklearn.neighbors
 except (ImportError, ModuleNotFoundError) as e:
-    warnings.filterwarnings("always")
-    warnings.warn("scikit-learn not available")
+    warnings.filterwarnings("module")
+    warnings.warn("scikit-learn not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 

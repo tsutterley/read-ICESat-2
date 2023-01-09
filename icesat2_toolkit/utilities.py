@@ -1195,8 +1195,7 @@ def cmr_cycles(cycle):
             raise TypeError("Please enter the cycle number as a list or string")
         # check if user-entered cycle is outside of currently available range
         if not set(all_cycles) & set(cycle_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed cycle is not presently available")
+            logging.warning("Listed cycle is not presently available")
         return cycle_list
 
 # PURPOSE: check if the submitted RGTs are valid
@@ -1235,8 +1234,7 @@ def cmr_tracks(track):
             )
         # check if user-entered RGT is outside of the valid range
         if not set(all_tracks) & set(track_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed Reference Ground Track is not available")
+            logging.warning("Listed Reference Ground Track is not available")
         return track_list
 
 # PURPOSE: check if the submitted granule regions are valid
@@ -1273,8 +1271,7 @@ def cmr_granules(granule):
             raise TypeError("Please enter the granule region as a list or string")
         # check if user-entered granule is outside of currently available range
         if not set(all_granules) & set(granule_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed granule region is not presently available")
+            logging.warning("Listed granule region is not presently available")
         return granule_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
@@ -1309,8 +1306,7 @@ def cmr_regions(region):
             raise TypeError("Please enter the region as a list or string")
         # check if user-entered region is currently not available
         if not set(all_regions) & set(region_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed region is not presently available")
+            logging.warning("Listed region is not presently available")
         return region_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
@@ -1345,8 +1341,7 @@ def cmr_resolutions(resolution):
             raise TypeError("Please enter the resolution as a list or string")
         # check if user-entered resolution is currently not available
         if not set(all_resolutions) & set(resolution_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed resolution is not presently available")
+            logging.warning("Listed resolution is not presently available")
         return resolution_list
 
 def cmr_readable_granules(product, **kwargs):

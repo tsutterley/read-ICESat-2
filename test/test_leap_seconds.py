@@ -4,7 +4,6 @@ test_leap_seconds.py (08/2020)
 """
 import os
 import pytest
-import warnings
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 

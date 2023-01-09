@@ -56,8 +56,10 @@ def read_HDF5_ATL06(*args, **kwargs):
         valid ICESat-2 beams within ATL06 file
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL06.read_granule(*args, **kwargs)
 
@@ -78,8 +80,10 @@ def find_HDF5_ATL06_beams(*args, **kwargs):
         valid ICESat-2 beams within ATL06 file
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL06.find_beams(*args, **kwargs)
 
@@ -117,7 +121,9 @@ def read_HDF5_ATL06_beam(*args, **kwargs):
         ATL06 attributes
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL06.read_beam(*args, **kwargs)

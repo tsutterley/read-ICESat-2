@@ -10,7 +10,6 @@ UPDATE HISTORY:
     Updated 11/2020: use output error string returned by from_nsidc
     Written 08/2020
 """
-import warnings
 import pytest
 import posixpath
 import icesat2_toolkit.utilities

@@ -29,9 +29,8 @@ import numpy as np
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("h5py not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("h5py not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 

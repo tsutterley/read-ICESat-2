@@ -40,21 +40,18 @@ import numpy as np
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("h5py not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("h5py not available", ImportWarning)
 try:
     import netCDF4
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("netCDF4 not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("netCDF4 not available", ImportWarning)
 try:
     import osgeo.gdal, osgeo.osr, osgeo.gdalconst
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("GDAL not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("GDAL not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 

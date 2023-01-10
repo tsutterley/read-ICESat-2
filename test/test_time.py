@@ -4,7 +4,6 @@ test_time.py (08/2020)
 Verify time conversion functions
 """
 import pytest
-import warnings
 import numpy as np
 import icesat2_toolkit.time
 

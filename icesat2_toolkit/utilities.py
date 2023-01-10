@@ -641,8 +641,11 @@ def from_ftp(HOST, username=None, password=None, timeout=None,
         remote_buffer.seek(0)
         return remote_buffer
 
+    # default ssl context
+_default_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+
 # PURPOSE: check internet connection
-def check_connection(HOST):
+def check_connection(HOST, context=_default_ssl_context):
     """
     Check internet connection with http host
 
@@ -650,17 +653,19 @@ def check_connection(HOST):
     ----------
     HOST: str
         remote http host
+    context: obj, default ssl.SSLContext(ssl.PROTOCOL_TLS)
+        SSL context for ``urllib`` opener object
     """
     # attempt to connect to http host
     try:
-        urllib2.urlopen(HOST,timeout=20,context=ssl.SSLContext())
-    except urllib2.URLError:
-        raise RuntimeError('Check internet connection')
+        urllib2.urlopen(HOST, timeout=20, context=context)
+    except urllib2.URLError as exc:
+        raise RuntimeError('Check internet connection') from exc
     else:
         return True
 
 # PURPOSE: list a directory on an Apache http Server
-def http_list(HOST, timeout=None, context=ssl.SSLContext(),
+def http_list(HOST, timeout=None, context=_default_ssl_context,
     parser=lxml.etree.HTMLParser(), format='%Y-%m-%d %H:%M',
     pattern='', sort=False):
     """
@@ -672,7 +677,7 @@ def http_list(HOST, timeout=None, context=ssl.SSLContext(),
         remote http host path
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
-    context: obj, default ssl.SSLContext()
+    context: obj, default ssl.SSLContext(ssl.PROTOCOL_TLS)
         SSL context for ``urllib`` opener object
     parser: obj, default lxml.etree.HTMLParser()
         HTML parser for ``lxml``
@@ -702,7 +707,7 @@ def http_list(HOST, timeout=None, context=ssl.SSLContext(),
         response=urllib2.urlopen(request,timeout=timeout,context=context)
     except (urllib2.HTTPError, urllib2.URLError) as e:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
-        return (False,False,colerror)
+        return (False, False, colerror)
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response,parser)
@@ -726,7 +731,7 @@ def http_list(HOST, timeout=None, context=ssl.SSLContext(),
         return (colnames,collastmod,None)
 
 # PURPOSE: download a file from a http host
-def from_http(HOST, timeout=None, context=ssl.SSLContext(),
+def from_http(HOST, timeout=None, context=_default_ssl_context,
     local=None, hash='', chunk=16384, verbose=False, fid=sys.stdout,
     mode=0o775):
     """
@@ -738,7 +743,7 @@ def from_http(HOST, timeout=None, context=ssl.SSLContext(),
         remote http host path split as list
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
-    context: obj, default ssl.SSLContext()
+    context: obj, default ssl.SSLContext(ssl.PROTOCOL_TLS)
         SSL context for ``urllib`` opener object
     timeout: int or NoneType, default None
         timeout in seconds for blocking operations
@@ -770,7 +775,7 @@ def from_http(HOST, timeout=None, context=ssl.SSLContext(),
     try:
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
-        response = urllib2.urlopen(request,timeout=timeout,context=context)
+        response = urllib2.urlopen(request, timeout=timeout, context=context)
     except (urllib2.HTTPError, urllib2.URLError):
         raise Exception('Download error from {0}'.format(posixpath.join(*HOST)))
     else:
@@ -803,7 +808,7 @@ def from_http(HOST, timeout=None, context=ssl.SSLContext(),
         return remote_buffer
 
 # PURPOSE: attempt to build an opener with netrc
-def attempt_login(urs, context=ssl.SSLContext(),
+def attempt_login(urs, context=_default_ssl_context,
     password_manager=True, get_ca_certs=False, redirect=False,
     authorization_header=False, **kwargs):
     """
@@ -813,7 +818,7 @@ def attempt_login(urs, context=ssl.SSLContext(),
     ----------
     urs: str
         Earthdata login URS 3 host
-    context: obj, default ssl.SSLContext()
+    context: obj, default ssl.SSLContext(ssl.PROTOCOL_TLS)
         SSL context for ``urllib`` opener object
     password_manager: bool, default True
         Create password manager context using default realm
@@ -881,7 +886,7 @@ def attempt_login(urs, context=ssl.SSLContext(),
     raise RuntimeError('End of Retries: Check NASA Earthdata credentials')
 
 # PURPOSE: "login" to NASA Earthdata with supplied credentials
-def build_opener(username, password, context=ssl.SSLContext(),
+def build_opener(username, password, context=_default_ssl_context,
     password_manager=True, get_ca_certs=False, redirect=False,
     authorization_header=False, urs='https://urs.earthdata.nasa.gov'):
     """
@@ -893,7 +898,7 @@ def build_opener(username, password, context=ssl.SSLContext(),
         NASA Earthdata username
     password: str or NoneType, default None
         NASA Earthdata password
-    context: obj, default ssl.SSLContext()
+    context: obj, default ssl.SSLContext(ssl.PROTOCOL_TLS)
         SSL context for ``urllib`` opener object
     password_manager: bool, default True
         Create password manager context using default realm
@@ -954,10 +959,10 @@ def check_credentials():
         remote_path = posixpath.join('https://n5eil01u.ecs.nsidc.org','ATLAS')
         request = urllib2.Request(url=remote_path)
         response = urllib2.urlopen(request, timeout=20)
-    except urllib2.HTTPError:
-        raise RuntimeError('Check your NASA Earthdata credentials')
-    except urllib2.URLError:
-        raise RuntimeError('Check internet connection')
+    except urllib2.HTTPError as exc:
+        raise RuntimeError('Check your NASA Earthdata credentials') from exc
+    except urllib2.URLError as exc:
+        raise RuntimeError('Check internet connection') from exc
     else:
         return True
 
@@ -1011,7 +1016,7 @@ def nsidc_list(HOST, username=None, password=None, build=True,
         tree = lxml.etree.parse(urllib2.urlopen(request,timeout=timeout),parser)
     except (urllib2.HTTPError, urllib2.URLError) as e:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
-        return (False,False,colerror)
+        return (False, False, colerror)
     else:
         # read and parse request for files (column names and modified times)
         colnames = tree.xpath('//td[@class="indexcolname"]//a/@href')
@@ -1090,7 +1095,7 @@ def from_nsidc(HOST, username=None, password=None, build=True,
         response = urllib2.urlopen(request,timeout=timeout)
     except (urllib2.HTTPError, urllib2.URLError) as e:
         response_error = 'Download error from {0}'.format(posixpath.join(*HOST))
-        return (False,response_error)
+        return (False, response_error)
     else:
         # copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO()
@@ -1195,8 +1200,7 @@ def cmr_cycles(cycle):
             raise TypeError("Please enter the cycle number as a list or string")
         # check if user-entered cycle is outside of currently available range
         if not set(all_cycles) & set(cycle_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed cycle is not presently available")
+            logging.warning("Listed cycle is not presently available")
         return cycle_list
 
 # PURPOSE: check if the submitted RGTs are valid
@@ -1235,8 +1239,7 @@ def cmr_tracks(track):
             )
         # check if user-entered RGT is outside of the valid range
         if not set(all_tracks) & set(track_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed Reference Ground Track is not available")
+            logging.warning("Listed Reference Ground Track is not available")
         return track_list
 
 # PURPOSE: check if the submitted granule regions are valid
@@ -1273,8 +1276,7 @@ def cmr_granules(granule):
             raise TypeError("Please enter the granule region as a list or string")
         # check if user-entered granule is outside of currently available range
         if not set(all_granules) & set(granule_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed granule region is not presently available")
+            logging.warning("Listed granule region is not presently available")
         return granule_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
@@ -1309,8 +1311,7 @@ def cmr_regions(region):
             raise TypeError("Please enter the region as a list or string")
         # check if user-entered region is currently not available
         if not set(all_regions) & set(region_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed region is not presently available")
+            logging.warning("Listed region is not presently available")
         return region_list
 
 # PURPOSE: check if the submitted ATL14/ATL15 regions are valid
@@ -1345,8 +1346,7 @@ def cmr_resolutions(resolution):
             raise TypeError("Please enter the resolution as a list or string")
         # check if user-entered resolution is currently not available
         if not set(all_resolutions) & set(resolution_list):
-            warnings.filterwarnings("always")
-            warnings.warn("Listed resolution is not presently available")
+            logging.warning("Listed resolution is not presently available")
         return resolution_list
 
 def cmr_readable_granules(product, **kwargs):
@@ -1507,7 +1507,7 @@ def cmr(product=None, release=None, cycles=None, tracks=None,
         # Create cookie jar for storing cookies
         cookie_jar = CookieJar()
         handler.append(urllib2.HTTPCookieProcessor(cookie_jar))
-        handler.append(urllib2.HTTPSHandler(context=ssl.SSLContext()))
+        handler.append(urllib2.HTTPSHandler(context=_default_ssl_context))
         # create "opener" (OpenerDirector instance)
         opener = urllib2.build_opener(*handler)
     # build CMR query

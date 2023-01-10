@@ -89,27 +89,24 @@ import icesat2_toolkit as is2tk
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("h5py not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("h5py not available", ImportWarning)
 try:
     from mpi4py import MPI
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("mpi4py not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("mpi4py not available", ImportWarning)
 try:
     import sklearn.neighbors
     import sklearn.cluster
 except (ImportError, ModuleNotFoundError) as e:
-    warnings.filterwarnings("always")
-    warnings.warn("scikit-learn not available")
+    warnings.filterwarnings("module")
+    warnings.warn("scikit-learn not available", ImportWarning)
 try:
     import yapc.classify_photons
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("pyYAPC not available")
-    warnings.warn("Some functions will throw an exception if called")
+    warnings.filterwarnings("module")
+    warnings.warn("pyYAPC not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 

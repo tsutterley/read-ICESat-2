@@ -48,9 +48,10 @@ import warnings
 import icesat2_toolkit.time
 
 def convert_calendar_decimal(*args,**kwargs):
-    warnings.filterwarnings("always")
+    warnings.filterwarnings("module")
     warnings.warn("Deprecated. Please use icesat2_toolkit.time instead",
         DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     kwds={key.lower():val for key,val in kwargs.items()}
     return icesat2_toolkit.time.convert_calendar_decimal(*args,**kwds)

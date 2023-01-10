@@ -61,8 +61,10 @@ def read_HDF5_ATL11(*args, **kwargs):
         valid ICESat-2 beam pairs within ATL11 file
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL11.read_granule(*args, **kwargs)
 
@@ -83,8 +85,10 @@ def find_HDF5_ATL11_pairs(*args, **kwargs):
         valid ICESat-2 beam pairs within ATL11 file
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL11.find_pairs(*args, **kwargs)
 
@@ -123,7 +127,9 @@ def read_HDF5_ATL11_pair(*args, **kwargs):
         ATL11 attributes
     """
     # raise warnings for deprecation of module
-    warnings.filterwarnings("always")
-    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",DeprecationWarning)
+    warnings.filterwarnings("module")
+    warnings.warn("Deprecated. Please use icesat2_toolkit.io instead",
+        DeprecationWarning)
+    warnings.filterwarnings("ignore")
     # call renamed version to not break workflows
     return icesat2_toolkit.io.ATL11.read_pair(*args, **kwargs)

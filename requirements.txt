@@ -1,7 +1,5 @@
-boto3
 future
 lxml
-matplotlib
 numpy
 paramiko
 pyproj

@@ -45,7 +45,6 @@ import re
 import io
 import ssl
 import json
-import boto3
 import netrc
 import ftplib
 import shutil
@@ -71,6 +70,15 @@ else:
     from http.cookiejar import CookieJar
     from urllib.parse import urlencode
     import urllib.request as urllib2
+
+# attempt imports
+try:
+    import boto3
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("boto3 not available", ImportWarning)
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: get absolute path within a package from a relative path
 def get_data_path(relpath):
@@ -340,8 +348,8 @@ def generate_presigned_url(bucket, key, expiration=3600):
         response = s3.generate_presigned_url('get_object',
             Params={'Bucket': bucket, 'Key': key},
             ExpiresIn=expiration)
-    except Exception as e:
-        logging.error(e)
+    except Exception as exc:
+        logging.error(exc)
         return None
     # The response contains the presigned URL
     return response
@@ -705,7 +713,7 @@ def http_list(HOST, timeout=None, context=_default_ssl_context,
         # Create and submit request.
         request=urllib2.Request(posixpath.join(*HOST))
         response=urllib2.urlopen(request,timeout=timeout,context=context)
-    except (urllib2.HTTPError, urllib2.URLError) as e:
+    except (urllib2.HTTPError, urllib2.URLError) as exc:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
         return (False, False, colerror)
     else:
@@ -852,7 +860,7 @@ def attempt_login(urs, context=_default_ssl_context,
         os.chmod(kwargs['netrc'], 0o600)
         # try retrieving credentials from netrc
         username, _, password = netrc.netrc(kwargs['netrc']).authenticators(urs)
-    except Exception as e:
+    except Exception as exc:
         # try retrieving credentials from environmental variables
         username, password = (kwargs['username'], kwargs['password'])
         pass
@@ -875,7 +883,7 @@ def attempt_login(urs, context=_default_ssl_context,
         # try logging in by check credentials
         try:
             check_credentials()
-        except Exception as e:
+        except Exception as exc:
             pass
         else:
             return opener
@@ -1013,8 +1021,9 @@ def nsidc_list(HOST, username=None, password=None, build=True,
     try:
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
-        tree = lxml.etree.parse(urllib2.urlopen(request,timeout=timeout),parser)
-    except (urllib2.HTTPError, urllib2.URLError) as e:
+        response = urllib2.urlopen(request,timeout=timeout)
+        tree = lxml.etree.parse(response,parser)
+    except (urllib2.HTTPError, urllib2.URLError) as exc:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
         return (False, False, colerror)
     else:
@@ -1093,7 +1102,7 @@ def from_nsidc(HOST, username=None, password=None, build=True,
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request,timeout=timeout)
-    except (urllib2.HTTPError, urllib2.URLError) as e:
+    except (urllib2.HTTPError, urllib2.URLError) as exc:
         response_error = 'Download error from {0}'.format(posixpath.join(*HOST))
         return (False, response_error)
     else:

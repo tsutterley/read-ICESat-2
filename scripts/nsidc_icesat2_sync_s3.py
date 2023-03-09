@@ -107,14 +107,23 @@ from __future__ import print_function
 import sys
 import os
 import re
-import boto3
 import logging
 import argparse
+import warnings
 import posixpath
 import traceback
 import lxml.etree
 import multiprocessing as mp
 import icesat2_toolkit as is2tk
+
+# attempt imports
+try:
+    import boto3
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("boto3 not available", ImportWarning)
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
@@ -311,7 +320,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
 def multiprocess_sync(*args, **kwds):
     try:
         output = http_pull_file(*args, **kwds)
-    except Exception as e:
+    except Exception as exc:
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled

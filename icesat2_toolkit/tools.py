@@ -21,9 +21,17 @@ import os
 import re
 import copy
 import colorsys
+import warnings
 import numpy as np
-import matplotlib.cm as cm
-import matplotlib.colors as colors
+# attempt imports
+try:
+    import matplotlib.cm as cm
+    import matplotlib.colors as colors
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("matplotlib not available", ImportWarning)
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 def from_cpt(filename, use_extremes=True, **kwargs):
     """

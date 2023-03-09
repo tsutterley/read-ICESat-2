@@ -622,7 +622,7 @@ def update_leap_seconds(timeout=20, verbose=False, mode=0o775):
         icesat2_toolkit.utilities.check_ftp_connection(HOST[0])
         icesat2_toolkit.utilities.from_ftp(HOST, timeout=timeout, local=LOCAL,
             hash=HASH, verbose=verbose, mode=mode)
-    except Exception as e:
+    except Exception as exc:
         logging.debug(traceback.format_exc())
         pass
     else:
@@ -633,7 +633,7 @@ def update_leap_seconds(timeout=20, verbose=False, mode=0o775):
     try:
         icesat2_toolkit.utilities.from_http(REMOTE, timeout=timeout, local=LOCAL,
             hash=HASH, verbose=verbose, mode=mode)
-    except Exception as e:
+    except Exception as exc:
         logging.debug(traceback.format_exc())
         pass
     else:

@@ -99,7 +99,7 @@ except ModuleNotFoundError:
 try:
     import sklearn.neighbors
     import sklearn.cluster
-except (ImportError, ModuleNotFoundError) as e:
+except (ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("scikit-learn not available", ImportWarning)
 try:

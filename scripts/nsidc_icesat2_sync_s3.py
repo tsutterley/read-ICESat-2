@@ -311,7 +311,7 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
 def multiprocess_sync(*args, **kwds):
     try:
         output = http_pull_file(*args, **kwds)
-    except Exception as e:
+    except Exception as exc:
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled

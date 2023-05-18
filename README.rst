@@ -6,8 +6,6 @@ read-ICESat-2
 |License|
 |PyPI Version|
 |Documentation Status|
-|Binder|
-|Pangeo|
 |zenodo|
 |Shot Count|
 
@@ -22,12 +20,6 @@ read-ICESat-2
 
 .. |Documentation Status| image:: https://readthedocs.org/projects/read-icesat-2/badge/?version=latest
    :target: https://read-icesat-2.readthedocs.io/en/latest/?badge=latest
-
-.. |Binder| image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main
-
-.. |Pangeo| image:: https://img.shields.io/static/v1.svg?logo=Jupyter&label=PangeoBinderAWS&message=us-west-2&color=orange
-   :target: https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab
 
 .. |zenodo| image:: https://zenodo.org/badge/193143942.svg
    :target: https://zenodo.org/badge/latestdoi/193143942

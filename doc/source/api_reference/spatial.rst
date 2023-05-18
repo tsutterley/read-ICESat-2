@@ -52,6 +52,12 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.spatial.to_geodetic
 
+.. autofunction:: icesat2_toolkit.spatial._moritz_iterative
+
+.. autofunction:: icesat2_toolkit.spatial._bowring_iterative
+
+.. autofunction:: icesat2_toolkit.spatial._zhu_closed_form
+
 .. autofunction:: icesat2_toolkit.spatial.scale_areas
 
 .. autofunction:: icesat2_toolkit.spatial.inside_polygon

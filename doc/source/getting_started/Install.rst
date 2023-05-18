@@ -55,11 +55,3 @@ Alternatively can install the utilities directly from GitHub with ``pip``:
 
     python3 -m pip install --user git+https://github.com/tsutterley/read-ICESat-2.git
 
-| This repository can be also tested using `BinderHub <https://github.com/jupyterhub/binderhub>`_ platforms:
-| |Binder| |Pangeo|
-
-.. |Binder| image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/tsutterley/read-ICESat-2/main
-
-.. |Pangeo| image:: https://img.shields.io/static/v1.svg?logo=Jupyter&label=PangeoBinderAWS&message=us-west-2&color=orange
-   :target: https://aws-uswest2-binder.pangeo.io/v2/gh/tsutterley/read-ICESat-2/main?urlpath=lab

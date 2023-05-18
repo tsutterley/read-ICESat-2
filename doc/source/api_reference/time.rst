@@ -43,6 +43,8 @@ Convert a calendar date into Modified Julian Days
 General Methods
 ===============
 
+.. autofunction:: icesat2_toolkit.time.parse
+
 .. autofunction:: icesat2_toolkit.time.parse_date_string
 
 .. autofunction:: icesat2_toolkit.time.split_date_string

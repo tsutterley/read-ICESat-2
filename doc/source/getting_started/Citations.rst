@@ -11,6 +11,12 @@ the NASA Postdoctoral Program at NASA Goddard Space Flight Center, administered
 by Universities Space Research Association under contract with NASA. This work
 is developed in conjunction with other ICESat-2 projects.
 
+If you have used ``icesat2-toolkit`` in your work, please consider citing our library:
+
+    T. C. Sutterley and M. Siegfried, "icesat2-toolkit: Python tools for obtaining
+    and working with elevation data from the NASA ICESat-2 mission", (2019).
+    `doi: 10.5281/zenodo.7439353 <https://doi.org/10.5281/zenodo.7439353>`_
+
 Contributors
 ############
 

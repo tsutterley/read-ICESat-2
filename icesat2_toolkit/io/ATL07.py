@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL07.py (12/2022)
+ATL07.py (05/2023)
 Read ICESat-2 ATL07 (Sea Ice Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 05/2023: extract more ancillary data from ATL07 files
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -145,7 +146,12 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
     # and add leap seconds since 2018-01-01:T00:00:00Z UTC (ATLAS SDP epoch)
     IS2_atl07_mds['ancillary_data'] = {}
     IS2_atl07_attrs['ancillary_data'] = {}
-    for key in ['atlas_sdp_gps_epoch']:
+    ancillary_keys = ['atlas_sdp_gps_epoch','data_end_utc','data_start_utc',
+        'end_cycle','end_geoseg','end_gpssow','end_gpsweek','end_orbit',
+        'end_region','end_rgt','granule_end_utc','granule_start_utc','release',
+        'start_cycle','start_geoseg','start_gpssow','start_gpsweek',
+        'start_orbit','start_region','start_rgt','version']
+    for key in ancillary_keys:
         # get each HDF5 variable
         IS2_atl07_mds['ancillary_data'][key] = fileID['ancillary_data'][key][:]
         # Getting attributes of group and included variables

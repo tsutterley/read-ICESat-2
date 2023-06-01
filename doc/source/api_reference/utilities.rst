@@ -61,6 +61,8 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.build_opener
 
+.. autofunction:: icesat2_toolkit.utilities.get_token
+
 .. autofunction:: icesat2_toolkit.utilities.check_credentials
 
 .. autofunction:: icesat2_toolkit.utilities.nsidc_list

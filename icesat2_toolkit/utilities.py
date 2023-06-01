@@ -1024,6 +1024,55 @@ def build_opener(
     # HTTPPasswordMgrWithDefaultRealm will be confused.
     return opener
 
+# PURPOSE: generate a NASA Earthdata user token
+def get_token(
+    HOST: str = 'https://urs.earthdata.nasa.gov/api/users/token',
+    username: str | None = None,
+    password: str | None = None,
+    build: bool = True,
+    urs: str = 'urs.earthdata.nasa.gov',
+    ):
+    """
+    Generate a NASA Earthdata User Token
+
+    Parameters
+    ----------
+    HOST: str or list
+        remote https host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener and check WebDAV credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        NASA Earthdata URS 3 host
+
+    Returns
+    -------
+    token: dict
+        JSON response with NASA Earthdata User Token
+    """
+    # attempt to build urllib2 opener and check credentials
+    if build:
+        attempt_login(urs,
+            username=username,
+            password=password,
+            password_manager=False,
+            authorization_header=True)
+    # create post response with Earthdata token API
+    try:
+        request = urllib2.Request(HOST, method='POST')
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as exc:
+        raise RuntimeError('User already has maximum number of tokens') from exc
+    except urllib2.URLError as exc:
+        raise RuntimeError('Check internet connection') from exc
+    # read and return JSON response
+    return json.loads(response.read())
+
 # PURPOSE: check that entered NASA Earthdata credentials are valid
 def check_credentials():
     """

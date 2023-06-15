@@ -63,6 +63,10 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.get_token
 
+.. autofunction:: icesat2_toolkit.utilities.list_tokens
+
+.. autofunction:: icesat2_toolkit.utilities.revoke_token
+
 .. autofunction:: icesat2_toolkit.utilities.check_credentials
 
 .. autofunction:: icesat2_toolkit.utilities.nsidc_list

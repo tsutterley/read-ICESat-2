@@ -253,7 +253,7 @@ def arguments():
         help='subdirectories of data to run')
     # ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='004',
+        type=str, default='006',
         help='ICESat-2 Data Release')
     # ICESat-2 data version
     parser.add_argument('--version','-v',

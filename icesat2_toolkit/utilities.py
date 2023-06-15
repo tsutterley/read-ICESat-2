@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 06/2023: add functions to retrieve and revoke Earthdata tokens
     Updated 05/2023: using pathlib to define and expand paths
     Updated 03/2023: add basic variable typing to function inputs
     Updated 01/2023: updated SSL context to fix some deprecation warnings
@@ -1026,11 +1027,11 @@ def build_opener(
 
 # PURPOSE: generate a NASA Earthdata user token
 def get_token(
-    HOST: str = 'https://urs.earthdata.nasa.gov/api/users/token',
-    username: str | None = None,
-    password: str | None = None,
-    build: bool = True,
-    urs: str = 'urs.earthdata.nasa.gov',
+        HOST: str = 'https://urs.earthdata.nasa.gov/api/users/token',
+        username: str | None = None,
+        password: str | None = None,
+        build: bool = True,
+        urs: str = 'urs.earthdata.nasa.gov',
     ):
     """
     Generate a NASA Earthdata User Token
@@ -1038,7 +1039,7 @@ def get_token(
     Parameters
     ----------
     HOST: str or list
-        remote https host
+        NASA Earthdata token API host
     username: str or NoneType, default None
         NASA Earthdata username
     password: str or NoneType, default None
@@ -1067,11 +1068,115 @@ def get_token(
         request = urllib2.Request(HOST, method='POST')
         response = urllib2.urlopen(request)
     except urllib2.HTTPError as exc:
-        raise RuntimeError('User already has maximum number of tokens') from exc
+        logging.debug(exc.code)
+        raise RuntimeError(exc.reason) from exc
     except urllib2.URLError as exc:
+        logging.debug(exc.reason)
         raise RuntimeError('Check internet connection') from exc
     # read and return JSON response
     return json.loads(response.read())
+
+# PURPOSE: generate a NASA Earthdata user token
+def list_tokens(
+        HOST: str = 'https://urs.earthdata.nasa.gov/api/users/tokens',
+        username: str | None = None,
+        password: str | None = None,
+        build: bool = True,
+        urs: str = 'urs.earthdata.nasa.gov',
+    ):
+    """
+    List the current associated NASA Earthdata User Tokens
+
+    Parameters
+    ----------
+    HOST: str
+        NASA Earthdata list token API host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener and check WebDAV credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        NASA Earthdata URS 3 host
+
+    Returns
+    -------
+    tokens: list
+        JSON response with NASA Earthdata User Tokens
+    """
+    # attempt to build urllib2 opener and check credentials
+    if build:
+        attempt_login(urs,
+            username=username,
+            password=password,
+            password_manager=False,
+            authorization_header=True)
+    # create get response with Earthdata list tokens API
+    try:
+        request = urllib2.Request(HOST)
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise RuntimeError(exc.reason) from exc
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        raise RuntimeError('Check internet connection') from exc
+    # read and return JSON response
+    return json.loads(response.read())
+
+# PURPOSE: revoke a NASA Earthdata user token
+def revoke_token(
+        token: str,
+        HOST: str = f'https://urs.earthdata.nasa.gov/api/users/revoke_token',
+        username: str | None = None,
+        password: str | None = None,
+        build: bool = True,
+        urs: str = 'urs.earthdata.nasa.gov',
+    ):
+    """
+    Generate a NASA Earthdata User Token
+
+    Parameters
+    ----------
+    token: str
+        NASA Earthdata token to be revoked
+    HOST: str
+        NASA Earthdata revoke token API host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener and check WebDAV credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        NASA Earthdata URS 3 host
+    """
+    # attempt to build urllib2 opener and check credentials
+    if build:
+        attempt_login(urs,
+            username=username,
+            password=password,
+            password_manager=False,
+            authorization_header=True)
+    # full path for NASA Earthdata revoke token API
+    url = f'{HOST}?token={token}'
+    # create post response with Earthdata revoke tokens API
+    try:
+        request = urllib2.Request(url, method='POST')
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise RuntimeError(exc.reason) from exc
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        raise RuntimeError('Check internet connection') from exc
+    # verbose response
+    logging.debug(f'Token Revoked: {token}')
 
 # PURPOSE: check that entered NASA Earthdata credentials are valid
 def check_credentials():
@@ -1144,7 +1249,7 @@ def nsidc_list(
     try:
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
-        response = urllib2.urlopen(request,timeout=timeout)
+        response = urllib2.urlopen(request, timeout=timeout)
         tree = lxml.etree.parse(response, parser)
     except (urllib2.HTTPError, urllib2.URLError) as exc:
         colerror = 'List error from {0}'.format(posixpath.join(*HOST))
@@ -1235,7 +1340,7 @@ def from_nsidc(
     try:
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
-        response = urllib2.urlopen(request,timeout=timeout)
+        response = urllib2.urlopen(request, timeout=timeout)
     except (urllib2.HTTPError, urllib2.URLError) as exc:
         response_error = 'Download error from {0}'.format(posixpath.join(*HOST))
         return (False, response_error)
@@ -1608,7 +1713,8 @@ def cmr(
         request_type: str = "application/x-hdfeos",
         opener = None,
         verbose: bool = False,
-        fid = sys.stdout):
+        fid = sys.stdout
+    ):
     """
     Query the NASA Common Metadata Repository (CMR) for ICESat-2 data
 

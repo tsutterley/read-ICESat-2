@@ -55,7 +55,7 @@ data are available through the ``cmr`` routine in the ``utilities`` module.
 
 .. code-block:: python
 
-    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',release='005',
+    ids,urls = icesat2_toolkit.utilities.cmr(product='ATL06',release='006',
         cycles=[3,4,5],tracks=752,granules=[10,11,12],verbose=False)
 
 Some more advanced spatial and temporal CMR queries are available as part of the

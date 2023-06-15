@@ -75,7 +75,7 @@ def arguments():
         help='ICESat-2 data product to create symbolic links')
     # ICESat-2 data release
     parser.add_argument('--release','-r',
-        type=str, default='004',
+        type=str, default='006',
         help='ICESat-2 data release to create symbolic links')
     # ICESat-2 data version
     parser.add_argument('--version','-v',

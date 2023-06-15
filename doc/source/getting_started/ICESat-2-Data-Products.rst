@@ -1,6 +1,9 @@
 ICESat-2 Data Products
 ======================
 
+.. image:: ../_assets/ASAS_product_chart.png
+  :alt: ASAS product chart
+
 .. _table1:
 .. include:: Table.rst
 

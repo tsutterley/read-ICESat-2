@@ -322,7 +322,7 @@ def main():
             int_test = poly_obj.intersects(xy_point)
             if int_test:
                 # extract intersected points
-                int_map = list(map(poly_obj.intersects,xy_point))
+                int_map = list(map(poly_obj.intersects, xy_point.geoms))
                 int_indices, = np.nonzero(int_map)
                 # set distributed_map indices to True for intersected points
                 distributed_map[ind[int_indices]] = True

@@ -7,90 +7,104 @@
 |           |                              | generated daily, segmented into several   |
 |           |                              | minute granules                           |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL02** | Science Unit Converted       | Photon time of flight, corrected for      |
-|           | Telemetry                    | instrument effects. Includes all photons, |
-|           |                              | pointing data, spacecraft position,       |
-|           |                              | housekeeping data, engineering data, and  |
-|           |                              | raw atmospheric profiles, segmented into  |
-|           |                              | several minute granules.                  |
+| **ATL02** | Converted Telemetry Data     | Science-unit-converted time-ordered       |
+|           |                              | telemetry data, calibrated for instrument |
+|           |                              | effects.                                  |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL03** | Global Geolocated Photon     | Precise latitude, longitude and elevation |
-|           | Data                         | for every received photon, arranged by    |
-|           |                              | beam in the along-track direction.        |
-|           |                              | Photons classified by signal vs.          |
-|           |                              | background, as well as by surface type    |
-|           |                              | (land ice, sea ice, land, ocean),         |
-|           |                              | including all geophysical corrections.    |
-|           |                              | Segmented into several minute granules.   |
+| **ATL03** | Global Geolocated Photon     | Precise latitude, longitude, elevation    |
+|           | Data                         | and time for every received photon.       |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL04** | Uncalibrated Backscatter     | Along-track atmospheric backscatter data, |
-|           | Profiles                     | 25 times per second. Includes calibration |
-|           |                              | coefficients for polar regions. Segmented |
-|           |                              | into several minute granules.             |
+| **ATL04** | Normalized Relative          | Along-track atmospheric backscatter data. |
+|           | Backscatter Profiles         | Includes calibration coefficients for     |
+|           |                              | polar regions.                            |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL06** | Land Ice Elevation           | Surface height for each beam with along-  |
-|           |                              | and across-track slopes calculated for    |
-|           |                              | each beam pair. Posted at 40 meters       |
-|           |                              | along-track. Segmented into several       |
-|           |                              | minute granules.                          |
+| **ATL06** | Land Ice Height              | Along-track surface height and slope for  |
+|           |                              | glaciers and ice sheets.                  |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL07** | Arctic/Antarctic Sea Ice     | Height of sea ice and open water leads at |
-|           | Elevation                    | varying length scale based on returned    |
-|           |                              | photon rate for each beam presented       |
-|           |                              | along-track. Segmented into several       |
-|           |                              | minute granules.                          |
+| **ATL07** | Sea Ice Height               | Height of sea ice and open water leads    |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL08** | Land Water Vegetation        | Height of ground including canopy surface |
-|           | Elevation                    | posted at variable length scales relative |
-|           |                              | to signal level, for each beam presented  |
-|           |                              | along-track. Where data permits include   |
-|           |                              | canopy height, canopy cover percentage,   |
-|           |                              | surface slope and roughness, and apparent |
-|           |                              | reflectance.                              |
+| **ATL08** | Land and Vegetation Height   | Along-track height of ground and canopy   |
+|           |                              | surfaces.                                 |
 +-----------+------------------------------+-------------------------------------------+
 | **ATL09** | Calibrated Backscatter and   | Along-track cloud and other significant   |
-|           | Cloud Characteristics        | atmosphere layer heights, blowing snow,   |
-|           |                              | integrated backscatter, and optical       |
+|           | Atmospheric Layer            | atmosphere layer heights, blowing snow,   |
+|           | Characteristics              | integrated backscatter, and optical       |
 |           |                              | depth.                                    |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL10** | Arctic/Antarctic Sea Ice     | Estimate of sea ice freeboard over        |
-|           | Freeboard                    | specific spatial scales using all         |
-|           |                              | available sea surface height              |
-|           |                              | measurements. Contains statistics of sea  |
-|           |                              | surface and sea ice heights.              |
+| **ATL10** | Sea Ice Freeboard            | Along-track estimates of sea ice          |
+|           |                              | freeboard                                 |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL11** | Antarctic/Greenland Ice      | Time series of height at points on the    |
-|           | Sheet H(t) Series            | ice sheet, calculated based on repeat     |
+| **ATL11** | Slope-Corrected Land Ice     | Time series of height at points on the    |
+|           | Height Time Series           | ice sheet, calculated based on repeat     |
 |           |                              | tracks and/or cross-overs.                |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL12** | Ocean Elevation              | Surface height at specific length scale.  |
+| **ATL12** | Ocean Surface Height         | Global open ocean sea surface height      |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL13** | Inland Water Height          | Along-track inland and near shore water   |
-|           |                              | surface height distribution within water  |
-|           |                              | mask.                                     |
+| **ATL13** | Inland Surface Water Data    | Along-track inland and near shore water   |
+|           |                              | surface height distribution               |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL14** | Antarctic/Greenland Ice      | Height maps of each ice sheet for each    |
-|           | Sheet H(t) Gridded           | year based on all available elevation     |
-|           |                              | data.                                     |
+| **ATL14** | Gridded Antarctic and Arctic | High-resolution glacier and ice sheet     |
+|           | Land Ice Height              | digital elevation model (DEM)             |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL15** | Antarctic/Greenland Ice      | Height change maps for each ice sheet,    |
-|           | Sheet dh/dt Gridded          | for each mission year, and for the whole  |
-|           |                              | mission.                                  |
+| **ATL15** | Gridded Antarctic and Arctic | Quarterly, annual and multi-annual height |
+|           | Land Ice Height Change       | change maps for glaciers and ice sheets   |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL16** | ATLAS Atmosphere Weekly      | Polar cloud fraction, blowing snow        |
+| **ATL16** | Weekly Gridded Atmosphere    | Polar cloud fraction, blowing snow        |
 |           |                              | frequency, ground detection frequency.    |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL17** | ATLAS Atmosphere Monthly     | Polar cloud fraction, blowing snow        |
+| **ATL17** | Monthly Gridded Atmosphere   | Polar cloud fraction, blowing snow        |
 |           |                              | frequency, ground detection frequency.    |
 +-----------+------------------------------+-------------------------------------------+
 | **ATL18** | Land/Canopy Gridded          | Gridded ground surface height, canopy     |
 |           |                              | height, and canopy cover estimates.       |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL19** | Mean Sea Surface (MSS)       | Gridded ocean height product.             |
+| **ATL19** | Gridded Dynamic Ocean        | Gridded ocean height product.             |
+|           | Topography                   |                                           |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL20** | Arctic/Antarctic Gridded Sea | Gridded sea ice freeboard.                |
-|           | Ice Freeboard                |                                           |
+| **ATL20** | Gridded Sea Ice Freeboard    | Daily and monthly gridded estimates of    |
+|           |                              | sea ice freeboard.                        |
 +-----------+------------------------------+-------------------------------------------+
-| **ATL21** | Arctic/Antarctic Gridded Sea | Gridded monthly sea surface height inside |
-|           | Surface Height w/in Sea Ice  | the sea ice cover.                        |
+| **ATL21** | Gridded Polar Sea Surface    | Daily and monthly gridded sea surface     |
+|           | Height                       | height inside regions of sea ice cover.   |
 +-----------+------------------------------+-------------------------------------------+
+| **ATL22** | Mean Inland Surface Water    | Mean height for inland water bodies       |
+|           | Height                       |                                           |
++-----------+------------------------------+-------------------------------------------+
+
+.. _ATL03: https://nsidc.org/data/atl03
+
+.. _ATL04: https://nsidc.org/data/atl04
+
+.. _ATL06: https://nsidc.org/data/atl06
+
+.. _ATL07: https://nsidc.org/data/atl07
+
+.. _ATL08: https://nsidc.org/data/atl08
+
+.. _ATL09: https://nsidc.org/data/atl09
+
+.. _ATL10: https://nsidc.org/data/atl10
+
+.. _ATL11: https://nsidc.org/data/atl11
+
+.. _ATL12: https://nsidc.org/data/atl12
+
+.. _ATL13: https://nsidc.org/data/atl13
+
+.. _ATL14: https://nsidc.org/data/atl14
+
+.. _ATL15: https://nsidc.org/data/atl15
+
+.. _ATL16: https://nsidc.org/data/atl16
+
+.. _ATL17: https://nsidc.org/data/atl17
+
+.. _ATL18: https://nsidc.org/data/atl18
+
+.. _ATL19: https://nsidc.org/data/atl19
+
+.. _ATL20: https://nsidc.org/data/atl20
+
+.. _ATL21: https://nsidc.org/data/atl21
+
+.. _ATL22: https://nsidc.org/data/atl22

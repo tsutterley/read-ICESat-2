@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (07/2023)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 07/2023: add function for S3 filesystem
     Updated 06/2023: add functions to retrieve and revoke Earthdata tokens
     Updated 05/2023: using pathlib to define and expand paths
     Updated 03/2023: add basic variable typing to function inputs
@@ -66,7 +67,7 @@ import warnings
 import posixpath
 import lxml.etree
 import subprocess
-import calendar,time
+import calendar, time
 if sys.version_info[0] == 2:
     from cookielib import CookieJar
     from urllib import urlencode
@@ -82,6 +83,11 @@ try:
 except (ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("boto3 not available", ImportWarning)
+try:
+    import s3fs
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("s3fs not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 
@@ -92,7 +98,7 @@ def get_data_path(relpath: list | str | pathlib.Path):
 
     Parameters
     ----------
-    relpath: list or str
+    relpath: list, str or pathlib.Path
         relative path
     """
     # current file path
@@ -101,12 +107,12 @@ def get_data_path(relpath: list | str | pathlib.Path):
     if isinstance(relpath, list):
         # use *splat operator to extract from list
         return filepath.joinpath(*relpath)
-    elif isinstance(relpath, str):
+    elif isinstance(relpath, (str, pathlib.Path)):
         return filepath.joinpath(relpath)
 
 # PURPOSE: get the hash value of a file
 def get_hash(
-        local: str | io.IOBase,
+        local: str | io.IOBase | pathlib.Path,
         algorithm: str = 'MD5'
     ):
     """
@@ -114,7 +120,7 @@ def get_hash(
 
     Parameters
     ----------
-    local: obj or str
+    local: obj, str or pathlib.Path
         BytesIO object or path to file
     algorithm: str, default 'MD5'
         hashing algorithm for checksum validation
@@ -200,174 +206,6 @@ def url_split(s: str):
     elif head in ('', posixpath.sep):
         return tail,
     return url_split(head) + (tail,)
-
-# NASA on-prem DAAC providers
-_daac_providers = {
-    'gesdisc': 'GES_DISC',
-    'ghrcdaac': 'GHRC_DAAC',
-    'lpdaac': 'LPDAAC_ECS',
-    'nsidc': 'NSIDC_ECS',
-    'ornldaac': 'ORNL_DAAC',
-    'podaac': 'PODAAC',
-}
-
-# NASA Cumulus AWS providers
-_s3_providers = {
-    'gesdisc': 'GES_DISC',
-    'ghrcdaac': 'GHRC_DAAC',
-    'lpdaac': 'LPCLOUD',
-    'nsidc': 'NSIDC_CPRD',
-    'ornldaac': 'ORNL_CLOUD',
-    'podaac': 'POCLOUD',
-}
-
-# NASA Cumulus AWS S3 credential endpoints
-_s3_endpoints = {
-    'gesdisc': 'https://data.gesdisc.earthdata.nasa.gov/s3credentials',
-    'ghrcdaac': 'https://data.ghrc.earthdata.nasa.gov/s3credentials',
-    'lpdaac': 'https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials',
-    'nsidc': 'https://data.nsidc.earthdatacloud.nasa.gov/s3credentials',
-    'ornldaac': 'https://data.ornldaac.earthdata.nasa.gov/s3credentials',
-    'podaac': 'https://archive.podaac.earthdata.nasa.gov/s3credentials'
-}
-
-# NASA Cumulus AWS S3 buckets
-_s3_buckets = {
-    'gesdisc': 'gesdisc-cumulus-prod-protected',
-    'ghrcdaac': 'ghrc-cumulus-dev',
-    'lpdaac': 'lp-prod-protected',
-    'nsidc': 'nsidc-cumulus-prod-protected',
-    'ornldaac': 'ornl-cumulus-prod-protected',
-    'podaac': 'podaac-ops-cumulus-protected'
-}
-
-# PURPOSE: get AWS s3 client for NSIDC Cumulus
-def s3_client(HOST=_s3_endpoints['nsidc'], timeout=None,
-    region_name='us-west-2'):
-    """
-    Get AWS s3 client for NSIDC data in the cloud
-    https://data.nsidc.earthdatacloud.nasa.gov/s3credentials
-
-    Parameters
-    ----------
-    HOST: str
-        NSIDC AWS S3 credential host
-    timeout: int or NoneType, default None
-        timeout in seconds for blocking operations
-    region_name: str, default 'us-west-2'
-        AWS region name
-
-    Returns
-    -------
-    client: obj
-        AWS s3 client for NSIDC Cumulus
-    """
-    request = urllib2.Request(HOST)
-    response = urllib2.urlopen(request, timeout=timeout)
-    cumulus = json.loads(response.read())
-    # get AWS client object
-    client = boto3.client('s3',
-        aws_access_key_id=cumulus['accessKeyId'],
-        aws_secret_access_key=cumulus['secretAccessKey'],
-        aws_session_token=cumulus['sessionToken'],
-        region_name=region_name)
-    # return the AWS client for region
-    return client
-
-# PURPOSE: get a s3 bucket name from a presigned url
-def s3_bucket(presigned_url):
-    """
-    Get a s3 bucket name from a presigned url
-
-    Parameters
-    ----------
-    presigned_url: str
-        s3 presigned url
-
-    Returns
-    -------
-    bucket: str
-        s3 bucket name
-    """
-    host = url_split(presigned_url)
-    bucket = re.sub(r's3:\/\/', r'', host[0], re.IGNORECASE)
-    return bucket
-
-# PURPOSE: get a s3 bucket key from a presigned url
-def s3_key(presigned_url):
-    """
-    Get a s3 bucket key from a presigned url
-
-    Parameters
-    ----------
-    presigned_url: str
-        s3 presigned url or https url
-
-    Returns
-    -------
-    key: str
-        s3 bucket key for object
-    """
-    host = url_split(presigned_url)
-    # check if url is https url or s3 presigned url
-    if presigned_url.startswith('http'):
-        # use NSIDC format for s3 keys from https
-        parsed = [p for part in host[-4:-1] for p in part.split('.')]
-        # join parsed url parts to form bucket key
-        key = posixpath.join(*parsed, host[-1])
-    else:
-        # join presigned url to form bucket key
-        key = posixpath.join(*host[1:])
-    # return the s3 bucket key for object
-    return key
-
-# PURPOSE: get a s3 presigned url from a bucket and key
-def s3_presigned_url(bucket, key):
-    """
-    Get a s3 presigned url from a bucket and object key
-
-    Parameters
-    ----------
-    bucket: str
-        s3 bucket name
-    key: str
-        s3 bucket key for object
-
-    Returns
-    -------
-    presigned_url: str
-        s3 presigned url
-    """
-    return posixpath.join('s3://', bucket, key)
-
-# PURPOSE: generate a s3 presigned https url from a bucket and key
-def generate_presigned_url(bucket, key, expiration=3600):
-    """
-    Generate a presigned https URL to share an S3 object
-
-    Parameters
-    ----------
-    bucket: str
-        s3 bucket name
-    key: str
-        s3 bucket key for object
-
-    Returns
-    -------
-    presigned_url: str
-        s3 presigned https url
-    """
-    # generate a presigned URL for S3 object
-    s3 = boto3.client('s3')
-    try:
-        response = s3.generate_presigned_url('get_object',
-            Params={'Bucket': bucket, 'Key': key},
-            ExpiresIn=expiration)
-    except Exception as exc:
-        logging.error(exc)
-        return None
-    # The response contains the presigned URL
-    return response
 
 # PURPOSE: convert file lines to arguments
 def convert_arg_line_to_args(arg_line):
@@ -484,6 +322,225 @@ def copy(
     # remove the original file if moving
     if move:
         source.unlink()
+
+# NASA on-prem DAAC providers
+_daac_providers = {
+    'gesdisc': 'GES_DISC',
+    'ghrcdaac': 'GHRC_DAAC',
+    'lpdaac': 'LPDAAC_ECS',
+    'nsidc': 'NSIDC_ECS',
+    'ornldaac': 'ORNL_DAAC',
+    'podaac': 'PODAAC',
+}
+
+# NASA Cumulus AWS providers
+_s3_providers = {
+    'gesdisc': 'GES_DISC',
+    'ghrcdaac': 'GHRC_DAAC',
+    'lpdaac': 'LPCLOUD',
+    'nsidc': 'NSIDC_CPRD',
+    'ornldaac': 'ORNL_CLOUD',
+    'podaac': 'POCLOUD',
+}
+
+# NASA Cumulus AWS S3 credential endpoints
+_s3_endpoints = {
+    'gesdisc': 'https://data.gesdisc.earthdata.nasa.gov/s3credentials',
+    'ghrcdaac': 'https://data.ghrc.earthdata.nasa.gov/s3credentials',
+    'lpdaac': 'https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials',
+    'nsidc': 'https://data.nsidc.earthdatacloud.nasa.gov/s3credentials',
+    'ornldaac': 'https://data.ornldaac.earthdata.nasa.gov/s3credentials',
+    'podaac': 'https://archive.podaac.earthdata.nasa.gov/s3credentials'
+}
+
+# NASA Cumulus AWS S3 buckets
+_s3_buckets = {
+    'gesdisc': 'gesdisc-cumulus-prod-protected',
+    'ghrcdaac': 'ghrc-cumulus-dev',
+    'lpdaac': 'lp-prod-protected',
+    'nsidc': 'nsidc-cumulus-prod-protected',
+    'ornldaac': 'ornl-cumulus-prod-protected',
+    'podaac': 'podaac-ops-cumulus-protected'
+}
+
+# PURPOSE: get AWS s3 client for NSIDC Cumulus
+def s3_client(
+        HOST: str = _s3_endpoints['nsidc'],
+        timeout: int | None = None,
+        region_name: str = 'us-west-2'
+    ):
+    """
+    Get AWS s3 client for NSIDC data in the cloud
+    https://data.nsidc.earthdatacloud.nasa.gov/s3credentials
+
+    Parameters
+    ----------
+    HOST: str
+        NSIDC AWS S3 credential host
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    region_name: str, default 'us-west-2'
+        AWS region name
+
+    Returns
+    -------
+    client: obj
+        AWS s3 client for NSIDC Cumulus
+    """
+    request = urllib2.Request(HOST)
+    response = urllib2.urlopen(request, timeout=timeout)
+    cumulus = json.loads(response.read())
+    # get AWS client object
+    client = boto3.client('s3',
+        aws_access_key_id=cumulus['accessKeyId'],
+        aws_secret_access_key=cumulus['secretAccessKey'],
+        aws_session_token=cumulus['sessionToken'],
+        region_name=region_name)
+    # return the AWS client for region
+    return client
+
+# PURPOSE: get AWS s3 file system for NSIDC Cumulus
+def s3_filesystem(
+        HOST: str = _s3_endpoints['nsidc'],
+        timeout: int | None = None,
+        region_name: str = 'us-west-2'
+    ):
+    """
+    Get AWS s3 file system object for NSIDC data in the cloud
+    https://data.nsidc.earthdatacloud.nasa.gov/s3credentials
+
+    Parameters
+    ----------
+    HOST: str
+        NSIDC AWS S3 credential host
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    region_name: str, default 'us-west-2'
+        AWS region name
+
+    Returns
+    -------
+    session: obj
+        AWS s3 file system session for NSIDC Cumulus
+    """
+    request = urllib2.Request(HOST)
+    response = urllib2.urlopen(request, timeout=timeout)
+    cumulus = json.loads(response.read())
+    # get AWS file system session object
+    session = s3fs.S3FileSystem(anon=False,
+        key=cumulus['accessKeyId'],
+        secret=cumulus['secretAccessKey'],
+        token=cumulus['sessionToken'],
+        client_kwargs=dict(
+            region_name=region_name
+        )
+    )
+    # return the AWS session for region
+    return session
+
+# PURPOSE: get a s3 bucket name from a presigned url
+def s3_bucket(presigned_url: str):
+    """
+    Get a s3 bucket name from a presigned url
+
+    Parameters
+    ----------
+    presigned_url: str
+        s3 presigned url
+
+    Returns
+    -------
+    bucket: str
+        s3 bucket name
+    """
+    host = url_split(presigned_url)
+    bucket = re.sub(r's3:\/\/', r'', host[0], re.IGNORECASE)
+    return bucket
+
+# PURPOSE: get a s3 bucket key from a presigned url
+def s3_key(presigned_url: str):
+    """
+    Get a s3 bucket key from a presigned url
+
+    Parameters
+    ----------
+    presigned_url: str
+        s3 presigned url or https url
+
+    Returns
+    -------
+    key: str
+        s3 bucket key for object
+    """
+    host = url_split(presigned_url)
+    # check if url is https url or s3 presigned url
+    if presigned_url.startswith('http'):
+        # use NSIDC format for s3 keys from https
+        parsed = [p for part in host[-4:-1] for p in part.split('.')]
+        # join parsed url parts to form bucket key
+        key = posixpath.join(*parsed, host[-1])
+    else:
+        # join presigned url to form bucket key
+        key = posixpath.join(*host[1:])
+    # return the s3 bucket key for object
+    return key
+
+# PURPOSE: get a s3 presigned url from a bucket and key
+def s3_presigned_url(
+        bucket: str,
+        key: str
+    ):
+    """
+    Get a s3 presigned url from a bucket and object key
+
+    Parameters
+    ----------
+    bucket: str
+        s3 bucket name
+    key: str
+        s3 bucket key for object
+
+    Returns
+    -------
+    presigned_url: str
+        s3 presigned url
+    """
+    return posixpath.join('s3://', bucket, key)
+
+# PURPOSE: generate a s3 presigned https url from a bucket and key
+def generate_presigned_url(
+        bucket: str,
+        key: str,
+        expiration: int = 3600
+    ):
+    """
+    Generate a presigned https URL to share an S3 object
+
+    Parameters
+    ----------
+    bucket: str
+        s3 bucket name
+    key: str
+        s3 bucket key for object
+    expiration: int
+        Time in seconds for the presigned URL to remain valid
+
+    Returns
+    -------
+    presigned_url: str
+        s3 presigned https url
+    """
+    # generate a presigned URL for S3 object
+    s3 = boto3.client('s3')
+    try:
+        response = s3.generate_presigned_url('get_object',
+            Params={'Bucket': bucket, 'Key': key},
+            ExpiresIn=expiration)
+    except Exception as exc:
+        logging.error(exc)
+        return None
+    # The response contains the presigned URL
+    return response
 
 # PURPOSE: check ftp connection
 def check_ftp_connection(
@@ -914,10 +971,10 @@ def attempt_login(
     kwargs.setdefault('username', os.environ.get('EARTHDATA_USERNAME'))
     kwargs.setdefault('password', os.environ.get('EARTHDATA_PASSWORD'))
     kwargs.setdefault('retries', 5)
-    kwargs.setdefault('netrc', os.path.expanduser('~/.netrc'))
+    kwargs.setdefault('netrc', pathlib.Path.home().joinpath('.netrc'))
     try:
         # only necessary on jupyterhub
-        os.chmod(kwargs['netrc'], 0o600)
+        kwargs['netrc'].chmod(mode=0o600)
         # try retrieving credentials from netrc
         username, _, password = netrc.netrc(kwargs['netrc']).authenticators(urs)
     except Exception as exc:
@@ -1356,19 +1413,18 @@ def from_nsidc(
         # compare checksums
         if local and (hash != remote_hash):
             # convert to absolute path
-            local = os.path.abspath(local)
+            local = pathlib.Path(local).expanduser().absolute()
             # create directory if non-existent
-            if not os.access(os.path.dirname(local), os.F_OK):
-                os.makedirs(os.path.dirname(local), mode)
+            local.parent.mkdir(mode=mode, parents=True, exist_ok=True)
             # print file information
-            args = (posixpath.join(*HOST),local)
+            args = (posixpath.join(*HOST), str(local))
             logging.info('{0} -->\n\t{1}'.format(*args))
             # store bytes to file using chunked transfer encoding
             remote_buffer.seek(0)
-            with open(os.path.expanduser(local), 'wb') as f:
+            with local.open(mode='wb') as f:
                 shutil.copyfileobj(remote_buffer, f, chunk)
             # change the permissions mode
-            os.chmod(local,mode)
+            local.chmod(mode=mode)
         # return the bytesIO object
         remote_buffer.seek(0)
         return (remote_buffer,None)

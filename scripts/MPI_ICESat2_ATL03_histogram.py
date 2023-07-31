@@ -549,7 +549,7 @@ def main():
         else:
             isTEP = (fileID[gtx]['heights']['quality_ph'][:] == 3)
         # photon event weights
-        Distributed_Weights = np.zeros((n_pe),dtype=np.float)
+        Distributed_Weights = np.zeros((n_pe), dtype=np.float64)
         # run for each major frame (distributed over comm.size # of processes)
         for iteration in range(comm.rank, major_frame_count, comm.size):
             # background atlas index for iteration
@@ -577,7 +577,7 @@ def main():
                 min_xspread=1.0, min_hspread=0.01, win_x=15.0, win_h=6.0,
                 method='linear')
         # photon event weights
-        pe_weights = np.zeros((n_pe),dtype=np.float)
+        pe_weights = np.zeros((n_pe), dtype=np.float64)
         comm.Allreduce(sendbuf=[Distributed_Weights, MPI.DOUBLE], \
             recvbuf=[pe_weights, MPI.DOUBLE], op=MPI.SUM)
         Distributed_Weights = None

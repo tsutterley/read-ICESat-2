@@ -29,7 +29,7 @@ Each beam pair consists of a weak beam and a strong beam, with the strong beam a
 The spots illuminated on the ground from the ATLAS strong beams are numbered 1, 3, and 5, and the spots illuminated on the ground from the ATLAS weak beams are numbered 2, 4, and 6.
 
 The ICESat-2 observatory can be oriented in one of two positions with respect to the direction of travel.
-In the forward orientation, the weak beams lead the strong beams and a weak beam is on the left edge of the beam pattern (gt1l).
+In the forward orientation, the weak beams lead the strong beams and a weak beam is on the left edge of the beam pattern (``gt1l``).
 This is reversed in the backward orientation, and the strong beams lead the weak beams with a strong beam on the left edge of the beam pattern (:numref:`table2`).
 The beam strength, spot number, atmospheric profile and spacecraft orientation can all be found as HDF5 attributes of each beam group.
 
@@ -37,20 +37,20 @@ The beam strength, spot number, atmospheric profile and spacecraft orientation c
 .. table:: ATLAS beam mapping when in the forward and backward orientations
     :align: center
 
-    +----------------+------------------------+------------------------+
-    | | Ground Track | | Forward Orientation  | | Backward Orientation |
-    | | Designation  | | Beam Strength        | | Beam Strength        |
-    +================+========================+========================+
-    |      gt1l      |          Weak          |         Strong         |
-    +----------------+------------------------+------------------------+
-    |      gt1r      |         Strong         |          Weak          |
-    +----------------+------------------------+------------------------+
-    |      gt2l      |          Weak          |         Strong         |
-    +----------------+------------------------+------------------------+
-    |      gt2r      |         Strong         |          Weak          |
-    +----------------+------------------------+------------------------+
-    |      gt3l      |          Weak          |         Strong         |
-    +----------------+------------------------+------------------------+
-    |      gt3r      |         Strong         |          Weak          |
-    +----------------+------------------------+------------------------+
+    +--------------------+------------------------+------------------------+
+    | | Ground Track     | | Forward Orientation  | | Backward Orientation |
+    | | Designation      | | Beam Strength        | | Beam Strength        |
+    +====================+========================+========================+
+    |      ``gt1l``      |          Weak          |         Strong         |
+    +--------------------+------------------------+------------------------+
+    |      ``gt1r``      |         Strong         |          Weak          |
+    +--------------------+------------------------+------------------------+
+    |      ``gt2l``      |          Weak          |         Strong         |
+    +--------------------+------------------------+------------------------+
+    |      ``gt2r``      |         Strong         |          Weak          |
+    +--------------------+------------------------+------------------------+
+    |      ``gt3l``      |          Weak          |         Strong         |
+    +--------------------+------------------------+------------------------+
+    |      ``gt3r``      |         Strong         |          Weak          |
+    +--------------------+------------------------+------------------------+
 

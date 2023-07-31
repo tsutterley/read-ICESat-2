@@ -149,21 +149,24 @@ The granule boundaries limit the size of each ATL03 file and simplify the format
 Dependencies
 ############
 
- - `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
- - `scipy: Scientific Tools for Python <https://docs.scipy.org/doc/>`_
- - `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
- - `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <http://h5py.org>`_
- - `netCDF4: Python interface to the netCDF C library <https://unidata.github.io/netcdf4-python/>`_
- - `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_
- - `pandas: Python Data Analysis Library <https://pandas.pydata.org/>`_
- - `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_
- - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
- - `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_
- - `lxml: processing XML and HTML in Python <https://pypi.python.org/pypi/lxml>`_
- - `paramiko: Native Python SSHv2 protocol library <http://www.paramiko.org/>`_
- - `scp: scp module for paramiko <https://github.com/jbardin/scp.py>`_
- - `future: Compatibility layer between Python 2 and Python 3 <http://python-future.org/>`_
- - `yapc: Python version of the NASA Goddard Space Flight Center YAPC Program <https://github.com/tsutterley/yapc>`_
+- `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
+- `scipy: Scientific Tools for Python <https://docs.scipy.org/doc//>`_
+- `mpi4py: Python bindings of the Message Passing Interface (MPI) <https://mpi4py.readthedocs.io/en/stable/>`_
+- `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <http://h5py.org>`_
+- `netCDF4: Python interface to the netCDF C library <https://unidata.github.io/netcdf4-python/>`_
+- `zarr: Chunked, compressed, N-dimensional arrays in Python <https://github.com/zarr-developers/zarr-python>`_
+- `pandas: Python Data Analysis Library <https://pandas.pydata.org/>`_
+- `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_
+- `dateutil: powerful extensions to datetime <https://dateutil.readthedocs.io/en/stable/>`_
+- `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
+- `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_
+- `future: Compatibility layer between Python 2 and Python 3 <http://python-future.org/>`_
+- `boto3: Amazon Web Services (AWS) SDK for Python <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_
+- `s3fs: Pythonic file interface to S3 built on top of botocore <https://s3fs.readthedocs.io/en/latest/>`_
+- `lxml: processing XML and HTML in Python <https://pypi.python.org/pypi/lxml>`_
+- `paramiko: Native Python SSHv2 protocol library <http://www.paramiko.org>`_
+- `scp: scp module for paramiko <https://github.com/jbardin/scp.py>`_
+- `yapc: Python version of the NASA Goddard Space Flight Center YAPC Program <https://github.com/tsutterley/yapc>`_
 
 Download
 ########

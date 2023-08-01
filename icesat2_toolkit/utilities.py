@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2023: add function for S3 filesystem
+        add s3 and opendap endpoint options to cmr query functions
     Updated 06/2023: add functions to retrieve and revoke Earthdata tokens
     Updated 05/2023: using pathlib to define and expand paths
     Updated 03/2023: add basic variable typing to function inputs
@@ -1718,6 +1719,7 @@ def cmr_readable_granules(product: str, **kwargs):
 # PURPOSE: filter the CMR json response for desired data files
 def cmr_filter_json(
         search_results: dict,
+        endpoint: str = "data",
         request_type: str = "application/x-hdfeos"
     ):
     """
@@ -1727,6 +1729,12 @@ def cmr_filter_json(
     ----------
     search_results: dict
         json response from CMR query
+    endpoint: str, default 'data'
+        url endpoint type
+
+            - ``'data'``: NASA Earthdata https archive
+            - ``'opendap'``: NASA Earthdata OPeNDAP archive
+            - ``'s3'``: NASA Earthdata Cumulus AWS S3 bucket
     request_type: str, default 'application/x-hdfeos'
         data type for reducing CMR query
 
@@ -1742,16 +1750,27 @@ def cmr_filter_json(
     granule_urls = []
     # check that there are urls for request
     if ('feed' not in search_results) or ('entry' not in search_results['feed']):
-        return (producer_granule_ids,granule_urls)
+        return (producer_granule_ids, granule_urls)
+    # descriptor links for each endpoint
+    rel = {}
+    rel['data'] = "http://esipfed.org/ns/fedsearch/1.1/data#"
+    rel['opendap'] = "http://esipfed.org/ns/fedsearch/1.1/service#"
+    rel['s3'] = "http://esipfed.org/ns/fedsearch/1.1/s3#"
     # iterate over references and get cmr location
     for entry in search_results['feed']['entry']:
         producer_granule_ids.append(entry['producer_granule_id'])
         for link in entry['links']:
-            if (link['type'] == request_type):
+            # skip links without descriptors
+            if ('rel' not in link.keys()):
+                continue
+            if ('type' not in link.keys()):
+                continue
+            # append if selected endpoint and request type
+            if (link['rel'] == rel[endpoint]) and (link['type'] == request_type):
                 granule_urls.append(link['href'])
                 break
     # return the list of urls and granule ids
-    return (producer_granule_ids,granule_urls)
+    return (producer_granule_ids, granule_urls)
 
 # PURPOSE: cmr queries for orbital parameters
 def cmr(
@@ -1766,6 +1785,7 @@ def cmr(
         start_date: str | None = None,
         end_date: str | None = None,
         provider: str = 'NSIDC_ECS',
+        endpoint: str = 'data',
         request_type: str = "application/x-hdfeos",
         opener = None,
         verbose: bool = False,
@@ -1799,6 +1819,12 @@ def cmr(
         ending date for CMR product query
     provider: str, default 'NSIDC_ECS'
         CMR data provider
+    endpoint: str, default 'data'
+        url endpoint type
+
+            - ``'data'``: NASA Earthdata https archive
+            - ``'opendap'``: NASA Earthdata OPeNDAP archive
+            - ``'s3'``: NASA Earthdata Cumulus AWS S3 bucket
     request_type: str, default 'application/x-hdfeos'
         data type for reducing CMR query
     opener: obj or NoneType, default None
@@ -1881,7 +1907,8 @@ def cmr(
             cmr_scroll_id = headers['cmr-scroll-id']
         # read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf-8'))
-        ids,urls = cmr_filter_json(search_page, request_type=request_type)
+        ids,urls = cmr_filter_json(search_page,
+            endpoint=endpoint, request_type=request_type)
         if not urls:
             break
         # extend lists

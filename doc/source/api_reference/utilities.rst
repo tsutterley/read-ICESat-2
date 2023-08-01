@@ -27,7 +27,17 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.url_split
 
+.. autofunction:: icesat2_toolkit.utilities.get_unix_time
+
+.. autofunction:: icesat2_toolkit.utilities.even
+
+.. autofunction:: icesat2_toolkit.utilities.ceil
+
+.. autofunction:: icesat2_toolkit.utilities.copy
+
 .. autofunction:: icesat2_toolkit.utilities.s3_client
+
+.. autofunction:: icesat2_toolkit.utilities.s3_filesystem
 
 .. autofunction:: icesat2_toolkit.utilities.s3_bucket
 
@@ -36,14 +46,6 @@ General Methods
 .. autofunction:: icesat2_toolkit.utilities.s3_presigned_url
 
 .. autofunction:: icesat2_toolkit.utilities.generate_presigned_url
-
-.. autofunction:: icesat2_toolkit.utilities.get_unix_time
-
-.. autofunction:: icesat2_toolkit.utilities.even
-
-.. autofunction:: icesat2_toolkit.utilities.ceil
-
-.. autofunction:: icesat2_toolkit.utilities.copy
 
 .. autofunction:: icesat2_toolkit.utilities.check_ftp_connection
 

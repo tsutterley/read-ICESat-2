@@ -81,12 +81,12 @@ else:
 # attempt imports
 try:
     import boto3
-except (ImportError, ModuleNotFoundError) as exc:
+except (AttributeError, ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("boto3 not available", ImportWarning)
 try:
     import s3fs
-except (ImportError, ModuleNotFoundError) as exc:
+except (AttributeError, ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("s3fs not available", ImportWarning)
 # ignore warnings

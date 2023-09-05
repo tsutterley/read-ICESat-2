@@ -27,7 +27,7 @@ import numpy as np
 try:
     import matplotlib.cm as cm
     import matplotlib.colors as colors
-except (ImportError, ModuleNotFoundError) as exc:
+except (AttributeError, ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("matplotlib not available", ImportWarning)
 # ignore warnings

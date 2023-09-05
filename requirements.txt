@@ -6,3 +6,4 @@ pyproj
 python-dateutil
 scipy
 scp
+timescale

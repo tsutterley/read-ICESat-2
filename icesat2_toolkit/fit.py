@@ -31,10 +31,7 @@ import scipy.optimize
 try:
     import sklearn.neighbors
 except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.filterwarnings("module")
     warnings.warn("scikit-learn not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: compress complete list of valid indices into a set of ranges
 def compress_list(i,n):

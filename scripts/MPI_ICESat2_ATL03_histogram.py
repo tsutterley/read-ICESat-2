@@ -128,26 +128,20 @@ import icesat2_toolkit as is2tk
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
 try:
     from mpi4py import MPI
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("mpi4py not available", ImportWarning)
 try:
     import sklearn.neighbors
     import sklearn.cluster
 except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.filterwarnings("module")
     warnings.warn("scikit-learn not available", ImportWarning)
 try:
     import yapc.classify_photons
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("pyYAPC not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: keep track of MPI threads
 def info(rank, size):

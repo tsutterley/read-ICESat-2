@@ -67,25 +67,19 @@ import icesat2_toolkit as is2tk
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
 try:
     from mpi4py import MPI
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("mpi4py not available", ImportWarning)
 try:
     import shapefile
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("shapefile not available", ImportWarning)
 try:
     from shapely.geometry import MultiPoint, Polygon
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("shapely not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # IMBIE-2 Drainage basins
 IMBIE_basin_file = {}

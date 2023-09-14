@@ -89,10 +89,7 @@ import icesat2_toolkit as is2tk
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: sync ATL03 geolocated photon height products and appends the
 # ATL08 DRAGANN classifications from NSIDC

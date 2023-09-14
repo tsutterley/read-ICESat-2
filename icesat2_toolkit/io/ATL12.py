@@ -34,10 +34,7 @@ import numpy as np
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: read ICESat-2 ATL12 HDF5 data files
 def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):

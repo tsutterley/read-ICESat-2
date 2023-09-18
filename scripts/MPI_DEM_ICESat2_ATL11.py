@@ -94,31 +94,24 @@ import icesat2_toolkit as is2tk
 try:
     import fiona
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("fiona not available")
     warnings.warn("Some functions will throw an exception if called")
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
 try:
     from mpi4py import MPI
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("mpi4py not available", ImportWarning)
 try:
     import osgeo.gdal
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("GDAL not available", ImportWarning)
 try:
     from shapely.geometry import MultiPoint, Polygon
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("shapely not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # digital elevation models
 elevation_dir = {}

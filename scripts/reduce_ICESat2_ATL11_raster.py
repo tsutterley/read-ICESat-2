@@ -70,10 +70,7 @@ import icesat2_toolkit as is2tk
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: try to get the projection information for the input file
 def get_projection(attributes, PROJECTION):

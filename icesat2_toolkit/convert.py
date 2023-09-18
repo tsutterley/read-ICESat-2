@@ -44,20 +44,15 @@ from icesat2_toolkit.convert_delta_time import convert_delta_time
 try:
     import h5py
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("h5py not available", ImportWarning)
 try:
     import pandas
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("pandas not available", ImportWarning)
 try:
     import zarr
 except ModuleNotFoundError:
-    warnings.filterwarnings("module")
     warnings.warn("zarr not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 class convert():
     np.seterr(invalid='ignore')

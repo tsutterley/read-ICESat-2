@@ -120,10 +120,7 @@ import icesat2_toolkit as is2tk
 try:
     import boto3
 except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.filterwarnings("module")
     warnings.warn("boto3 not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
 
 # PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,

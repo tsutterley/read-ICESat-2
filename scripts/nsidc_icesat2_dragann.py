@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (09/2023)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 03/2022: use attempt login function to check credentials
@@ -127,8 +128,14 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
         regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
     else:
         regex_cycle = r'\d{2}'
-    regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
-    regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
+    if GRANULES:
+        regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    else:
+        regex_granule = r'\d{2}'
+    if VERSIONS:
+        regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
+    else:
+        regex_version = r'\d{2}'
     regex_suffix = r'(h5)'
     remote_regex_pattern=(r'({0})_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
         r'(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).{6}$')
@@ -410,7 +417,7 @@ def arguments():
         help='ICESat-2 Data Release')
     # ICESat-2 data version
     parser.add_argument('--version','-v',
-        type=int, nargs='+', default=range(1,10),
+        type=int, nargs='+',
         help='ICESat-2 Data Version')
     # ICESat-2 granule region
     parser.add_argument('--granule','-g',

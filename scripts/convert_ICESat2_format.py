@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 convert_ICESat2_format.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (09/2023)
 
 Converts ICESat-2 HDF5 datafiles to zarr or rechunked HDF5 datafiles
 
@@ -56,6 +56,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
     Updated 06/2022: use explicit import of convert functions
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -82,7 +83,7 @@ import icesat2_toolkit as is2tk
 # PURPOSE: convert the ICESat-2 elevation data from HDF5 to zarr
 # or rechunked HDF5 formats
 def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
-    TRACKS, YEARS=None, SUBDIRECTORY=None, FORMAT=None, CHUNKS=None,
+    TRACKS, YEARS=None, SUBDIRECTORY=None, CYCLES=None, FORMAT=None, CHUNKS=None,
     PROCESSES=0, CLOBBER=False, VERBOSE=False, MODE=0o775):
 
     # create logger
@@ -91,11 +92,24 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
 
     # regular expression operator for finding files of a particular granule
     # find ICESat-2 HDF5 files in the subdirectory for product and release
-    regex_track = '|'.join([rf'{T:04d}' for T in TRACKS])
-    regex_granule = '|'.join([rf'{G:02d}' for G in GRANULES])
-    regex_version = '|'.join([rf'{V:02d}' for V in VERSIONS])
-    file_regex_pattern = (r'{0}(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})(\d{{2}})'
-        r'(\d{{2}})(\d{{2}})_({1})(\d{{2}})({2})_({3})_({4})(.*?).(h5)$')
+    if TRACKS:
+        regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
+    else:
+        regex_track = r'\d{4}'
+    if CYCLES:
+        regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
+    else:
+        regex_cycle = r'\d{2}'
+    if GRANULES:
+        regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    else:
+        regex_granule = r'\d{2}'
+    if VERSIONS:
+        regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
+    else:
+        regex_version = r'\d{2}'
+    regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'
+        r'(\d{{2}})(\d{{2}})(\d{{2}})_({1})({2})({3})_({4})_({5})(.*?).h5$')
 
     # regular expression operator for finding subdirectories
     if SUBDIRECTORY:
@@ -103,8 +117,8 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         R2 = re.compile(r'('+r'|'.join(SUBDIRECTORY)+r')', re.VERBOSE)
     elif YEARS:
         # convert particular years for product
-        regex_pattern = '|'.join(rf'{y:d}' for y in YEARS)
-        R2 = re.compile(rf'({regex_pattern}).(\d+).(\d+)', re.VERBOSE)
+        regex_years = '|'.join(rf'{y:d}' for y in YEARS)
+        R2 = re.compile(rf'({regex_years}).(\d+).(\d+)', re.VERBOSE)
     else:
         # convert all available subdirectories for product
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
@@ -118,8 +132,8 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         ddir = os.path.join(DIRECTORY,f'{p}.{RELEASE}')
         subdirectories = [sd for sd in os.listdir(ddir) if R2.match(sd)]
         # compile regular expression operator for product, release and version
-        args = (p,regex_track,regex_granule,RELEASE,regex_version)
-        R1 = re.compile(file_regex_pattern.format(*args), re.VERBOSE)
+        args = (p,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
+        R1 = re.compile(regex_pattern.format(*args), re.VERBOSE)
         # for each subdirectory
         for sd in subdirectories:
             # find matching files (for granule, release, version, track)
@@ -257,13 +271,17 @@ def arguments():
         help='ICESat-2 Data Release')
     # ICESat-2 data version
     parser.add_argument('--version','-v',
-        type=int, nargs='+', default=range(1,10),
+        type=int, nargs='+',
         help='ICESat-2 Data Version')
     # ICESat-2 granule region
     parser.add_argument('--granule','-g',
         metavar='REGION', type=int, nargs='+',
         choices=range(1,15), default=range(1,15),
         help='ICESat-2 Granule Region')
+    # ICESat-2 orbital cycle
+    parser.add_argument('--cycle','-c',
+        type=int, nargs='+', default=None,
+        help='ICESat-2 orbital cycles to convert')
     # ICESat-2 reference ground tracks
     parser.add_argument('--track','-t',
         metavar='RGT', type=int, nargs='+',
@@ -305,9 +323,9 @@ def main():
     # convert HDF5 files for each data product
     convert_ICESat2_format(args.directory, args.products, args.release,
         args.version, args.granule, args.track, YEARS=args.year,
-        SUBDIRECTORY=args.subdirectory, FORMAT=args.format,
-        CHUNKS=args.chunks, PROCESSES=args.np, CLOBBER=args.clobber,
-        VERBOSE=args.verbose, MODE=args.mode)
+        SUBDIRECTORY=args.subdirectory, CYCLES=args.cycle,
+        FORMAT=args.format, CHUNKS=args.chunks, PROCESSES=args.np,
+        CLOBBER=args.clobber, VERBOSE=args.verbose, MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':

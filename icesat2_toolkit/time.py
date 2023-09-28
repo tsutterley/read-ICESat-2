@@ -43,7 +43,6 @@ from __future__ import annotations
 import re
 import copy
 import logging
-import pathlib
 import warnings
 import datetime
 import traceback

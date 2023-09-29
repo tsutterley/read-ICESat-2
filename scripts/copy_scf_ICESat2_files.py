@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 copy_scf_ICESat2_files.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (09/2023)
 Copies ICESat-2 HDF5 files from the SCF server
 
 CALLING SEQUENCE:
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
         https://github.com/paramiko/paramiko
 
 UPDATE HISTORY:
+    Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -105,7 +106,7 @@ def arguments():
         help='ICESat-2 data release to copy')
     # ICESat-2 data version
     parser.add_argument('--version','-v',
-        type=int, nargs='+', default=range(1,10),
+        type=int, nargs='+',
         help='ICESat-2 data versions to copy')
     # ICESat-2 granule region
     parser.add_argument('--granule','-g',
@@ -115,7 +116,6 @@ def arguments():
     # ICESat-2 orbital cycle
     parser.add_argument('--cycle','-c',
         type=int, nargs='+',
-        default=range(1,10),
         help='ICESat-2 orbital cycles to copy')
     # ICESat-2 reference ground tracks
     parser.add_argument('--track','-t',
@@ -207,13 +207,22 @@ def copy_scf_files(client, client_ftp, base_dir, scf_incoming, scf_outgoing,
     PRODUCT, RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
      LIST=False, MODE=0o775):
     # find ICESat-2 HDF5 files in the subdirectory for product and release
-    TRACKS = np.arange(1,1388) if not np.any(TRACKS) else TRACKS
-    CYCLES = np.arange(1,3) if not np.any(CYCLES) else CYCLES
-    GRANULES = np.arange(1,15) if not np.any(GRANULES) else GRANULES
-    regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
-    regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
-    regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
-    regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
+    if TRACKS:
+        regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
+    else:
+        regex_track = r'\d{4}'
+    if CYCLES:
+        regex_cycle = r'|'.join([rf'{C:02d}' for C in CYCLES])
+    else:
+        regex_cycle = r'\d{2}'
+    if GRANULES:
+        regex_granule = r'|'.join([rf'{G:02d}' for G in GRANULES])
+    else:
+        regex_granule = r'\d{2}'
+    if VERSIONS:
+        regex_version = r'|'.join([rf'{V:02d}' for V in VERSIONS])
+    else:
+        regex_version = r'\d{2}'
     # compile regular expression operator for extracting data from files
     args = (PRODUCT,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
     regex_pattern = (r'(processed_)?({0})(-\d{{2}})?_(\d{{4}})(\d{{2}})(\d{{2}})'

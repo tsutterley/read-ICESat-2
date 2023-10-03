@@ -34,9 +34,10 @@ COMMAND LINE OPTIONS:
     -r X, --release X: ICESat-2 data release to run
     -v X, --version X: ICESat-2 data version to run
     -t X, --track X: ICESat-2 reference ground tracks to run
+    -c X, --cycle X: ICESat-2 cycle to run
     -g X, --granule X: ICESat-2 granule regions to run
-    -f X, --format X: output file format (zarr, HDF5)
-    -c X, --chunks X: Rechunk output files to size
+    --format X: output file format (zarr, HDF5)
+    --chunks X: Rechunk output files to size
     -P X, --np X: Number of processes to use in file conversion
     -C, --clobber: Overwrite existing files
     -V, --verbose: Verbose output of processing run
@@ -288,11 +289,11 @@ def arguments():
         choices=range(1,1388), default=range(1,1388),
         help='ICESat-2 Reference Ground Tracks (RGTs)')
     # output file format
-    parser.add_argument('--format','-f',
+    parser.add_argument('--format',
         type=str, choices=('zarr','HDF5'), default='zarr',
         help='Output file format')
     # rechunk output data
-    parser.add_argument('--chunks','-c',
+    parser.add_argument('--chunks',
         type=int,
         help='Rechunk output files to size')
     # run conversion in series if processes is 0

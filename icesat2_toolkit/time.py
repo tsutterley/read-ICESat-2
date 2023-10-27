@@ -721,7 +721,3 @@ def update_leap_seconds(
         pass
     else:
         return
-
-    # return exception that no server could be connected
-    raise Exception('All Server Connection Error')
-

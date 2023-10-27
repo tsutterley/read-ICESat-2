@@ -455,7 +455,7 @@ def convert_ellipsoid(
     .. [1] J. Meeus, *Astronomical Algorithms*, 2nd edition, 477 pp., (1998).
     """
     if (len(phi1) != len(h1)):
-        raise ValueError('phi and h have incompatable dimensions')
+        raise ValueError('phi and h have incompatible dimensions')
     # semiminor axis of input and output ellipsoid
     b1 = (1.0 - f1)*a1
     b2 = (1.0 - f2)*a2
@@ -1076,7 +1076,7 @@ def inside_polygon(
     if (ypts.ndim != 1):
         raise ValueError('Y coordinates of polygon not a vector.')
     if (len(xpts) != len(ypts)):
-        raise ValueError('Incompatable vector dimensions.')
+        raise ValueError('Incompatible vector dimensions.')
     # maximum possible number of vertices in polygon
     N = len(xpts)
     # Close the polygon if not already closed

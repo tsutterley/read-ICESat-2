@@ -1716,7 +1716,7 @@ def cmr_readable_granules(product: str, **kwargs):
 def cmr_filter_json(
         search_results: dict,
         endpoint: str = "data",
-        request_type: str = "application/x-hdfeos"
+        request_type: str = r"application/x-hdf(eos|5)"
     ):
     """
     Filter the CMR json response for desired data files
@@ -1762,7 +1762,7 @@ def cmr_filter_json(
             if ('type' not in link.keys()):
                 continue
             # append if selected endpoint and request type
-            if (link['rel'] == rel[endpoint]) and (link['type'] == request_type):
+            if (link['rel'] == rel[endpoint]) and re.match(request_type, link['type']):
                 granule_urls.append(link['href'])
                 break
     # return the list of urls and granule ids
@@ -1782,7 +1782,7 @@ def cmr(
         end_date: str | None = None,
         provider: str = 'NSIDC_ECS',
         endpoint: str = 'data',
-        request_type: str = "application/x-hdfeos",
+        request_type: str = r"application/x-hdf(eos|5)",
         opener = None,
         verbose: bool = False,
         fid = sys.stdout

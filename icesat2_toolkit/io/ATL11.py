@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL11.py (05/2023)
+ATL11.py (11/2023)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL11 files
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
@@ -134,12 +135,14 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
             IS2_atl11_attrs[ptx] = {}
             # Global Group Attributes for ATL11 beam pair
             for att_name,att_val in fileID[ptx].attrs.items():
-                IS2_atl11_attrs[ptx][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl11_attrs[ptx][att_name] = att_val
             # getting attributes of main level ATL11 variables
             for key,val in fileID[ptx].items():
                 IS2_atl11_attrs[ptx][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl11_attrs[ptx][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl11_attrs[ptx][key][att_name] = att_val
                 # get fill value attributes if applicable
                 if hasattr(val,'fillvalue'):
                     IS2_atl11_attrs[ptx][key]['_FillValue'] = \
@@ -151,7 +154,8 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
                     for key,val in fileID[ptx][group].items():
                         IS2_atl11_attrs[ptx][group][key] = {}
                         for att_name,att_val in val.attrs.items():
-                            IS2_atl11_attrs[ptx][group][key][att_name] = att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl11_attrs[ptx][group][key][att_name] = att_val
                         # get fill value attributes if applicable
                         if hasattr(val,'fillvalue'):
                             IS2_atl11_attrs[ptx][group][key]['_FillValue'] = \
@@ -189,30 +193,34 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
             # Variable Attributes
             IS2_atl11_attrs['ancillary_data'][key] = {}
             for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
-                IS2_atl11_attrs['ancillary_data'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl11_attrs['ancillary_data'][key][att_name] = att_val
 
     # get each global attribute and the attributes for orbit and quality
     if ATTRIBUTES:
         # ICESat-2 HDF5 global attributes
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl11_attrs[att_name] = att_name
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl11_attrs[att_name] = att_name
         # ICESat-2 orbit_info Group
         IS2_atl11_attrs['orbit_info'] = {}
         for key,val in fileID['orbit_info'].items():
             IS2_atl11_attrs['orbit_info'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl11_attrs['orbit_info'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl11_attrs['orbit_info'][key][att_name]= att_val
         # ICESat-2 quality_assessment Group
         IS2_atl11_attrs['quality_assessment'] = {}
         for key,val in fileID['quality_assessment'].items():
             IS2_atl11_attrs['quality_assessment'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl11_attrs['quality_assessment'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl11_attrs['quality_assessment'][key][att_name]= att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl11_mds,IS2_atl11_attrs,IS2_atl11_pairs)
+    return (IS2_atl11_mds, IS2_atl11_attrs, IS2_atl11_pairs)
 
 # PURPOSE: find valid beam pair groups within ICESat-2 ATL11 HDF5 data files
 def find_pairs(FILENAME, **kwargs):
@@ -333,12 +341,14 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
         IS2_atl11_attrs[ptx] = {}
         # Global Group Attributes for ATL11 beam pair
         for att_name,att_val in fileID[ptx].attrs.items():
-            IS2_atl11_attrs[ptx][att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl11_attrs[ptx][att_name] = att_val
         # getting attributes of main level ATL11 variables
         for key,val in fileID[ptx].items():
             IS2_atl11_attrs[ptx][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl11_attrs[ptx][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl11_attrs[ptx][key][att_name] = att_val
             # get fill value attributes if applicable
             if hasattr(val,'fillvalue'):
                 IS2_atl11_attrs[ptx][key]['_FillValue'] = \
@@ -350,7 +360,8 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
                 for key,val in fileID[ptx][group].items():
                     IS2_atl11_attrs[ptx][group][key] = {}
                     for att_name,att_val in val.attrs.items():
-                        IS2_atl11_attrs[ptx][group][key][att_name] = att_val
+                        if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                            IS2_atl11_attrs[ptx][group][key][att_name] = att_val
                         # get fill value attributes if applicable
                         if hasattr(val,'fillvalue'):
                             IS2_atl11_attrs[ptx][group][key]['_FillValue'] = \
@@ -361,4 +372,4 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl11_mds,IS2_atl11_attrs)
+    return (IS2_atl11_mds, IS2_atl11_attrs)

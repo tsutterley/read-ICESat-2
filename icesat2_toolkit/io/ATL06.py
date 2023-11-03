@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL06.py (05/2023)
+ATL06.py (11/2023)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -16,6 +16,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL06 files
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
@@ -142,16 +143,19 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
             IS2_atl06_attrs[gtx]['land_ice_segments']['ground_track'] = {}
             # Global Group Attributes for ATL06 beam
             for att_name,att_val in fileID[gtx].attrs.items():
-                IS2_atl06_attrs[gtx][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs[gtx][att_name] = att_val
             for key,val in fileID[gtx]['land_ice_segments'].items():
                 IS2_atl06_attrs[gtx]['land_ice_segments'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl06_attrs[gtx]['land_ice_segments'][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl06_attrs[gtx]['land_ice_segments'][key][att_name] = att_val
                 if isinstance(val, h5py.Group):
                     for k,v in val.items():
                         IS2_atl06_attrs[gtx]['land_ice_segments'][key][k] = {}
                         for att_name,att_val in v.attrs.items():
-                            IS2_atl06_attrs[gtx]['land_ice_segments'][key][k][att_name] = att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl06_attrs[gtx]['land_ice_segments'][key][k][att_name] = att_val
         # Getting attributes of histogram variables
         if ATTRIBUTES and HISTOGRAM:
             # ICESat-2 residual_histogram Group
@@ -159,7 +163,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
             for key,val in fileID[gtx]['residual_histogram'].items():
                 IS2_atl06_attrs[gtx]['residual_histogram'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl06_attrs[gtx]['residual_histogram'][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl06_attrs[gtx]['residual_histogram'][key][att_name] = att_val
         # Getting attributes of quality variables
         if ATTRIBUTES and QUALITY:
             # ICESat-2 segment_quality Group
@@ -168,12 +173,14 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
             for key,val in fileID[gtx]['segment_quality'].items():
                 IS2_atl06_attrs[gtx]['segment_quality'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl06_attrs[gtx]['segment_quality'][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl06_attrs[gtx]['segment_quality'][key][att_name] = att_val
                 if isinstance(val, h5py.Group):
                     for k,v in val.items():
                         IS2_atl06_attrs[gtx]['segment_quality'][key][k] = {}
                         for att_name,att_val in v.attrs.items():
-                            IS2_atl06_attrs[gtx]['segment_quality'][key][k][att_name] = att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl06_attrs[gtx]['segment_quality'][key][k][att_name] = att_val
 
     # ICESat-2 orbit_info Group
     IS2_atl06_mds['orbit_info'] = {}
@@ -209,7 +216,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
             # Variable Attributes
             IS2_atl06_attrs['ancillary_data'][key] = {}
             for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
-                IS2_atl06_attrs['ancillary_data'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs['ancillary_data'][key][att_name] = att_val
 
     # land ice ancillary information (first photon bias and statistics)
     cal1,cal2 = ('ancillary_data','land_ice')
@@ -223,35 +231,40 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
             # Variable Attributes
             IS2_atl06_attrs[cal1][cal2][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl06_attrs[cal1][cal2][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs[cal1][cal2][key][att_name] = att_val
 
     # get each global attribute and the attributes for orbit and quality
     if ATTRIBUTES:
         # ICESat-2 HDF5 global attributes
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl06_attrs[att_name] = att_name
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl06_attrs[att_name] = att_name
         # ICESat-2 orbit_info Group
         IS2_atl06_attrs['orbit_info'] = {}
         for key,val in fileID['orbit_info'].items():
             IS2_atl06_attrs['orbit_info'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl06_attrs['orbit_info'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs['orbit_info'][key][att_name]= att_val
         # ICESat-2 quality_assessment Group
         IS2_atl06_attrs['quality_assessment'] = {}
         for key,val in fileID['quality_assessment'].items():
             IS2_atl06_attrs['quality_assessment'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl06_attrs['quality_assessment'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs['quality_assessment'][key][att_name]= att_val
             if isinstance(val, h5py.Group):
                 for k,v in val.items():
                     IS2_atl06_attrs['quality_assessment'][key][k] = {}
                     for att_name,att_val in v.attrs.items():
-                        IS2_atl06_attrs['quality_assessment'][key][k][att_name]= att_val
+                        if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                            IS2_atl06_attrs['quality_assessment'][key][k][att_name]= att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl06_mds,IS2_atl06_attrs,IS2_atl06_beams)
+    return (IS2_atl06_mds, IS2_atl06_attrs, IS2_atl06_beams)
 
 # PURPOSE: find valid beam groups within ICESat-2 ATL06 HDF5 data files
 def find_beams(FILENAME, **kwargs):
@@ -366,18 +379,21 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
         IS2_atl06_attrs[gtx]['land_ice_segments']['ground_track'] = {}
         # Global Group Attributes for ATL06 beam
         for att_name,att_val in fileID[gtx].attrs.items():
-            IS2_atl06_attrs[gtx][att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl06_attrs[gtx][att_name] = att_val
         for key,val in fileID[gtx]['land_ice_segments'].items():
             IS2_atl06_attrs[gtx]['land_ice_segments'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl06_attrs[gtx]['land_ice_segments'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl06_attrs[gtx]['land_ice_segments'][key][att_name] = att_val
             if isinstance(val, h5py.Group):
                 for k,v in val.items():
                     IS2_atl06_attrs[gtx]['land_ice_segments'][key][k] = {}
                     for att_name,att_val in v.attrs.items():
-                        IS2_atl06_attrs[gtx]['land_ice_segments'][key][k][att_name] = att_val
+                        if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                            IS2_atl06_attrs[gtx]['land_ice_segments'][key][k][att_name] = att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl06_mds,IS2_atl06_attrs)
+    return (IS2_atl06_mds, IS2_atl06_attrs)

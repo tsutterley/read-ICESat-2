@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL03.py (12/2022)
+ATL03.py (11/2023)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -127,27 +128,32 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             IS2_atl03_attrs[gtx]['geophys_corr'] = {}
             # Global Group Attributes
             for att_name,att_val in fileID[gtx].attrs.items():
-                IS2_atl03_attrs[gtx][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs[gtx][att_name] = att_val
             # ICESat-2 Measurement Group
             for key,val in fileID[gtx]['heights'].items():
                 IS2_atl03_attrs[gtx]['heights'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[gtx]['heights'][key][att_name]=att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[gtx]['heights'][key][att_name]=att_val
             # ICESat-2 Geolocation Group
             for key,val in fileID[gtx]['geolocation'].items():
                 IS2_atl03_attrs[gtx]['geolocation'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[gtx]['geolocation'][key][att_name]=att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[gtx]['geolocation'][key][att_name]=att_val
             # ICESat-2 Background Photon Rate Group
             for key,val in fileID[gtx]['bckgrd_atlas'].items():
                 IS2_atl03_attrs[gtx]['bckgrd_atlas'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[gtx]['bckgrd_atlas'][key][att_name]=att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[gtx]['bckgrd_atlas'][key][att_name]=att_val
             # ICESat-2 Geophysical Corrections Group
             for key,val in fileID[gtx]['geophys_corr'].items():
                 IS2_atl03_attrs[gtx]['geophys_corr'][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[gtx]['geophys_corr'][key][att_name]=att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[gtx]['geophys_corr'][key][att_name]=att_val
 
     # ICESat-2 spacecraft orientation at time
     IS2_atl03_mds['orbit_info'] = {}
@@ -158,11 +164,13 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
         if ATTRIBUTES:
             # Global Group Attributes
             for att_name,att_val in fileID['orbit_info'].attrs.items():
-                IS2_atl03_attrs['orbit_info'][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['orbit_info'][att_name] = att_val
             # Variable Attributes
             IS2_atl03_attrs['orbit_info'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['orbit_info'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['orbit_info'][key][att_name] = att_val
 
     # information ancillary to the data product
     # number of GPS seconds between the GPS epoch (1980-01-06T00:00:00Z UTC)
@@ -185,7 +193,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             # Variable Attributes
             IS2_atl03_attrs['ancillary_data'][key] = {}
             for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
-                IS2_atl03_attrs['ancillary_data'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['ancillary_data'][key][att_name] = att_val
 
     # transmit-echo-path (tep) parameters
     IS2_atl03_mds['ancillary_data']['tep'] = {}
@@ -198,7 +207,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             # Variable Attributes
             IS2_atl03_attrs['ancillary_data']['tep'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['ancillary_data']['tep'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['ancillary_data']['tep'][key][att_name] = att_val
 
     # channel dead time and first photon bias derived from ATLAS calibration
     cal1,cal2 = ('ancillary_data','calibrations')
@@ -218,12 +228,14 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
                 # Variable Attributes
                 IS2_atl03_attrs[cal1][var][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[cal1][var][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[cal1][var][key][att_name] = att_val
                 if isinstance(val, h5py.Group):
                     for k,v in val.items():
                         IS2_atl03_attrs[cal1][var][key][k] = {}
                         for att_name,att_val in val.attrs.items():
-                            IS2_atl03_attrs[cal1][var][key][k][att_name]=att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl03_attrs[cal1][var][key][k][att_name]=att_val
 
     # get ATLAS impulse response variables for the transmitter echo path (TEP)
     tep1,tep2 = ('atlas_impulse_response','tep_histogram')
@@ -239,21 +251,24 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             if ATTRIBUTES:
                 # Global Group Attributes
                 for att_name,att_val in fileID[tep1][pce][tep2].attrs.items():
-                    IS2_atl03_attrs[tep1][pce][tep2][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[tep1][pce][tep2][att_name] = att_val
                 # Variable Attributes
                 IS2_atl03_attrs[tep1][pce][tep2][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[tep1][pce][tep2][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[tep1][pce][tep2][key][att_name] = att_val
 
     # Global File Attributes
     if ATTRIBUTES:
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl03_attrs[att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl03_attrs[att_name] = att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams)
+    return (IS2_atl03_mds, IS2_atl03_attrs, IS2_atl03_beams)
 
 # PURPOSE: read ICESat-2 ATL09 HDF5 data file for specific variables
 def interpolate_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True, **kwargs):
@@ -311,22 +326,25 @@ def interpolate_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True, **kwargs):
         IS2_atl09_attrs[pfl] = dict(high_rate={})
         # Global Group Attributes
         for att_name,att_val in fileID[pfl].attrs.items():
-            IS2_atl09_attrs[pfl][att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl09_attrs[pfl][att_name] = att_val
         # Variable Attributes
         for key in high_rate_keys:
             IS2_atl09_attrs[pfl]['high_rate'][key] = {}
             for att_name,att_val in fileID[pfl]['high_rate'][key].attrs.items():
-                IS2_atl09_attrs[pfl]['high_rate'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl09_attrs[pfl]['high_rate'][key][att_name] = att_val
 
     # Global File Attributes
     if ATTRIBUTES:
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl09_attrs[att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl09_attrs[att_name] = att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl09_mds,IS2_atl09_attrs)
+    return (IS2_atl09_mds, IS2_atl09_attrs)
 
 # PURPOSE: find valid beam groups within ICESat-2 ATL03 HDF5 data files
 def find_beams(FILENAME, **kwargs):
@@ -425,11 +443,13 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
         if ATTRIBUTES:
             # Global Group Attributes
             for att_name,att_val in fileID['orbit_info'].attrs.items():
-                IS2_atl03_attrs['orbit_info'][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['orbit_info'][att_name] = att_val
             # Variable Attributes
             IS2_atl03_attrs['orbit_info'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['orbit_info'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['orbit_info'][key][att_name] = att_val
 
     # information ancillary to the data product
     # number of GPS seconds between the GPS epoch (1980-01-06T00:00:00Z UTC)
@@ -452,7 +472,8 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
             # Variable Attributes
             IS2_atl03_attrs['ancillary_data'][key] = {}
             for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
-                IS2_atl03_attrs['ancillary_data'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['ancillary_data'][key][att_name] = att_val
 
     # transmit-echo-path (tep) parameters
     IS2_atl03_mds['ancillary_data']['tep'] = {}
@@ -465,7 +486,8 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
             # Variable Attributes
             IS2_atl03_attrs['ancillary_data']['tep'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['ancillary_data']['tep'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['ancillary_data']['tep'][key][att_name] = att_val
 
     # channel dead time and first photon bias derived from ATLAS calibration
     cal1,cal2 = ('ancillary_data','calibrations')
@@ -485,12 +507,14 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
                 # Variable Attributes
                 IS2_atl03_attrs[cal1][var][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[cal1][var][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[cal1][var][key][att_name] = att_val
                 if isinstance(val, h5py.Group):
                     for k,v in val.items():
                         IS2_atl03_attrs[cal1][var][key][k] = {}
                         for att_name,att_val in val.attrs.items():
-                            IS2_atl03_attrs[cal1][var][key][k][att_name]=att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl03_attrs[cal1][var][key][k][att_name]=att_val
 
     # get ATLAS impulse response variables for the transmitter echo path (TEP)
     tep1,tep2 = ('atlas_impulse_response','tep_histogram')
@@ -506,21 +530,24 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
             if ATTRIBUTES:
                 # Global Group Attributes
                 for att_name,att_val in fileID[tep1][pce][tep2].attrs.items():
-                    IS2_atl03_attrs[tep1][pce][tep2][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[tep1][pce][tep2][att_name] = att_val
                 # Variable Attributes
                 IS2_atl03_attrs[tep1][pce][tep2][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl03_attrs[tep1][pce][tep2][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl03_attrs[tep1][pce][tep2][key][att_name] = att_val
 
     # Global File Attributes
     if ATTRIBUTES:
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl03_attrs[att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl03_attrs[att_name] = att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl03_mds,IS2_atl03_attrs,IS2_atl03_beams)
+    return (IS2_atl03_mds, IS2_atl03_attrs, IS2_atl03_beams)
 
 # PURPOSE: read ICESat-2 ATL03 HDF5 data files for beam variables
 def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
@@ -595,29 +622,34 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
         IS2_atl03_attrs['Atlas_impulse_response'] = {}
         # Global Group Attributes
         for att_name,att_val in fileID[gtx].attrs.items():
-            IS2_atl03_attrs[att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl03_attrs[att_name] = att_val
         # ICESat-2 Measurement Group
         for key,val in fileID[gtx]['heights'].items():
             IS2_atl03_attrs['heights'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['heights'][key][att_name]=att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['heights'][key][att_name]=att_val
         # ICESat-2 Geolocation Group
         for key,val in fileID[gtx]['geolocation'].items():
             IS2_atl03_attrs['geolocation'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['geolocation'][key][att_name]=att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['geolocation'][key][att_name]=att_val
         # ICESat-2 Background Photon Rate Group
         for key,val in fileID[gtx]['bckgrd_atlas'].items():
             IS2_atl03_attrs['bckgrd_atlas'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['bckgrd_atlas'][key][att_name]=att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['bckgrd_atlas'][key][att_name]=att_val
         # ICESat-2 Geophysical Corrections Group
         for key,val in fileID[gtx]['geophys_corr'].items():
             IS2_atl03_attrs['geophys_corr'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl03_attrs['geophys_corr'][key][att_name]=att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl03_attrs['geophys_corr'][key][att_name]=att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl03_mds,IS2_atl03_attrs)
+    return (IS2_atl03_mds, IS2_atl03_attrs)

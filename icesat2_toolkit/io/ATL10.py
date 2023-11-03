@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL10.py (05/2023)
+ATL10.py (11/2023)
 Read ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL10 files
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
@@ -108,17 +109,20 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             IS2_atl10_attrs[gtx]['leads'] = {}
             # Global Group Attributes for ATL10 beam
             for att_name,att_val in fileID[gtx].attrs.items():
-                IS2_atl10_attrs[gtx][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl10_attrs[gtx][att_name] = att_val
             for group in ['freeboard_beam_segment','leads']:
                 for key,val in fileID[gtx][group].items():
                     IS2_atl10_attrs[gtx][group][key] = {}
                     for att_name,att_val in val.attrs.items():
-                        IS2_atl10_attrs[gtx][group][key][att_name] = att_val
+                        if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                            IS2_atl10_attrs[gtx][group][key][att_name] = att_val
                     if isinstance(val, h5py.Group):
                         for k,v in val.items():
                             IS2_atl10_attrs[gtx][group][key][k] = {}
                             for att_name,att_val in v.attrs.items():
-                                IS2_atl10_attrs[gtx][group][key][k][att_name] = att_val
+                                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                    IS2_atl10_attrs[gtx][group][key][k][att_name] = att_val
 
     # ICESat-2 orbit_info Group
     IS2_atl10_mds['orbit_info'] = {}
@@ -154,7 +158,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
             # Variable Attributes
             IS2_atl10_attrs['ancillary_data'][key] = {}
             for att_name,att_val in fileID['ancillary_data'][key].attrs.items():
-                IS2_atl10_attrs['ancillary_data'][key][att_name] = att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl10_attrs['ancillary_data'][key][att_name] = att_val
 
     # sea ice ancillary information (processing flags and parameters)
     for cal in ('freeboard_estimation',):
@@ -168,35 +173,40 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
                 # Variable Attributes
                 IS2_atl10_attrs['ancillary_data'][cal][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl10_attrs['ancillary_data'][cal][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl10_attrs['ancillary_data'][cal][key][att_name] = att_val
 
     # get each global attribute and the attributes for orbit and quality
     if ATTRIBUTES:
         # ICESat-2 HDF5 global attributes
         for att_name,att_val in fileID.attrs.items():
-            IS2_atl10_attrs[att_name] = att_name
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl10_attrs[att_name] = att_name
         # ICESat-2 orbit_info Group
         IS2_atl10_attrs['orbit_info'] = {}
         for key,val in fileID['orbit_info'].items():
             IS2_atl10_attrs['orbit_info'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl10_attrs['orbit_info'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl10_attrs['orbit_info'][key][att_name]= att_val
         # ICESat-2 quality_assessment Group
         IS2_atl10_attrs['quality_assessment'] = {}
         for key,val in fileID['quality_assessment'].items():
             IS2_atl10_attrs['quality_assessment'][key] = {}
             for att_name,att_val in val.attrs.items():
-                IS2_atl10_attrs['quality_assessment'][key][att_name]= att_val
+                if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                    IS2_atl10_attrs['quality_assessment'][key][att_name]= att_val
             if isinstance(val, h5py.Group):
                 for k,v in val.items():
                     IS2_atl10_attrs['quality_assessment'][key][k] = {}
                     for att_name,att_val in v.attrs.items():
-                        IS2_atl10_attrs['quality_assessment'][key][k][att_name]= att_val
+                        if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                            IS2_atl10_attrs['quality_assessment'][key][k][att_name]= att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl10_mds,IS2_atl10_attrs,IS2_atl10_beams)
+    return (IS2_atl10_mds, IS2_atl10_attrs, IS2_atl10_beams)
 
 # PURPOSE: find valid beam groups within ICESat-2 ATL10 HDF5 data files
 def find_beams(FILENAME, **kwargs):
@@ -305,19 +315,22 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
         IS2_atl10_attrs[gtx]['leads'] = {}
         # Global Group Attributes for ATL10 beam
         for att_name,att_val in fileID[gtx].attrs.items():
-            IS2_atl10_attrs[gtx][att_name] = att_val
+            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                IS2_atl10_attrs[gtx][att_name] = att_val
         for group in ['freeboard_beam_segment','leads']:
             for key,val in fileID[gtx][group].items():
                 IS2_atl10_attrs[gtx][group][key] = {}
                 for att_name,att_val in val.attrs.items():
-                    IS2_atl10_attrs[gtx][group][key][att_name] = att_val
+                    if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                        IS2_atl10_attrs[gtx][group][key][att_name] = att_val
                 if isinstance(val, h5py.Group):
                     for k,v in val.items():
                         IS2_atl10_attrs[gtx][group][key][k] = {}
                         for att_name,att_val in v.attrs.items():
-                            IS2_atl10_attrs[gtx][group][key][k][att_name] = att_val
+                            if att_name not in ('DIMENSION_LIST','CLASS','NAME'):
+                                IS2_atl10_attrs[gtx][group][key][k][att_name] = att_val
 
     # Closing the HDF5 file
     fileID.close()
     # Return the datasets and variables
-    return (IS2_atl10_mds,IS2_atl10_attrs)
+    return (IS2_atl10_mds, IS2_atl10_attrs)

@@ -53,6 +53,12 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.from_ftp
 
+.. autofunction:: icesat2_toolkit.utilities._create_default_ssl_context
+
+.. autofunction:: icesat2_toolkit.utilities._create_ssl_context_no_verify
+
+.. autofunction:: icesat2_toolkit.utilities._set_ssl_context_options
+
 .. autofunction:: icesat2_toolkit.utilities.check_connection
 
 .. autofunction:: icesat2_toolkit.utilities.http_list

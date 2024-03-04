@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
 
@@ -69,6 +69,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation

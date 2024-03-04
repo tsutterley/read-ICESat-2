@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL06.py (11/2023)
+ATL06.py (03/2024)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -16,6 +16,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL06 files
     Updated 12/2022: place some imports behind try/except statements

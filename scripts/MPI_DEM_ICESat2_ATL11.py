@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL11.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 Determines which digital elevation model tiles to read for a given ATL11 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL11 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
         verify coordinate reference system attribute from shapefile

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL11.py (11/2023)
+ATL11.py (03/2024)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL11 files
     Updated 12/2022: place some imports behind try/except statements

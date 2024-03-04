@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL10.py (11/2023)
+ATL10.py (03/2024)
 Read ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL10 files
     Updated 12/2022: place some imports behind try/except statements

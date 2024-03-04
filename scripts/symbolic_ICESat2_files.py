@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 symbolic_ICESat2_files.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 Creates symbolic links for ICESat-2 HDF5 files organized by date
 
 CALLING SEQUENCE:
@@ -25,6 +25,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: permission mode of directories
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 11/2022: added option if SCF outgoing is a flattened structure

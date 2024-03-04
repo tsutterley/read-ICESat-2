@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL06_raster.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 
 Create masks for reducing ICESat-2 ATL06 data using raster imagery
 
@@ -43,6 +43,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
         refactored ICESat-2 data product read programs under io
     Updated 06/2022: added option sigma to Gaussian filter raster images

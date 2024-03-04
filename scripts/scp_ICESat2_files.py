@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 05/2022: use argparse descriptions within sphinx documentation

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (12/2022)
+MPI_ICESat2_ATL03_histogram.py (03/2024)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -75,6 +75,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 06/2022: update classify photons to match current GSFC version
     Updated 05/2022: use argparse descriptions within sphinx documentation

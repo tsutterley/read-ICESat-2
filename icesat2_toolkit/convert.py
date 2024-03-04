@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: place some imports behind try/except statements
     Updated 06/2022: place zarr and pandas imports behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format

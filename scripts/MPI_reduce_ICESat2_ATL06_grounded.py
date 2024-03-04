@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL06_grounded.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 
 Create masks for reducing ICESat-2 data into grounded ice regions
 
@@ -40,6 +40,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation

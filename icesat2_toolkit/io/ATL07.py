@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL07.py (11/2023)
+ATL07.py (03/2024)
 Read ICESat-2 ATL07 (Sea Ice Height) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL07 files
     Updated 12/2022: place some imports behind try/except statements

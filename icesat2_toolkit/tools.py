@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 tools.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (03/2024)
 Plotting tools and utilities
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://github.com/matplotlib/matplotlib
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 12/2021: added custom colormap function for some common scales
     Written 09/2021

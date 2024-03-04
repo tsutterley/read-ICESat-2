@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL10.py (11/2023)
+ATL10.py (03/2024)
 Read ICESat-2 ATL10 (Sea Ice Freeboard) data files
 
 PYTHON DEPENDENCIES:
@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL10 files
     Updated 12/2022: place some imports behind try/except statements
@@ -20,10 +21,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import io
 import re
 import logging
+import pathlib
 import warnings
 import numpy as np
 
@@ -58,7 +59,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -227,7 +229,8 @@ def find_beams(FILENAME, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
     # output list of beams
     IS2_atl10_beams = []
     # read each input beam within the file
@@ -277,7 +280,8 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -58,6 +59,7 @@ import os
 import re
 import pyproj
 import logging
+import pathlib
 import datetime
 import argparse
 import warnings
@@ -115,17 +117,24 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL11 file to run')
-    # working data directory for ice shelf shapefiles
+    # working data directory for shapefiles
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory for mask files')
+        type=pathlib.Path, default=is2tk.utilities.get_data_path('data'),
+        help='Working data directory')
+    # directory with input/output data
+    parser.add_argument('--output-directory','-O',
+        type=pathlib.Path,
+        help='Output data directory')
     # buffer in kilometers for extracting ice shelves (0.0 = exact)
     parser.add_argument('--buffer','-B',
         type=float, default=0.0,
         help='Distance in kilometers to buffer ice shelves mask')
+    # alternatively read a specific georeferenced file
+    parser.add_argument('--polygon','-p',
+        type=pathlib.Path, default=None,
+        help='Georeferenced file containing a set of polygons')
     # verbosity settings
     # verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -148,9 +157,11 @@ def set_hemisphere(GRANULE):
 
 # PURPOSE: load the polygon object for the region of interest
 def load_ice_shelves(base_dir, BUFFER, HEM):
+    # buffered shapefile for region
+    input_shapefile = base_dir.joinpath(ice_shelf_file[HEM].format(BUFFER))
     # read ice shelves polylines from shapefile (using splat operator)
-    region_shapefile = os.path.join(base_dir,*ice_shelf_file[HEM])
-    shape_input = shapefile.Reader(region_shapefile)
+    logging.info(str(input_shapefile))
+    shape_input = shapefile.Reader(str(input_shapefile))
     # reading regional shapefile
     shape_entities = shape_input.shapes()
     shape_attributes = shape_input.records()
@@ -160,8 +171,10 @@ def load_ice_shelves(base_dir, BUFFER, HEM):
     if (HEM == 'S'):
         # iterate through shape entities and attributes to find FL attributes
         indices = [i for i,a in enumerate(shape_attributes) if (a[3] == 'FL')]
+        epsg = 3031
     else:
         indices = [i for i,a in enumerate(shape_attributes)]
+        epsg = 3413
     # for each floating ice indice
     for i in indices:
         # extract Polar-Stereographic coordinates for record
@@ -178,7 +191,7 @@ def load_ice_shelves(base_dir, BUFFER, HEM):
         # buffer polygon object and add to total polygon dictionary object
         poly_dict[shape_attributes[i][0]] = poly_obj.buffer(BUFFER*1e3)
     # return the polygon object and the input file name
-    return poly_dict, region_shapefile
+    return poly_dict, epsg
 
 # PURPOSE: read ICESat-2 annual land ice height data (ATL11)
 # reduce to ice shelves (possibly buffered)
@@ -195,36 +208,51 @@ def main():
     logging.basicConfig(level=loglevel)
 
     # output module information for process
-    info(comm.rank,comm.size)
+    info(comm.rank, comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.file} -->')
+        logging.info(f'{str(args.file)} -->')
 
-    # Open the HDF5 file for reading
-    fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})_(\d{2})(\d{2})_'
         r'(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file).pop()
+    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file.name).pop()
+    # get output directory from input file
+    if args.output_directory is None:
+        args.output_directory = args.file.parent
+
+    # check if data is an s3 presigned url
+    if str(args.file).startswith('s3:'):
+        client = is2tk.utilities.attempt_login('urs.earthdata.nasa.gov',
+            authorization_header=True)
+        session = is2tk.utilities.s3_filesystem()
+        args.file = session.open(args.file, mode='rb')
+    else:
+        args.file = pathlib.Path(args.file).expanduser().absolute()
+
+    # Open the HDF5 file for reading
+    fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
 
     # set the hemisphere flag based on ICESat-2 granule
     HEM = set_hemisphere(GRAN)
-    # pyproj transformer for converting lat/lon to polar stereographic
-    EPSG = dict(N=3413,S=3031)
-    crs1 = pyproj.CRS.from_epsg(4326)
-    crs2 = pyproj.CRS.from_epsg(EPSG[HEM])
-    transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
-
     # read data on rank 0
     if (comm.rank == 0):
         # read shapefile and create shapely polygon objects
-        poly_dict,_ = load_ice_shelves(args.directory,args.buffer,HEM)
+        poly_dict, epsg = load_ice_shelves(args.directory, args.buffer, HEM,
+            shapefile=args.polygon)
     else:
         # create empty object for dictionary of shapely objects
         poly_dict = None
+        epsg = None
 
-    # Broadcast Shapely polygon objects
+    # Broadcast Shapely multipolygon objects and projection
     poly_dict = comm.bcast(poly_dict, root=0)
+    epsg = comm.bcast(epsg, root=0)
+
+    # pyproj transformer for converting lat/lon to polar stereographic
+    crs1 = pyproj.CRS.from_epsg(4326)
+    crs2 = pyproj.CRS.from_epsg(epsg)
+    transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
+
     # combined validity check for all beam pairs
     valid_check = False
 
@@ -443,16 +471,18 @@ def main():
         # output HDF5 files with ice shelf masks
         fargs = (PRD,'ICE_SHELF_MASK',TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
         file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = args.output_directory.joinpath(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
-            CLOBBER=True, INPUT=os.path.basename(args.file),
-            FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
-            FILENAME=output_file)
+            FILENAME=output_file,
+            INPUT=args.file.name,
+            FILL_VALUE=IS2_atl11_fill,
+            DIMENSIONS=IS2_atl11_dims,
+            CLOBBER=True)
         # change the permissions mode
-        os.chmod(output_file, args.mode)
+        output_file.chmod(args.mode)
     # close the input file
     fileID.close()
 
@@ -466,7 +496,8 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -567,7 +598,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL11 files
-    fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
+    fileID.attrs['lineage'] = pathlib.Path(INPUT).name
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for ptx in pairs:

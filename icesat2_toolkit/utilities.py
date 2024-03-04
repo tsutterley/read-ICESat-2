@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (07/2023)
+Written by Tyler Sutterley (03/2024)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -9,6 +9,8 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/lxml
 
 UPDATE HISTORY:
+    Updated 03/2024: can use regions to filter sea ice products in cmr queries
+    Updated 11/2023: updated ssl context to fix deprecation error
     Updated 07/2023: add function for S3 filesystem
         add s3 and opendap endpoint options to cmr query functions
     Updated 06/2023: add functions to retrieve and revoke Earthdata tokens
@@ -746,8 +748,35 @@ def from_ftp(
         remote_buffer.seek(0)
         return remote_buffer
 
+def _create_default_ssl_context() -> ssl.SSLContext:
+    """Creates the default SSL context
+    """
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    _set_ssl_context_options(context)
+    context.options |= ssl.OP_NO_COMPRESSION
+    return context
+
+def _create_ssl_context_no_verify() -> ssl.SSLContext:
+    """Creates an SSL context for unverified connections
+    """
+    context = _create_default_ssl_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+def _set_ssl_context_options(context: ssl.SSLContext) -> None:
+    """Sets the default options for the SSL context
+    """
+    if sys.version_info >= (3, 10) or ssl.OPENSSL_VERSION_INFO >= (1, 1, 0, 7):
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+    else:
+        context.options |= ssl.OP_NO_SSLv2
+        context.options |= ssl.OP_NO_SSLv3
+        context.options |= ssl.OP_NO_TLSv1
+        context.options |= ssl.OP_NO_TLSv1_1
+
 # default ssl context
-_default_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+_default_ssl_context = _create_ssl_context_no_verify()
 
 # PURPOSE: check internet connection
 def check_connection(HOST: str, context=_default_ssl_context):
@@ -1580,36 +1609,44 @@ def cmr_granules(granule: str | int | list | None):
             logging.warning("Listed granule region is not presently available")
         return granule_list
 
-# PURPOSE: check if the submitted ATL14/ATL15 regions are valid
-def cmr_regions(region: str | list | None):
+# PURPOSE: check if the submitted regions are valid
+def cmr_regions(region: str | int | list | None):
     """
-    Check if the submitted ATL14/ATL15 regions are valid
+    Check if the submitted ATL07 or ATL14/ATL15 regions are valid
 
     Parameters
     ----------
-    region: str, list or NoneType
-        ICESat-2 ATL14/ATL15 region
+    region: str, int, list or NoneType
+        ICESat-2 ATL07 or ATL14/ATL15 region
 
     Returns
     -------
     region_list: list
-        formatted available ATL14/ATL15 regions
+        formatted available regions
     """
+    # all available ICESat-2 sea ice regions
+    ATL07_regions = ['01','02']
     # all available ICESat-2 ATL14/15 regions
-    all_regions = ['AA','AK','CN','CS','GL','IS','SV','RA']
+    ATL1415_regions = ['AA','A1','A2','A3','A4','AK',
+                       'CN','CS','GL','IS','SV','RA']
+    # combined regions
+    all_regions = ATL07_regions + ATL1415_regions
     if region is None:
         return ["??"]
     else:
         if isinstance(region, str):
             assert region in all_regions
             region_list = [str(region)]
+        elif isinstance(region, int):
+            assert int(region) > 0, "Sea ice hemisphere region must be positive"
+            region_list = [str(region).zfill(2)]
         elif isinstance(region, list):
             region_list = []
             for r in region:
                 assert r in all_regions
                 region_list.append(str(r))
         else:
-            raise TypeError("Please enter the region as a list or string")
+            raise TypeError("Please enter the region as a list, int or string")
         # check if user-entered region is currently not available
         if not set(all_regions) & set(region_list):
             logging.warning("Listed region is not presently available")
@@ -1665,7 +1702,7 @@ def cmr_readable_granules(product: str, **kwargs):
     granules: str, list or NoneType, default None
         ICESat-2 granule region strings to query
     regions: str, list or NoneType, default None
-        ICESat-2 ATL14/ATL15 region
+        ICESat-2 ATL07 or ATL14/ATL15 region
     resolutions: str, list or NoneType, default None
         ICESat-2 ATL14/ATL15 spatial resolution
 
@@ -1691,6 +1728,19 @@ def cmr_readable_granules(product: str, **kwargs):
                 # append the granule pattern
                 pattern = f"{product}_{r}_????_{s}_*"
                 readable_granule_list.append(pattern)
+    elif product in ("ATL07", "ATL10", "ATL20", "ATL21"):
+        # along-track sea ice products
+        # for each sea ice hemisphere flag
+        for r in cmr_regions(kwargs["regions"]):
+            # for each available cycle of interest
+            for c in cmr_cycles(kwargs["cycles"]):
+                # for each available track of interest
+                for t in cmr_tracks(kwargs["tracks"]):
+                    # use single character wildcards "?" for date strings,
+                    # unused granule numbers, and any unset parameters
+                    pattern = f"{product}-{r}_{14 * '?'}_{t}{c}??_*"
+                    # append the granule pattern
+                    readable_granule_list.append(pattern)
     else:
         # along-track products
         # for each available cycle of interest
@@ -1700,10 +1750,7 @@ def cmr_readable_granules(product: str, **kwargs):
                 # for each available granule region of interest
                 for g in cmr_granules(kwargs["granules"]):
                     # use single character wildcards "?" for date strings,
-                    # sea ice product hemispheres, and any unset parameters
-                    if product in ("ATL07", "ATL10", "ATL20", "ATL21"):
-                        pattern = f"{product}-??_{14 * '?'}_{t}{c}{g}_*"
-                    elif product in ("ATL11",):
+                    if product in ("ATL11",):
                         pattern = f"{product}_{t}{g}_*"
                     else:
                         pattern = f"{product}_{14 * '?'}_{t}{c}{g}_*"
@@ -1803,7 +1850,7 @@ def cmr(
     granules: str, list or NoneType, default None
         ICESat-2 granule region strings to query
     regions: str, list or NoneType, default None
-        ICESat-2 ATL14/15 region strings to query
+        ICESat-2 ATL07 or ATL14/15 region strings to query
     resolutions: str, list or NoneType, default None
         ICESat-2 ATL14/15 resolution strings to query
     bbox: list or NoneType, default None

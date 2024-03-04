@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL06.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 Determines which digital elevation model tiles to read for a given ATL06 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL06 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 11/2022: new ArcticDEM and REMA mosaic index shapefiles
         verify coordinate reference system attribute from shapefile
@@ -103,6 +104,7 @@ import re
 import uuid
 import pyproj
 import logging
+import pathlib
 import tarfile
 import datetime
 import argparse
@@ -165,12 +167,12 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL06 file to run')
     # working data directory for location of DEM files
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory')
     # Digital elevation model (REMA, ArcticDEM, GIMP) to run
     # set the DEM model to run for a given granule (else set automatically)
@@ -200,7 +202,8 @@ def set_DEM_model(GRANULE):
 # PURPOSE: read zip file containing index shapefiles for finding DEM tiles
 def read_DEM_index(index_file, DEM_MODEL):
     # read the compressed shapefile and extract entities
-    shape = fiona.open(f'zip://{os.path.expanduser(index_file)}')
+    index_file = pathlib.Path(index_file).expanduser().absolute()
+    shape = fiona.open(f'zip://{str(index_file)}')
     # extract coordinate reference system
     if ('init' in shape.crs.keys()):
         epsg = pyproj.CRS(shape.crs['init']).to_epsg()
@@ -401,30 +404,31 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.file} -->')
+        logging.info(f'{str(args.file)} -->')
 
     # read data from input file
     # Open the HDF5 file for reading
+    args.file = pathlib.Path(args.file).expanduser().absolute()
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file.name).pop()
 
     # set the digital elevation model based on ICESat-2 granule
     DEM_MODEL = set_DEM_model(GRN) if (args.model is None) else args.model
     # regular expression pattern for extracting parameters from ArcticDEM name
     rx1 = re.compile(r'(\d+)_(\d+)_(\d+)_(\d+)_(\d+m)_(.*?)$', re.VERBOSE)
     # full path to DEM directory
-    elevation_directory = os.path.join(args.directory,*elevation_dir[DEM_MODEL])
+    args.directory = pathlib.Path(args.directory).expanduser().absolute()
+    elevation_directory = args.directory.joinpath(*elevation_dir[DEM_MODEL])
     # zip file containing index shapefiles for finding DEM tiles
-    index_file=os.path.join(elevation_directory,elevation_tile_index[DEM_MODEL])
+    index_file = elevation_directory.joinpath(elevation_tile_index[DEM_MODEL])
 
     # read data on rank 0
     if (comm.rank == 0):
         # read index file for determining which tiles to read
-        tile_dict,tile_attrs,tile_epsg = read_DEM_index(index_file,DEM_MODEL)
+        tile_dict,tile_attrs,tile_epsg = read_DEM_index(index_file, DEM_MODEL)
     else:
         # create empty object for list of shapely objects
         tile_dict = None
@@ -660,8 +664,8 @@ def main():
             name = tile_attrs[key]['name']
             # read central DEM file (geotiff within gzipped tar file)
             tar = f'{name}.tar.gz'
-            elevation_file = os.path.join(elevation_directory,sub,tar)
-            DEM,MASK,xi,yi = read_DEM_file(elevation_file,fv)
+            elevation_file = elevation_directory.joinpath(sub,tar)
+            DEM,MASK,xi,yi = read_DEM_file(elevation_file, fv)
             # buffer DEM using values from adjacent tiles
             # use 400m (10 geosegs and divisible by ArcticDEM and REMA pixels)
             # use 1500m for GIMP
@@ -701,8 +705,8 @@ def main():
                         bsub = tile_attrs[bkey]['tile']
                         bname = tile_attrs[bkey]['name']
                         btar = f'{bname}.tar.gz'
-                        buffer_file = os.path.join(elevation_directory,bkey,btar)
-                        if not os.access(buffer_file, os.F_OK):
+                        buffer_file = elevation_directory.joinpath(bkey,btar)
+                        if not buffer_file.exists():
                             raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
@@ -728,8 +732,8 @@ def main():
                         bsub = tile_attrs[bkey]['tile']
                         bname = tile_attrs[bkey]['name']
                         btar = f'{bname}.tar.gz'
-                        buffer_file = os.path.join(elevation_directory,bkey,btar)
-                        if not os.access(buffer_file, os.F_OK):
+                        buffer_file = elevation_directory.joinpath(bkey,btar)
+                        if not buffer_file.exists():
                             raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
@@ -767,8 +771,8 @@ def main():
                         bsub = tile_attrs[bkey]['tile']
                         bname = tile_attrs[bkey]['name']
                         btar = f'{bname}.tar.gz'
-                        buffer_file = os.path.join(elevation_directory,bsub,btar)
-                        if not os.access(buffer_file, os.F_OK):
+                        buffer_file = elevation_directory.joinpath(bsub,btar)
+                        if not buffer_file.exists():
                             raise FileNotFoundError(f'{buffer_file} not found')
                         DEM,MASK,x1,y1=read_DEM_buffer(buffer_file,xlim,ylim,fv)
                         xmin = int((x1[0] - x[0])//dx)
@@ -825,16 +829,16 @@ def main():
         # output HDF5 files with output masks
         fargs = (PRD,DEM_MODEL,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = args.file.with_name(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_dem_attrs,
-            CLOBBER=True, INPUT=os.path.basename(args.file),
+            CLOBBER=True, INPUT=args.file.name,
             FILL_VALUE=IS2_atl06_fill, DIMENSIONS=IS2_atl06_dims,
             FILENAME=output_file)
         # change the permissions mode
-        os.chmod(output_file, args.mode)
+        output_file.chmod(mode=args.mode)
     # close the input file
     fileID.close()
 
@@ -848,7 +852,8 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -960,7 +965,7 @@ def HDF5_ATL06_dem_write(IS2_atl06_dem, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL06 file
-    fileID.attrs['input_files'] = os.path.basename(INPUT)
+    fileID.attrs['input_files'] = pathlib.Path(INPUT).name
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for gtx in beams:

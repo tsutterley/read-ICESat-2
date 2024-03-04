@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 tools.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (03/2024)
 Plotting tools and utilities
 
 PYTHON DEPENDENCIES:
@@ -13,13 +13,14 @@ PYTHON DEPENDENCIES:
         https://github.com/matplotlib/matplotlib
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 12/2021: added custom colormap function for some common scales
     Written 09/2021
 """
-import os
 import re
 import copy
+import pathlib
 import colorsys
 import warnings
 import numpy as np
@@ -48,24 +49,23 @@ def from_cpt(filename, use_extremes=True, **kwargs):
     """
 
     # read the cpt file and get contents
-    with open(filename,'r') as f:
+    filename = pathlib.Path(filename)
+    with filename.open(mode='r', encoding='utf-8') as f:
         file_contents = f.read().splitlines()
-    # extract basename from cpt filename
-    name = re.sub(r'\.cpt','',os.path.basename(filename),flags=re.I)
 
     # compile regular expression operator to find numerical instances
     rx = re.compile(r'[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[Ee][+-]?\d+)?')
 
     # create list objects for x, r, g, b
-    x,r,g,b = ([],[],[],[])
+    x, r, g, b = ([], [], [], [])
     # assume RGB color model
     colorModel = "RGB"
     # back, forward and no data flags
-    flags = dict(B=None,F=None,N=None)
+    flags = dict(B=None, F=None, N=None)
     for line in file_contents:
         # find back, forward and no-data flags
-        model = re.search(r'COLOR_MODEL.*(HSV|RGB)',line,re.I)
-        BFN = re.match(r'[BFN]',line,re.I)
+        model = re.search(r'COLOR_MODEL.*(HSV|RGB)', line, re.I)
+        BFN = re.match(r'[BFN]', line, re.I)
         # parse non-color data lines
         if model:
             # find color model
@@ -74,11 +74,11 @@ def from_cpt(filename, use_extremes=True, **kwargs):
         elif BFN:
             flags[BFN.group(0)] = [float(i) for i in rx.findall(line)]
             continue
-        elif re.search(r"#",line):
+        elif re.search(r"#", line):
             # skip over commented header text
             continue
         # find numerical instances within line
-        x1,r1,g1,b1,x2,r2,g2,b2 = rx.findall(line)
+        x1, r1, g1, b1, x2, r2, g2, b2 = rx.findall(line)
         # append colors and locations to lists
         x.append(float(x1))
         r.append(float(r1))
@@ -96,7 +96,7 @@ def from_cpt(filename, use_extremes=True, **kwargs):
         # convert HSV (hue-saturation-value) to RGB
         # calculate normalized locations (0:1)
         for i,xi in enumerate(x):
-            rr,gg,bb = colorsys.hsv_to_rgb(r[i]/360.,g[i],b[i])
+            rr,gg,bb = colorsys.hsv_to_rgb(r[i]/360.0, g[i], b[i])
             r[i] = rr
             g[i] = gg
             b[i] = bb
@@ -113,30 +113,30 @@ def from_cpt(filename, use_extremes=True, **kwargs):
     # output RGB lists containing normalized location and colors
     cdict = dict(red=[None]*len(x),green=[None]*len(x),blue=[None]*len(x))
     for i,xi in enumerate(x):
-        cdict['red'][i] = [xNorm[i],r[i],r[i]]
-        cdict['green'][i] = [xNorm[i],g[i],g[i]]
-        cdict['blue'][i] = [xNorm[i],b[i],b[i]]
+        cdict['red'][i] = [xNorm[i], r[i], r[i]]
+        cdict['green'][i] = [xNorm[i], g[i], g[i]]
+        cdict['blue'][i] = [xNorm[i], b[i], b[i]]
 
     # create colormap for use in matplotlib
-    cmap = colors.LinearSegmentedColormap(name, cdict, **kwargs)
+    cmap = colors.LinearSegmentedColormap(filename.stem, cdict, **kwargs)
     # set flags for under, over and bad values
     extremes = dict(under=None,over=None,bad=None)
-    for key,attr in zip(['B','F','N'],['under','over','bad']):
+    for key, attr in zip(['B', 'F', 'N'], ['under', 'over', 'bad']):
         if flags[key] is not None:
             r,g,b = flags[key]
             if (colorModel == "HSV"):
                 # convert HSV (hue-saturation-value) to RGB
-                r,g,b = colorsys.hsv_to_rgb(r/360.,g,b)
+                r, g, b = colorsys.hsv_to_rgb(r/360.0, g, b)
             elif (colorModel == 'RGB'):
                 # normalize hexadecimal RGB triple from (0:255) to (0:1)
-                r,g,b = (r/255.0,g/255.0,b/255.0)
+                r, g, b = (r/255.0, g/255.0, b/255.0)
             # set attribute for under, over and bad values
-            extremes[attr] = (r,g,b)
+            extremes[attr] = (r, g, b)
     # create copy of colormap with extremes
     if use_extremes:
         cmap = cmap.with_extremes(**extremes)
     # register colormap to be recognizable by cm.get_cmap()
-    cm.register_cmap(name=name, cmap=cmap)
+    cm.register_cmap(name=filename.stem, cmap=cmap)
     # return the colormap
     return cmap
 

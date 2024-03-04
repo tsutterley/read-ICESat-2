@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_convert.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 
 Acquires ICESat-2 datafiles from NSIDC and directly converts to
     zarr datafiles or rechunked HDF5 files
@@ -85,6 +85,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -115,6 +116,7 @@ import os
 import re
 import shutil
 import logging
+import pathlib
 import argparse
 import posixpath
 import traceback
@@ -131,15 +133,15 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
     LOG=False, LIST=False, PROCESSES=0, CLOBBER=False, MODE=None):
 
     # check if directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # output of synchronized files
     if LOG:
         # format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NSIDC_ICESat-2_sync_{today}.log'
-        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
-            level=logging.INFO)
+        LOGFILE = DIRECTORY.joinpath(f'NSIDC_ICESat-2_sync_{today}.log')
+        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ICESat-2 Data Convert Log ({today})')
     else:
         # standard output (terminal output)
@@ -191,7 +193,8 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
     # build lists of files or use existing index file
     if INDEX:
         # read the index file, split at lines and remove all commented lines
-        with open(os.path.expanduser(INDEX), mode='r', encoding='utf8') as f:
+        INDEX = pathlib.Path(INDEX).expanduser().absolute()
+        with INDEX.open(mode='r', encoding='utf8') as f:
             files = [i for i in f.read().splitlines() if re.match(r'^(?!\#)',i)]
         # regular expression operator for extracting information from files
         rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
@@ -199,24 +202,25 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         # for each line in the index
         for f in files:
             # extract parameters from ICESat-2 ATLAS HDF5 file
-            PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
+            PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
+                rx.findall(f).pop()
             # get directories from remote directory
             product_directory = f'{PRD}.{RL}'
             sd = f'{YY}.{MM}.{DD}'
-            PATH = [HOST,'ATLAS',product_directory,sd]
-            remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
-            # local directory for product and subdirectory
-            if FLATTEN:
-                local_dir = os.path.expanduser(DIRECTORY)
-            else:
-                local_dir = os.path.join(DIRECTORY,product_directory,sd)
+            PATH = [HOST, 'ATLAS', product_directory, sd]
+            remote_dir = posixpath.join(*PATH)
+            # local directory
+            local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+            if not FLATTEN:
+                local_dir = local_dir.joinpath(product_directory,sd)
             # find ICESat-2 data file to get last modified time
             # find matching files (for granule, release, version, track)
             names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
-                pattern=f.strip())
+                pattern=f.strip()
+            )
             # print if file was not found
             if not names:
                 logging.critical(error)
@@ -225,7 +229,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             for colname,remote_mtime in zip(names,lastmod):
                 # remote and local versions of the file
                 remote_files.append(posixpath.join(remote_dir,colname))
-                local_files.append(os.path.join(local_dir,colname))
+                local_files.append(local_dir.joinpath(colname))
                 remote_mtimes.append(remote_mtime)
     else:
         # for each ICESat-2 product listed
@@ -233,10 +237,10 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
             logging.info(f'PRODUCT={p}')
             # get directories from remote directory
             product_directory = f'{p}.{RELEASE}'
-            PATH = [HOST,'ATLAS',product_directory]
+            PATH = [HOST, 'ATLAS', product_directory]
             # compile regular expression operator
-            args = (p,regex_track,regex_cycle,regex_granule,RELEASE,
-                regex_version,regex_suffix)
+            args = (p, regex_track, regex_cycle, regex_granule, RELEASE,
+                regex_version, regex_suffix)
             R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
             # read and parse request for subdirectories (find column names)
             remote_sub,_,error = is2tk.utilities.nsidc_list(PATH,
@@ -244,28 +248,29 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 timeout=TIMEOUT,
                 parser=parser,
                 pattern=R2,
-                sort=True)
+                sort=True
+            )
             # print if subdirectory was not found
             if not remote_sub:
                 logging.critical(error)
                 continue
             # for each remote subdirectory
             for sd in remote_sub:
-                # local directory for product and subdirectory
-                if FLATTEN:
-                    local_dir = os.path.expanduser(DIRECTORY)
-                else:
-                    local_dir = os.path.join(DIRECTORY,product_directory,sd)
+                # local directory
+                local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+                if not FLATTEN:
+                    local_dir = local_dir.joinpath(product_directory,sd)
                 # find ICESat-2 data files
-                PATH = [HOST,'ATLAS',product_directory,sd]
-                remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
+                PATH = [HOST, 'ATLAS', product_directory, sd]
+                remote_dir = posixpath.join(*PATH)
                 # find matching files (for granule, release, version, track)
                 names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                     build=False,
                     timeout=TIMEOUT,
                     parser=parser,
                     pattern=R1,
-                    sort=True)
+                    sort=True
+                )
                 # print if file was not found
                 if not names:
                     logging.critical(error)
@@ -274,7 +279,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
                 for colname,remote_mtime in zip(names,lastmod):
                     # remote and local versions of the file
                     remote_files.append(posixpath.join(remote_dir,colname))
-                    local_files.append(os.path.join(local_dir,colname))
+                    local_files.append(local_dir.joinpath(colname))
                     remote_mtimes.append(remote_mtime)
 
     # sync in series if PROCESSES = 0
@@ -283,8 +288,14 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         for i,remote_file in enumerate(remote_files):
             # sync ICESat-2 files with NSIDC server
             args = (remote_file, remote_mtimes[i], local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, FORMAT=FORMAT,
-                CHUNKS=CHUNKS, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            kwds = dict(TIMEOUT=TIMEOUT,
+                RETRY=RETRY,
+                FORMAT=FORMAT,
+                CHUNKS=CHUNKS,
+                LIST=LIST,
+                CLOBBER=CLOBBER,
+                MODE=MODE
+            )
             output = http_pull_file(*args,**kwds)
             # print the output string
             logging.info(output) if output else None
@@ -298,8 +309,14 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
         for i,remote_file in enumerate(remote_files):
             # sync ICESat-2 files with NSIDC server
             args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, FORMAT=FORMAT, CHUNKS=CHUNKS,
-                RETRY=RETRY,LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+            kwds = dict(TIMEOUT=TIMEOUT,
+                FORMAT=FORMAT,
+                CHUNKS=CHUNKS,
+                RETRY=RETRY,
+                LIST=LIST,
+                CLOBBER=CLOBBER,
+                MODE=MODE
+            )
             out.append(pool.apply_async(multiprocess_sync,args=args,kwds=kwds))
         # start multiprocessing jobs
         # close the pool
@@ -314,7 +331,7 @@ def nsidc_icesat2_convert(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES, TRAC
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: wrapper for running the sync program in multiprocessing mode
 def multiprocess_sync(*args, **kwds):
@@ -331,28 +348,32 @@ def multiprocess_sync(*args, **kwds):
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
-def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
-    RETRY=1, FORMAT=None, CHUNKS=None, LIST=False, CLOBBER=False,
-    MODE=0o775):
+def http_pull_file(remote_file, remote_mtime, local_file,
+        TIMEOUT=None,
+        RETRY=1,
+        FORMAT=None,
+        CHUNKS=None,
+        LIST=False,
+        CLOBBER=False,
+        MODE=0o775
+    ):
     # check if data directory exists and recursively create if not
-    local_dir = os.path.dirname(local_file)
-    os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
-    # split extension from input local file
-    fileBasename, fileExtension = os.path.splitext(local_file)
-    # copy HDF5 file from server into new file
-    if (fileExtension == '.h5') and (FORMAT == 'zarr'):
-        hdf5_file = str(local_file)
-        local_file = f'{fileBasename}.zarr'
-    elif (fileExtension == '.h5') and (FORMAT == 'HDF5'):
-        hdf5_file = str(local_file)
-        local_file = f'{fileBasename}.h5'
+    local_file = pathlib.Path(local_file).expanduser().absolute()
+    local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
+    # convert HDF5 file from server into a new file format
+    if (local_file.suffix == '.h5') and (FORMAT == 'zarr'):
+        output_file = local_file.with_suffix('.zarr')
+    elif (local_file.suffix == '.h5') and (FORMAT == 'HDF5'):
+        output_file = local_file.with_suffix('.h5')
+    else:
+        output_file = local_file
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if os.access(local_file, os.F_OK):
+    if output_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = output_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (remote_mtime > local_mtime):
             TEST = True
@@ -363,7 +384,7 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # output string for printing files transferred
-        output = f'{remote_file} -->\n\t{local_file}{OVERWRITE}\n'
+        output = f'{remote_file} -->\n\t{str(output_file)}{OVERWRITE}\n'
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size
@@ -377,7 +398,10 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
                     # There are a range of exceptions that can be thrown
                     # including HTTPError and URLError.
                     fid = is2tk.utilities.from_http(remote_file,
-                        timeout=TIMEOUT,context=None,chunk=CHUNK)
+                        timeout=TIMEOUT,
+                        context=None,
+                        chunk=CHUNK
+                    )
                 except:
                     pass
                 else:
@@ -389,20 +413,20 @@ def http_pull_file(remote_file, remote_mtime, local_file, TIMEOUT=None,
                 raise TimeoutError('Maximum number of retries reached')
             # rewind retrieved binary to start of file
             fid.seek(0)
-            if (fileExtension == '.h5'):
+            if (local_file.suffix == '.h5'):
                 # copy local HDF5 filename to BytesIO object attribute
-                fid.filename = hdf5_file
+                fid.filename = local_file
                 # copy everything from the HDF5 file to the output file
-                conv = is2tk.convert(filename=fid,reformat=FORMAT)
+                conv = is2tk.convert(filename=fid, reformat=FORMAT)
                 conv.file_converter(chunks=CHUNKS)
             else:
                 # copy contents to file using chunked transfer encoding
                 # transfer should work with ascii and binary data formats
-                with open(local_file, 'wb') as f:
+                with output_file.open('wb') as f:
                     shutil.copyfileobj(fid, f, CHUNK)
             # keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
+            os.utime(output_file, (output_file.stat().st_atime, remote_mtime))
+            output_file.chmod(mode=MODE)
         # return the output string
         return output
 
@@ -426,13 +450,13 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory')
     # years of data to run
     parser.add_argument('--year','-Y',
@@ -478,7 +502,7 @@ def arguments():
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     # sync using files from an index
     group.add_argument('--index','-i',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Input index of ICESat-2 files to sync')
     # output subdirectories
     parser.add_argument('--flatten','-F',

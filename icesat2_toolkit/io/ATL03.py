@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL03.py (11/2023)
+ATL03.py (03/2024)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 12/2022: place some imports behind try/except statements
         refactor ICESat-2 data product read programs under io
@@ -33,10 +34,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function, division
 
-import os
 import io
 import re
 import logging
+import pathlib
 import warnings
 import numpy as np
 import scipy.interpolate
@@ -72,7 +73,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -298,7 +300,8 @@ def interpolate_ATL09(FILENAME, pfl, dtime, ATTRIBUTES=True, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # allocate python dictionaries for ICESat-2 ATL09 variables and attributes
     IS2_atl09_mds = {}
@@ -366,7 +369,8 @@ def find_beams(FILENAME, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
     # output list of beams
     IS2_atl03_beams = []
     # read each input beam within the file
@@ -411,7 +415,8 @@ def read_main(FILENAME, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -582,7 +587,8 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)

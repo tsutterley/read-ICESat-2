@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_drainages.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 
 Create masks for reducing ICESat-2 data into IMBIE-2 drainage regions
 
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -56,6 +57,7 @@ import os
 import re
 import pyproj
 import logging
+import pathlib
 import datetime
 import argparse
 import warnings
@@ -110,12 +112,12 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL11 file to run')
     # working data directory for drainage basins shapefiles
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory for mask files')
     # verbosity settings
     # verbose will output information about each output file
@@ -140,8 +142,9 @@ def set_hemisphere(GRANULE):
 # PURPOSE: load Greenland or Antarctic drainage basins from IMBIE-2 (Mouginot)
 def load_IMBIE2_basins(basin_dir, HEM, EPSG):
     # read drainage basin polylines from shapefile (using splat operator)
-    basin_shapefile = os.path.join(basin_dir,*IMBIE_basin_file[HEM])
-    shape_input = shapefile.Reader(basin_shapefile)
+    basin_dir = pathlib.Path(basin_dir).expanduser().absolute()
+    basin_shapefile = basin_dir.joinpath(*IMBIE_basin_file[HEM])
+    shape_input = shapefile.Reader(str(basin_shapefile))
     shape_entities = shape_input.shapes()
     shape_attributes = shape_input.records()
     # projections for converting lat/lon to polar stereographic
@@ -201,15 +204,14 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.file} -->')
+        logging.info(f'{str(args.file)} -->')
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})_(\d{2})(\d{2})_'
         r'(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file).pop()
+    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file.name).pop()
 
     # set the hemisphere flag based on ICESat-2 granule
     HEM = set_hemisphere(GRAN)
@@ -439,16 +441,16 @@ def main():
         # output HDF5 file with drainage basin masks
         fargs = (PRD,BASIN_TITLE,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
         file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = args.file.with_name(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
-            CLOBBER=True, INPUT=os.path.basename(args.file),
+            CLOBBER=True, INPUT=args.file.name,
             FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
             FILENAME=output_file)
         # change the permissions mode
-        os.chmod(output_file, args.mode)
+        output_file.chmod(mode=args.mode)
     # close the input file
     fileID.close()
 
@@ -462,7 +464,8 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -563,7 +566,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL11 files
-    fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
+    fileID.attrs['input_files'] = ','.join([pathlib.Path(i).name for i in INPUT])
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for ptx in pairs:

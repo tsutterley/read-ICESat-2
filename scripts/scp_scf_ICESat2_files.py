@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_scf_ICESat2_files.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 Copies ICESat-2 HDF5 files from the SCF server to a remote host using the
     SCF-authorized local computer as a proxy server
 
@@ -40,6 +40,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -58,6 +59,7 @@ import re
 import io
 import scp
 import logging
+import pathlib
 import argparse
 import paramiko
 import posixpath
@@ -163,16 +165,16 @@ def main():
     # use entered host and username
     client_kwds = {}
     scf_kwds = {}
-    client_kwds.setdefault('hostname',args.host)
-    client_kwds.setdefault('username',args.user)
-    scf_kwds.setdefault('hostname',args.scf_host)
-    scf_kwds.setdefault('username',args.scf_user)
+    client_kwds.setdefault('hostname', args.host)
+    client_kwds.setdefault('username', args.user)
+    scf_kwds.setdefault('hostname', args.scf_host)
+    scf_kwds.setdefault('username', args.scf_user)
     # use ssh configuration file to extract hostname, user and identityfile
-    user_config_file = os.path.join(os.environ['HOME'],".ssh","config")
-    if os.path.exists(user_config_file):
+    user_config_file = pathlib.Path().home().joinpath('.ssh','config')
+    if user_config_file.exists():
         # read ssh configuration file and parse with paramiko
         ssh_config = paramiko.SSHConfig()
-        with open(user_config_file) as f:
+        with user_config_file.open(mode='r') as f:
             ssh_config.parse(f)
         # lookup hostname from list of hosts
         user_config = ssh_config.lookup(args.host)
@@ -256,7 +258,8 @@ def scp_scf_files(client, client_ftp, scf_client, scf_client_ftp, remote_dir,
     file_list = [f for f in scf_client_ftp.listdir(scf_outgoing) if rx.match(f)]
     for f in sorted(file_list):
         # extract parameters from file
-        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
+            rx.findall(f).pop()
         # put data in directories similar to NSIDC
         # check if data directory exists and recursively create if not
         remote_path = posixpath.join(remote_dir,f'{YY}.{MM}.{DD}')
@@ -280,8 +283,8 @@ def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
 def scp_pull_file(client_ftp, scf_client_ftp, transfer_file, remote_dir,
     scf_outgoing, CLOBBER=False, LIST=False, MODE=0o775):
     # remote and scf outgoing versions of file
-    remote_file = os.path.join(remote_dir,transfer_file)
-    outgoing_file = posixpath.join(scf_outgoing,transfer_file)
+    remote_file = posixpath.join(remote_dir, transfer_file)
+    outgoing_file = posixpath.join(scf_outgoing, transfer_file)
     # get access and modification time of remote file
     outgoing_atime = scf_client_ftp.stat(outgoing_file).st_atime
     outgoing_mtime = scf_client_ftp.stat(outgoing_file).st_mtime
@@ -299,8 +302,8 @@ def scp_pull_file(client_ftp, scf_client_ftp, transfer_file, remote_dir,
         OVERWRITE = 'new'
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info(f'{outgoing_file} --> ')
-        logging.info(f'\t{remote_file} ({OVERWRITE})\n')
+        logging.info(f'{str(outgoing_file)} --> ')
+        logging.info(f'\t{str(remote_file)} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # load scf file contents to BytesIO object

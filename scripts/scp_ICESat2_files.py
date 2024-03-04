@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 scp_ICESat2_files.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (03/2024)
 Copies ICESat-2 HDF5 data from between a local host and a remote host
 can switch between pushing and pulling to/from remote
     PUSH to remote: s.put(local_file, remote_file)
@@ -38,6 +38,7 @@ PYTHON DEPENDENCIES:
         https://github.com/jbardin/scp.py
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: use f-strings for ascii and verbose outputs
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -57,6 +58,7 @@ import io
 import scp
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import paramiko
@@ -91,8 +93,8 @@ def arguments():
         help='Remote server username')
     # working data directories
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Local working directory')
     parser.add_argument('--remote','-R',
         type=str, default='',
@@ -158,11 +160,11 @@ def main():
     client_kwds.setdefault('hostname',args.host)
     client_kwds.setdefault('username',args.user)
     # use ssh configuration file to extract hostname, user and identityfile
-    user_config_file = os.path.join(os.environ['HOME'],".ssh","config")
-    if os.path.exists(user_config_file):
+    user_config_file = pathlib.Path().home().joinpath('.ssh','config')
+    if user_config_file.exists():
         # read ssh configuration file and parse with paramiko
         ssh_config = paramiko.SSHConfig()
-        with open(user_config_file) as f:
+        with user_config_file.open(mode='r') as f:
             ssh_config.parse(f)
         # lookup hostname from list of hosts
         user_config = ssh_config.lookup(args.host)
@@ -242,6 +244,11 @@ def attempt_login(**client_kwds):
 def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, CLOBBER=False,
     PUSH=False, LIST=False, MODE=0o775):
+
+    # check if directory exists and recursively create if not
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # find ICESat-2 HDF5 files in the subdirectory for product and release
     if TRACKS:
         regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
@@ -270,35 +277,32 @@ def scp_ICESat2_files(client, client_ftp, DIRECTORY, REMOTE, PRODUCT,
     # if pushing from local directory to remote directory
     if PUSH:
         # find all local subdirectories
-        SUBDIRECTORY = [s for s in os.listdir(DIRECTORY) if rx1.match(s)]
+        SUBDIRECTORY = [s for s in DIRECTORY.iterdir() if rx1.match(s.name)]
         # for each subdirectory to run
-        for sub in sorted(SUBDIRECTORY):
+        for local_dir in sorted(SUBDIRECTORY):
             # find files within local directory
-            local_dir = os.path.join(DIRECTORY,sub)
-            remote_path = posixpath.join(REMOTE,sub)
-            file_list=[f for f in os.listdir(local_dir) if rx2.match(f)]
-            for fi in sorted(file_list):
+            remote_path = posixpath.join(REMOTE, local_dir.name)
+            file_list = [f for f in local_dir.iterdir() if rx2.match(f.name)]
+            for local_file in sorted(file_list):
                 # check if data directory exists and recursively create if not
                 remote_makedirs(client_ftp, remote_path, LIST=LIST, MODE=MODE)
                 # push file from local to remote
-                scp_push_file(client, client_ftp, fi, local_dir, remote_path,
+                remote_file = posixpath.join(remote_path, local_file.name)
+                scp_push_file(client, client_ftp, local_file, remote_file,
                     CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
     else:
         # find all remote subdirectories
         SUBDIRECTORY = [s for s in client_ftp.listdir(REMOTE) if rx1.match(s)]
         # for each subdirectory to run
         for sub in sorted(SUBDIRECTORY):
-            # local and remote directories
-            local_dir = os.path.join(DIRECTORY,sub)
+            # find remote files
             remote_path = posixpath.join(REMOTE,sub)
-            # find remote files for hemisphere
-            file_list=[f for f in client_ftp.listdir(remote_path) if rx2.match(f)]
+            file_list = [f for f in client_ftp.listdir(remote_path) if rx2.match(f)]
             for fi in sorted(file_list):
-                # check if data directory exists and recursively create if not
-                if not os.access(local_dir, os.F_OK) and not LIST:
-                    os.makedirs(local_dir, MODE)
                 # push file from local to remote
-                scp_pull_file(client, client_ftp, fi, local_dir, remote_path,
+                local_file = DIRECTORY.joinpath(sub, fi)
+                remote_file = posixpath.join(remote_path, fi)
+                scp_pull_file(client, client_ftp, local_file, remote_file,
                     CLOBBER=CLOBBER, LIST=LIST, MODE=MODE)
 
 # PURPOSE: recursively create directories on remote server
@@ -313,16 +317,14 @@ def remote_makedirs(client_ftp, remote_dir, LIST=False, MODE=0o775):
 # PURPOSE: push a local file to a remote host checking if file exists
 # and if the local file is newer than the remote file (reprocessed)
 # set the permissions mode of the remote transferred file to MODE
-def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
+def scp_push_file(client, client_ftp, local_file, remote_file,
     CLOBBER=False, LIST=False, MODE=0o775):
-    # local and remote versions of file
-    local_file = os.path.join(local_dir,transfer_file)
-    remote_file = posixpath.join(remote_dir,transfer_file)
     # check if local file is newer than the remote file
     TEST = False
     OVERWRITE = 'clobber'
-    if (transfer_file in client_ftp.listdir(remote_dir)):
-        local_mtime = os.stat(local_file).st_mtime
+    remote_dir = posixpath.dirname(remote_file)
+    if (local_file.name in client_ftp.listdir(remote_dir)):
+        local_mtime = local_file.stat().st_mtime
         remote_mtime = client_ftp.stat(remote_file).st_mtime
         # if local file is newer: overwrite the remote file
         if (even(local_mtime) > even(remote_mtime)):
@@ -333,8 +335,8 @@ def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     # if file does not exist remotely, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info(f'{local_file} --> ')
-        logging.info(f'\t{remote_file} ({OVERWRITE})\n')
+        logging.info(f'{str(local_file)} --> ')
+        logging.info(f'\t{str(remote_file)} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
             # copy local files to remote server
@@ -346,16 +348,13 @@ def scp_push_file(client, client_ftp, transfer_file, local_dir, remote_dir,
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file (reprocessed)
 # set the permissions mode of the local transferred file to MODE
-def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
+def scp_pull_file(client, client_ftp, local_file, remote_file,
     CLOBBER=False, LIST=False, MODE=0o775):
-    # local and remote versions of file
-    local_file = os.path.join(local_dir,transfer_file)
-    remote_file = posixpath.join(remote_dir,transfer_file)
     # check if remote file is newer than the local file
     TEST = False
     OVERWRITE = 'clobber'
-    if os.access(local_file, os.F_OK):
-        local_mtime = os.stat(local_file).st_mtime
+    if local_file.exists():
+        local_mtime = local_file.stat().st_mtime
         remote_mtime = client_ftp.stat(remote_file).st_mtime
         # if remote file is newer: overwrite the local file
         if (even(remote_mtime) > even(local_mtime)):
@@ -366,15 +365,17 @@ def scp_pull_file(client, client_ftp, transfer_file, local_dir, remote_dir,
         OVERWRITE = 'new'
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        logging.info(f'{remote_file} -->')
-        logging.info(f'\t{local_file} ({OVERWRITE})\n')
+        logging.info(f'{str(remote_file)} -->')
+        logging.info(f'\t{str(local_file)} ({OVERWRITE})\n')
         # if not only listing files
         if not LIST:
+            # check if directory exists and recursively create if not
+            local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
             # copy local files from remote server
             with scp.SCPClient(client.get_transport(), socket_timeout=20) as s:
                 s.get(remote_file, local_path=local_file, preserve_times=True)
             # change the permissions level of the transported file to MODE
-            os.chmod(local_file, MODE)
+            local_file.chmod(mode=MODE)
 
 # PURPOSE: rounds a number to an even number less than or equal to original
 def even(i):

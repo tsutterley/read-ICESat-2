@@ -2,8 +2,6 @@
 u"""
 test_leap_seconds.py (08/2020)
 """
-import os
-import pytest
 import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 
@@ -27,4 +25,4 @@ def test_leap_seconds():
 def test_update_leap_seconds():
     icesat2_toolkit.time.update_leap_seconds(verbose=False, mode=0o775)
     FILE = icesat2_toolkit.utilities.get_data_path(['data','leap-seconds.list'])
-    assert os.access(FILE,os.F_OK)
+    assert FILE.exists()

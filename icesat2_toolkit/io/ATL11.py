@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL11.py (11/2023)
+ATL11.py (03/2024)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL11 files
     Updated 12/2022: place some imports behind try/except statements
@@ -33,10 +34,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import io
 import re
 import logging
+import pathlib
 import warnings
 import numpy as np
 
@@ -80,7 +81,8 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -242,7 +244,8 @@ def find_pairs(FILENAME, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
     # read each input beam pair within the file
     IS2_atl11_pairs = []
     for ptx in [k for k in fileID.keys() if bool(re.match(r'pt\d',k))]:
@@ -298,7 +301,8 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_RGI.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2024)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -59,6 +59,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -76,6 +77,7 @@ import os
 import re
 import io
 import logging
+import pathlib
 import zipfile
 import datetime
 import argparse
@@ -121,12 +123,12 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL11 file to run')
     # working data directory for location of RGI files
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory for mask files')
     # region of Randolph Glacier Inventory to run
     parser.add_argument('--region','-r',
@@ -168,8 +170,9 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
     RGI_files.append('18_rgi60_NewZealand')
     RGI_files.append('19_rgi60_AntarcticSubantarctic')
     # read input zipfile containing RGI shapefiles
-    zs = zipfile.ZipFile(os.path.join(RGI_DIRECTORY,
-        f'{RGI_files[RGI_REGION-1]}.zip'))
+    RGI_DIRECTORY = pathlib.Path(RGI_DIRECTORY).expanduser().absolute()
+    RGI_FILE = RGI_DIRECTORY.joinpath(f'{RGI_files[RGI_REGION-1]}.zip')
+    zs = zipfile.ZipFile(str(RGI_FILE))
     dbf,prj,shp,shx = [io.BytesIO(zs.read(s)) for s in sorted(zs.namelist())
         if re.match(r'(.*?)\.(dbf|prj|shp|shx)$',s)]
     # read the shapefile and extract entities
@@ -200,7 +203,7 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
     # close the zipfile
     zs.close()
     # return the dictionary of polygon objects and the input file
-    return (poly_dict, RGI_files[RGI_REGION-1])
+    return (poly_dict, RGI_FILE.name)
 
 # PURPOSE: read ICESat-2 annual land ice height data (ATL11)
 # reduce to the Randolph Glacier Inventory
@@ -219,15 +222,14 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.file} -->')
+        logging.info(f'{str(args.file)} -->')
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})_(\d{2})(\d{2})_'
         r'(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file).pop()
+    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file.name).pop()
 
     # read data on rank 0
     if (comm.rank == 0):
@@ -466,16 +468,16 @@ def main():
         # output HDF5 file with RGI masks
         fargs = (PRD,RGI_VERSION,RGI_NAME,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX)
         file_format = '{0}_RGI{1}_{2}_{3}{4}_{5}{6}_{7}_{8}{9}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = args.file.with_name(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
-            CLOBBER=True, INPUT=os.path.basename(args.file),
+            CLOBBER=True, INPUT=args.file.name,
             FILL_VALUE=IS2_atl11_fill, DIMENSIONS=IS2_atl11_dims,
             FILENAME=output_file)
         # change the permissions mode
-        os.chmod(output_file, args.mode)
+        output_file.chmod(mode=args.mode)
     # close the input file
     fileID.close()
 
@@ -489,7 +491,8 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -590,7 +593,7 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL11 files
-    fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
+    fileID.attrs['input_files'] = ','.join([pathlib.Path(i).name for i in INPUT])
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for ptx in pairs:

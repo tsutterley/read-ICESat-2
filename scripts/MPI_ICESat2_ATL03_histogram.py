@@ -114,6 +114,7 @@ import sys
 import os
 import re
 import logging
+import pathlib
 import argparse
 import datetime
 import warnings
@@ -166,14 +167,14 @@ def arguments():
     # first file listed contains the ATL03 file
     # second file listed is the associated ATL09 file
     parser.add_argument('ATL03',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='ICESat-2 ATL03 file to run')
     parser.add_argument('ATL09',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='ICESat-2 ATL09 file to run')
     # use default output file name
     parser.add_argument('--output','-O',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Name and path of output file')
     # histogram decomposition fit type
     # gaussian: summation of gaussian functions
@@ -211,9 +212,7 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.ATL03} -->')
-    # directory setup
-    ATL03_dir = os.path.dirname(args.ATL03)
+        logging.info(f'{str(args.ATL03)} -->')
 
     # compile regular expression operator for extracting data from ATL03 files
     rx1 = re.compile(r'(processed_)?(ATL\d+)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})'
@@ -226,7 +225,8 @@ def main():
         gt3l='gt3r',gt3r='gt3l')
 
     # read ICESat-2 ATL03 HDF5 files (extract base parameters)
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX=rx1.findall(args.ATL03).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
+        rx1.findall(args.ATL03.name).pop()
 
     # Open the HDF5 file for reading
     fileID = h5py.File(args.ATL03, 'r', driver='mpio', comm=comm)
@@ -2444,17 +2444,17 @@ def main():
     if (comm.rank == 0):
         # use default output file name and path
         if args.output:
-            output_file=os.path.expanduser(args.output)
+            output_file = pathlib.Path(args.output).expanduser().absolute()
         else:
             fargs=(SUB,'ATL86',YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX)
             file_format='{0}{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
-            output_file=os.path.join(ATL03_dir,file_format.format(*fargs))
+            output_file = args.ATL03.with_name(file_format.format(*fargs))
         # write to HDF5 file
         HDF5_ATL03_write(IS2_atl03_fit, IS2_atl03_attrs, COMM=comm,
             INPUT=[args.ATL03,args.ATL09], FILL_VALUE=IS2_atl03_fill,
             CLOBBER=True, FILENAME=output_file)
         # change the permissions level to MODE
-        os.chmod(output_file, args.mode)
+        output_file.chmod(mode=args.mode)
     # close the input ATL03 file
     fileID.close()
 
@@ -2462,7 +2462,7 @@ def main():
 def read_HDF5_ATL09(FILENAME, pfl, D, ATTRIBUTES=True, COMM=None):
     # Open the HDF5 file for reading
     fileID = h5py.File(FILENAME, 'r', driver='mpio', comm=COMM)
-    logging.info(FILENAME) if (COMM.rank == 0) else None
+    logging.info(str(FILENAME)) if (COMM.rank == 0) else None
 
     # allocate python dictionaries for ICESat-2 ATL09 variables and attributes
     IS2_atl09_mds = {}
@@ -2522,8 +2522,9 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = h5py.File(FILENAME, clobber)#, driver='mpio', comm=COMM)
-    logging.info(FILENAME) if (COMM.rank == 0) else None
+    logging.info(str(FILENAME)) if (COMM.rank == 0) else None
 
     # create HDF5 records
     h5 = {}
@@ -2684,7 +2685,7 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL03 and ATL09 files
-    fileID.attrs['input_files'] = ','.join([os.path.basename(i) for i in INPUT])
+    fileID.attrs['input_files'] = ','.join([pathlib.Path(i).name for i in INPUT])
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for gtx in ['gt1l','gt1r','gt2l','gt2r','gt3l','gt3r']:

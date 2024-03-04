@@ -51,11 +51,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import sys
-import os
 import re
 import pyproj
 import logging
+import pathlib
 import argparse
 import datetime
 import warnings
@@ -173,16 +172,18 @@ def reduce_ICESat2_ATL10_raster(FILE,
     logging.basicConfig(level=loglevel)
 
     # read data from input file
-    logging.info(f'{os.path.basename(FILE)} -->')
+    FILE = pathlib.Path(FILE).expanduser().absolute()
+    logging.info(f'{str(FILE)} -->')
     IS2_atl10_mds,IS2_atl10_attrs,IS2_atl10_beams = \
         is2tk.io.ATL10.read_granule(FILE, ATTRIBUTES=True)
-    DIRECTORY = os.path.dirname(FILE)
     # extract parameters from ICESat-2 ATLAS HDF5 sea ice freeboard file name
     rx = re.compile(r'(processed_)?(ATL\d{2})-(\d{2})_(\d{4})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,HMN,YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX=rx.findall(FILE).pop()
+    SUB,PRD,HMN,YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX = \
+        rx.findall(FILE.name).pop()
 
     # read raster image for spatial coordinates and data
+    MASK = pathlib.Path(MASK).expanduser().absolute()
     dinput = is2tk.spatial.from_file(MASK, FORMAT,
         xname=VARIABLES[0], yname=VARIABLES[1], varname=VARIABLES[2])
     # raster extents
@@ -360,8 +361,7 @@ def reduce_ICESat2_ATL10_raster(FILE,
             IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['long_name'] = 'Mask'
             IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['description'] = \
                 'Mask calculated using raster image'
-            IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['source'] = \
-                os.path.basename(MASK)
+            IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['source'] = MASK.name
             IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['sigma'] = SIGMA
             IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['tolerance'] = TOLERANCE
             IS2_atl10_mask_attrs[gtx][group]['subsetting']['mask']['coordinates'] = \
@@ -369,20 +369,20 @@ def reduce_ICESat2_ATL10_raster(FILE,
 
     # use default output file name and path
     if OUTPUT:
-        output_file = os.path.expanduser(OUTPUT)
+        output_file = pathlib.Path(OUTPUT).expanduser().absolute()
     else:
         fargs = (PRD,HMN,'MASK',YY,MM,DD,HH,MN,SS,TRK,CYCL,SN,RL,VERS,AUX)
         file_format = '{0}-{1}_{2}_{3}{4}{5}{6}{7}{8}_{9}{10}{11}_{12}_{13}{14}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = FILE.with_name(file_format.format(*fargs))
     # print file information
-    logging.info(f'\t{output_file}')
+    logging.info(f'\t{str(output_file)}')
     # write to output HDF5 file
     HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_mask_attrs,
-        CLOBBER=True, INPUT=os.path.basename(FILE),
+        CLOBBER=True, INPUT=FILE.name,
         FILL_VALUE=IS2_atl10_fill, DIMENSIONS=IS2_atl10_dims,
         FILENAME=output_file)
     # change the permissions mode
-    os.chmod(output_file, MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: outputting the masks for ICESat-2 data to HDF5
 def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
@@ -394,7 +394,8 @@ def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -507,7 +508,7 @@ def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL10 file
-    fileID.attrs['input_files'] = os.path.basename(INPUT)
+    fileID.attrs['input_files'] = pathlib.Path(INPUT).name
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for gtx in beams:
@@ -569,15 +570,15 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL10 file to run')
     # use default output file name
     parser.add_argument('--output','-O',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Name and path of output file')
     # input raster file and file format
     parser.add_argument('--raster','-R',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Input raster file')
     parser.add_argument('--format','-F',
         type=str, default='geotiff', choices=('netCDF4','HDF5','geotiff'),

@@ -33,10 +33,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import io
 import re
 import logging
+import pathlib
 import warnings
 import numpy as np
 
@@ -80,7 +80,8 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -242,7 +243,8 @@ def find_pairs(FILENAME, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
     # read each input beam pair within the file
     IS2_atl11_pairs = []
     for ptx in [k for k in fileID.keys() if bool(re.match(r'pt\d',k))]:
@@ -298,7 +300,8 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)

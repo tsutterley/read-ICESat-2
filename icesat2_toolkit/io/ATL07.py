@@ -25,10 +25,10 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import io
 import re
 import logging
+import pathlib
 import warnings
 import numpy as np
 
@@ -63,7 +63,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)
@@ -229,7 +230,8 @@ def find_beams(FILENAME, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
     # output list of beams
     IS2_atl07_beams = []
     # read each input beam within the file
@@ -278,7 +280,8 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
     else:
-        fileID = h5py.File(os.path.expanduser(FILENAME), 'r')
+        FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+        fileID = h5py.File(FILENAME, 'r')
 
     # Output HDF5 file information
     logging.info(fileID.filename)

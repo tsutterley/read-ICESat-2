@@ -76,6 +76,7 @@ import io
 import re
 import shutil
 import logging
+import pathlib
 import argparse
 import warnings
 import posixpath
@@ -99,15 +100,15 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
     TIMEOUT=None, RETRY=1, LOG=False, LIST=False, CLOBBER=False, MODE=None):
 
     # check if directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # output of synchronized files
     if LOG:
         # format: NSIDC_ICESat-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NSIDC_ICESat-2_sync_{today}.log'
-        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
-            level=logging.INFO)
+        LOGFILE = DIRECTORY.joinpath(f'NSIDC_ICESat-2_sync_{today}.log')
+        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ICESat-2 DRAGANN Sync Log ({today})')
     else:
         # standard output (terminal output)
@@ -152,12 +153,12 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
         R2 = re.compile(r'(\d+).(\d+).(\d+)', re.VERBOSE)
 
     # get directories from remote directory
-    atl03_directory = '{0}.{1}'.format('ATL03',RELEASE)
-    atl08_directory = '{0}.{1}'.format('ATL08',RELEASE)
-    PATH = [HOST,'ATLAS',atl08_directory]
+    atl03_directory = f'ATL03.{RELEASE}'
+    atl08_directory = f'ATL08.{RELEASE}'
+    PATH = [HOST, 'ATLAS', atl08_directory]
     # compile regular expression operator
-    args = ('ATL08',regex_track,regex_cycle,regex_granule,RELEASE,
-          regex_version,regex_suffix)
+    args = ('ATL08', regex_track, regex_cycle, regex_granule,
+        RELEASE, regex_version, regex_suffix)
     R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
     # read and parse request for subdirectories (find column names)
     remote_sub,_,error = is2tk.utilities.nsidc_list(PATH,
@@ -165,19 +166,24 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
         timeout=TIMEOUT,
         parser=parser,
         pattern=R2,
-        sort=True)
+        sort=True
+    )
     # for each remote subdirectory
     for sd in remote_sub:
-        # local directory for product and subdirectory
-        if FLATTEN:
-            local_dir = os.path.expanduser(DIRECTORY)
-        else:
-            local_dir = os.path.join(DIRECTORY,atl03_directory,sd)
+        # local directory
+        local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+        if not FLATTEN:
+            local_dir = local_dir.joinpath(atl03_directory,sd)
         # find ICESat-2 data files
-        PATH = [HOST,'ATLAS',atl08_directory,sd]
+        PATH = [HOST, 'ATLAS', atl08_directory, sd]
         # find matching files (for granule, release, version, track)
         atl08s,lastmod,error = is2tk.utilities.nsidc_list(PATH,
-            build=False,timeout=TIMEOUT,parser=parser,pattern=R1,sort=True)
+            build=False,
+            timeout=TIMEOUT,
+            parser=parser,
+            pattern=R1,
+            sort=True
+        )
         # print if file was not found
         if not atl08s:
             logging.critical(error)
@@ -192,7 +198,7 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             R3 = re.compile(remote_regex_pattern.format(*args))
             PATH = [HOST,'ATLAS',atl03_directory,sd]
             # find associated ATL03 files
-            atl03s,lastmod,error=is2tk.utilities.nsidc_list(PATH,
+            atl03s,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
@@ -201,26 +207,30 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
             # remote and local versions of the file
             for atl03,remote_mtime in zip(atl03s,lastmod):
                 # sync ICESat-2 ATL03 files with NSIDC server
-                remote_dir = posixpath.join(HOST,'ATLAS',atl03_directory,sd)
-                remote_file = posixpath.join(remote_dir,atl03)
-                local_file = os.path.join(local_dir,atl03)
+                remote_dir = posixpath.join(HOST, 'ATLAS', atl03_directory, sd)
+                remote_file = posixpath.join(remote_dir, atl03)
+                local_file = local_dir.joinpath(atl03)
                 # recursively create data directory if not existing
-                if not os.path.exists(local_dir):
-                    os.makedirs(local_dir,MODE)
+                local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
                 # download ATL03 file
                 args = (remote_file, remote_mtime, local_file)
-                kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY,
-                    LIST=LIST, CLOBBER=CLOBBER)
+                kwds = dict(TIMEOUT=TIMEOUT,
+                    RETRY=RETRY,
+                    LIST=LIST,
+                    CLOBBER=CLOBBER,
+                    MODE=MODE
+                )
                 out = http_pull_file(*args, **kwds)
                 logging.info(out) if out else None
                 # append ATL08 dragann classifications
-                PATH = [HOST,'ATLAS',atl08_directory,sd,atl08]
+                PATH = [HOST, 'ATLAS', atl08_directory, sd, atl08]
                 logging.info(posixpath.join(*PATH))
                 remote_buffer,_ = is2tk.utilities.from_nsidc(PATH,
                     build=False,
-                    timeout=TIMEOUT)
+                    timeout=TIMEOUT
+                )
                 # for each beam in the ATL03 file
-                for gtx in is2tk.find_HDF5_ATL03_beams(local_file):
+                for gtx in is2tk.io.ATL03.find_beams(local_file):
                     # open ATL03 file in append mode
                     fileID = h5py.File(local_file, 'a')
                     # check if DRAGANN variables are already appended
@@ -238,10 +248,10 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                     n_pe, = delta_time.shape
                     # extract dragann classifiers for beam
                     mds,attrs = extract_dragann_classification(remote_buffer,
-                        gtx,segment_id,ph_index_beg,n_pe)
+                        gtx, segment_id, ph_index_beg, n_pe)
                     for k,v in mds.items():
                         # create HDF5 variable
-                        val = posixpath.join(gtx,'heights',k)
+                        val = posixpath.join(gtx, 'heights', k)
                         h5 = fileID.create_dataset(val, np.shape(v),
                             data=v, dtype=v.dtype, compression='gzip')
                         h5.dims[0].attach_scale(delta_time)
@@ -251,25 +261,28 @@ def nsidc_icesat2_dragann(DIRECTORY, RELEASE, VERSIONS, GRANULES, TRACKS,
                     # close the ATL03 file
                     fileID.close()
                 # keep remote modification time of file and local access time
-                os.utime(local_file,(os.stat(local_file).st_atime,remote_mtime))
+                os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
                 # change the permissions mode
-                os.chmod(local_file, MODE)
+                local_file.chmod(mode=MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
 def http_pull_file(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False):
+    TIMEOUT=None, RETRY=1, LIST=False, CLOBBER=False, MODE=0o775):
+    # check if data directory exists and recursively create if not
+    local_file = pathlib.Path(local_file).expanduser().absolute()
+    local_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if os.access(local_file, os.F_OK):
+    if local_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (remote_mtime > local_mtime):
             TEST = True
@@ -280,7 +293,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # output string for printing files transferred
-        output = f'{remote_file} -->\n\t{local_file}{OVERWRITE}\n'
+        output = f'{remote_file} -->\n\t{str(local_file)}{OVERWRITE}\n'
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size
@@ -293,12 +306,12 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                     # Create and submit request.
                     # There are a range of exceptions that can be thrown here
                     # including HTTPError and URLError.
-                    request=is2tk.utilities.urllib2.Request(remote_file)
-                    response=is2tk.utilities.urllib2.urlopen(request,
+                    request = is2tk.utilities.urllib2.Request(remote_file)
+                    response = is2tk.utilities.urllib2.urlopen(request,
                         timeout=TIMEOUT)
                     # copy contents to file using chunked transfer encoding
                     # transfer should work with ascii and binary data formats
-                    with open(local_file, 'wb') as f:
+                    with local_file.open('wb') as f:
                         shutil.copyfileobj(response, f, CHUNK)
                 except:
                     pass
@@ -310,17 +323,19 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             if (retry_counter == RETRY):
                 raise TimeoutError('Maximum number of retries reached')
             # keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
+            os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+            # change the permissions mode
+            local_file.chmod(mode=MODE)
         # return the output string
         return output
 
 # PURPOSE: Extract photon event classification from ATL08
-def extract_dragann_classification(buffer,gtx,segment_id,ph_index_beg,n_pe):
-    # Open the HDF5 file for reading
-    if isinstance(buffer, io.IOBase):
-        fileID = h5py.File(buffer, 'r')
-    else:
-        fileID = h5py.File(os.path.expanduser(buffer), 'r')
+def extract_dragann_classification(buffer, gtx, segment_id, ph_index_beg, n_pe):
+    # expand path to HDF5 file
+    if isinstance(buffer, (str, pathlib.Path)):
+        buffer = pathlib.Path(buffer).expanduser().absolute()
+    # open the HDF5 file for reading
+    fileID = h5py.File(buffer, 'r')
     # allocate for output classifications
     output = {}
     # default is noise classification for all photon events
@@ -377,7 +392,7 @@ def extract_dragann_classification(buffer,gtx,segment_id,ph_index_beg,n_pe):
     # close the ATL08 HDF5 file
     fileID.close()
     # return the output variables and attributes
-    return (output,attrs)
+    return (output, attrs)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -395,13 +410,13 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory')
     # years of data to run
     parser.add_argument('--year','-Y',

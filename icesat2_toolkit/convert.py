@@ -16,10 +16,6 @@ PYTHON DEPENDENCIES:
     pandas: Python Data Analysis Library
         https://pandas.pydata.org/
 
-PROGRAM DEPENDENCIES:
-    convert_delta_time.py: converts delta times into Julian and year-decimal
-    time.py: Utilities for calculating time operations
-
 UPDATE HISTORY:
     Updated 12/2022: place some imports behind try/except statements
     Updated 06/2022: place zarr and pandas imports behind try/except statements
@@ -32,13 +28,12 @@ UPDATE HISTORY:
     Updated 08/2020: added output in pandas dataframe for ATL06 and ATL08
     Written 06/2020
 """
-import os
 import re
+import pathlib
 import warnings
 import itertools
 import posixpath
 import numpy as np
-from icesat2_toolkit.convert_delta_time import convert_delta_time
 
 # attempt imports
 try:
@@ -115,16 +110,14 @@ class convert():
         **kwds: dict
             keyword arguments for output zarr converter
         """
-        # split extension from HDF5 file
-        if isinstance(self.filename, str):
-            fileBasename,fileExtension=os.path.splitext(self.filename)
-        else:
-            fileBasename,fileExtension=os.path.splitext(self.filename.filename)
         # output zarr file
-        zarr_file = os.path.expanduser(f'{fileBasename}.zarr')
+        if isinstance(self.filename, (str, pathlib.Path)):
+            zarr_file = pathlib.Path(self.filename).with_suffix('.zarr')
+        else:
+            zarr_file = pathlib.Path(self.filename.filename).with_suffix('.zarr')
         # copy everything from the HDF5 file to the zarr file
         with h5py.File(self.filename, mode='r') as source:
-            dest = zarr.open_group(zarr_file,mode='w')
+            dest = zarr.open_group(zarr_file, mode='w')
             # value checks on output zarr
             if not hasattr(dest, 'create_dataset'):
                 raise ValueError('dest must be a group, got {!r}'.format(dest))
@@ -142,16 +135,14 @@ class convert():
         **kwds: dict
             keyword arguments for output HDF5 converter
         """
-        # split extension from HDF5 file
-        if isinstance(self.filename, str):
-            fileBasename,fileExtension=os.path.splitext(self.filename)
-        else:
-            fileBasename,fileExtension=os.path.splitext(self.filename.filename)
         # output HDF5 file
-        hdf5_file = os.path.expanduser(f'{fileBasename}.h5')
+        if isinstance(self.filename, (str, pathlib.Path)):
+            hdf5_file = pathlib.Path(self.filename).with_suffix('.h5')
+        else:
+            hdf5_file = pathlib.Path(self.filename.filename).with_suffix('.h5')
         # copy everything from the HDF5 file
         with h5py.File(self.filename,mode='r') as source:
-            dest = h5py.File(hdf5_file,mode='w')
+            dest = h5py.File(hdf5_file, mode='w')
             # value checks on output HDF5
             if not hasattr(dest, 'create_dataset'):
                 raise ValueError('dest must be a group, got {!r}'.format(dest))
@@ -270,19 +261,17 @@ class convert():
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file
-        if isinstance(self.filename, str):
-            fileBasename,fileExtension=os.path.splitext(self.filename)
-            # extract parameters from ICESat2 HDF5 file
-            SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
-                rx.findall(os.path.basename(self.filename)).pop()
+        if isinstance(self.filename, (str, pathlib.Path)):
+            hdf5_file = pathlib.Path(self.filename)
         else:
-            fileBasename,fileExtension=os.path.splitext(self.filename.filename)
-            SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
-                rx.findall(os.path.basename(self.filename.filename)).pop()
+            hdf5_file = pathlib.Path(self.filename.filename)
+        # extract parameters from ICESat2 HDF5 file
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
+            rx.findall(hdf5_file.name).pop()
         # output file suffix for csv or tab-delimited text
         delimiter = ',' if self.reformat == 'csv' else '\t'
         # copy bare minimum variables from the HDF5 file to the ascii file
-        source = h5py.File(self.filename,mode='r')
+        source = h5py.File(self.filename, mode='r')
 
         # find valid beam groups by testing for particular variables
         if (PRD == 'ATL06'):
@@ -400,8 +389,9 @@ class convert():
             output = np.column_stack([values[v][valid] for v in vnames])
 
             # output ascii file
-            ascii_file = f'{fileBasename}_{gtx}.{self.reformat}'
-            fid = open(os.path.expanduser(ascii_file), mode='w', encoding='utf8')
+            granule = f'{hdf5_file.stem}_{gtx}.{self.reformat}'
+            ascii_file = hdf5_file.parent.joinpath(granule)
+            fid = ascii_file.open(mode='w', encoding='utf8')
             # print YAML header to top of file
             fid.write('{0}:\n'.format('header'))
             # global attributes for file
@@ -460,13 +450,13 @@ class convert():
             r'(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
         # split extension from HDF5 file
         # extract parameters from ICESat2 HDF5 file
-        if isinstance(self.filename, str):
-            # extract parameters from ICESat2 HDF5 file
-            SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
-                rx.findall(os.path.basename(self.filename)).pop()
+        if isinstance(self.filename, (str, pathlib.Path)):
+            hdf5_file = pathlib.Path(self.filename)
         else:
-            SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
-                rx.findall(os.path.basename(self.filename.filename)).pop()
+            hdf5_file = pathlib.Path(self.filename.filename)
+        # extract parameters from ICESat2 HDF5 file
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYCL,GRAN,RL,VERS,AUX = \
+            rx.findall(hdf5_file.name).pop()
 
         # copy bare minimum variables from the HDF5 file to pandas data frame
         source = h5py.File(self.filename,mode='r')

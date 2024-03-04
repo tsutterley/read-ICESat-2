@@ -83,6 +83,7 @@ import os
 import re
 import shutil
 import logging
+import pathlib
 import argparse
 import traceback
 import posixpath
@@ -117,20 +118,26 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
     local_files = []
     # for each input file
     for input_file in file_list:
+        # absolute path for input file
+        input_file = pathlib.Path(input_file).expanduser().absolute()
         # extract parameters from ICESat-2 ATLAS HDF5 file name
         SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
-            rx.findall(input_file).pop()
+            rx.findall(input_file.name).pop()
         # get directories from remote directory
         product_directory = f'{PRODUCT}.{RL}'
         sd = f'{YY}.{MM}.{DD}'
         PATH = [HOST,'ATLAS',product_directory,sd]
         # local and remote data directories
-        remote_dir=posixpath.join(*PATH)
-        temp=os.path.dirname(input_file) if (DIRECTORY is None) else DIRECTORY
-        local_dir=os.path.expanduser(temp) if FLATTEN else os.path.join(temp,sd)
+        remote_dir = posixpath.join(*PATH)
+        if (DIRECTORY is None):
+            local_dir = input_file.parent
+        else:
+            local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+        # append subdirectory
+        if not FLATTEN:
+            local_dir = local_dir.joinpath(sd)
         # create output directory if not currently existing
-        if not os.access(local_dir, os.F_OK):
-            os.makedirs(local_dir, MODE)
+        local_dir = local_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
         # compile regular expression operator for file parameters
         args = (PRODUCT,TRK,CYC,GRN,RL,regex_suffix)
         R1 = re.compile(remote_regex_pattern.format(*args), re.VERBOSE)
@@ -152,7 +159,7 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
             original_files.append(input_file)
             # remote and local versions of the file
             remote_files.append(posixpath.join(remote_dir,colname))
-            local_files.append(os.path.join(local_dir,colname))
+            local_files.append(local_dir.joinpath(colname))
             remote_mtimes.append(remote_mtime)
 
     # download in series if PROCESSES = 0
@@ -160,11 +167,11 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         # download each associated ICESat-2 data file
         for i,input_file in enumerate(original_files):
             # download associated ICESat-2 files with NSIDC server
-            args = (remote_files[i],remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
+            args = (remote_files[i], remote_mtimes[i], local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, MODE=MODE)
             out = http_pull_file(*args,**kwds)
             # print the output string
-            logging.info(f'{input_file}\n{out}')
+            logging.info(f'{str(input_file)}\n{out}')
     else:
         # set multiprocessing start method
         ctx = mp.get_context("fork")
@@ -174,10 +181,10 @@ def nsidc_icesat2_associated(file_list, PRODUCT, DIRECTORY=None,
         output = []
         for i,input_file in enumerate(original_files):
             # download associated ICESat-2 files with NSIDC server
-            args = (remote_files[i],remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT,RETRY=RETRY,MODE=MODE)
-            out=pool.apply_async(multiprocess_sync,args=args,kwds=kwds)
-            output.append(f'{input_file}\n{out}')
+            args = (remote_files[i], remote_mtimes[i], local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, MODE=MODE)
+            out=pool.apply_async(multiprocess_sync, args=args, kwds=kwds)
+            output.append(f'{str(input_file)}\n{out}')
         # start multiprocessing jobs
         # close the pool
         # prevents more tasks from being submitted to the pool
@@ -203,23 +210,31 @@ def multiprocess_sync(*args, **kwds):
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
-def http_pull_file(remote_file,remote_mtime,local_file,
-    TIMEOUT=None, RETRY=1, MODE=0o775):
+def http_pull_file(remote_file, remote_mtime, local_file,
+        TIMEOUT=None,
+        RETRY=1,
+        MODE=0o775
+    ):
     # Printing files transferred
-    output = f'{remote_file} -->\n\t{local_file}\n'
+    output = f'{str(remote_file)} -->\n\t{str(local_file)}\n'
     # chunked transfer encoding size
     CHUNK = 16 * 1024
     # attempt to download a file up to a set number of times
     retry_download(remote_file, LOCAL=local_file, TIMEOUT=TIMEOUT,
         RETRY=RETRY, CHUNK=CHUNK)
     # keep remote modification time of file and local access time
-    os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-    os.chmod(local_file, MODE)
+    os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+    local_file.chmod(mode=MODE)
     # return the output string
     return output
 
 # PURPOSE: Try downloading a file up to a set number of times
-def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
+def retry_download(remote_file,
+        LOCAL=None,
+        TIMEOUT=None,
+        RETRY=1,
+        CHUNK=0
+    ):
     # attempt to download up to the number of retries
     retry_counter = 0
     while (retry_counter < RETRY):
@@ -228,8 +243,8 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
             # Create and submit request.
             # There are a range of exceptions that can be thrown here
             # including HTTPError and URLError.
-            request=is2tk.utilities.urllib2.Request(remote_file)
-            response=is2tk.utilities.urllib2.urlopen(request,
+            request = is2tk.utilities.urllib2.Request(remote_file)
+            response = is2tk.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
             # get the length of the remote file
             remote_length = int(response.headers['content-length'])
@@ -237,7 +252,7 @@ def retry_download(remote_file, LOCAL=None, TIMEOUT=None, RETRY=1, CHUNK=0):
             # transfer should work with ascii and binary data formats
             with open(LOCAL, 'wb') as f:
                 shutil.copyfileobj(response, f, CHUNK)
-            local_length = os.path.getsize(LOCAL)
+            local_length = LOCAL.lstat().st_size
         except:
             pass
         else:
@@ -270,7 +285,7 @@ def arguments():
     PRODUCTS['ATL13'] = 'Inland Water Surface Height'
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='ICESat-2 products to associate')
     # NASA Earthdata credentials
     parser.add_argument('--user','-U',
@@ -280,13 +295,13 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory')
     # ICESat-2 parameters
     # ICESat-2 data product

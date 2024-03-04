@@ -210,13 +210,11 @@ def main():
     info(comm.rank, comm.size)
     if (comm.rank == 0):
         logging.info(f'{str(args.file)} -->')
-    # input granule basename
-    GRANULE = args.file.name
 
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})_(\d{2})(\d{2})_'
         r'(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(GRANULE).pop()
+    SUB,PRD,TRK,GRAN,SCYC,ECYC,RL,VERS,AUX = rx.findall(args.file.name).pop()
     # get output directory from input file
     if args.output_directory is None:
         args.output_directory = args.file.parent
@@ -246,7 +244,7 @@ def main():
         epsg = None
 
     # Broadcast Shapely multipolygon objects and projection
-    mpoly_obj = comm.bcast(mpoly_obj, root=0)
+    poly_dict = comm.bcast(poly_dict, root=0)
     epsg = comm.bcast(epsg, root=0)
 
     # pyproj transformer for converting lat/lon to polar stereographic
@@ -474,11 +472,11 @@ def main():
         file_format = '{0}_{1}_{2}{3}_{4}{5}_{6}_{7}{8}.h5'
         output_file = args.output_directory.joinpath(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_mask_attrs,
             FILENAME=output_file,
-            INPUT=GRANULE,
+            INPUT=args.file.name,
             FILL_VALUE=IS2_atl11_fill,
             DIMENSIONS=IS2_atl11_dims,
             CLOBBER=True)

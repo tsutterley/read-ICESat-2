@@ -41,8 +41,8 @@ import sys
 import os
 import re
 import logging
+import pathlib
 import argparse
-import numpy as np
 
 # PURPOSE: create argument parser
 def arguments():
@@ -65,8 +65,8 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory for symbolic link')
     # ICESat-2 parameters
     # ICESat-2 data product
@@ -98,10 +98,10 @@ def arguments():
         help='ICESat-2 Reference Ground Tracks (RGTs) to create symbolic links')
     # ICESat-2 Science Computing Facility (SCF) parameters
     parser.add_argument('--scf_incoming',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Directory on the SCF where the rscf sends PANS')
     parser.add_argument('--scf_outgoing',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Directory on the SCF where the data resides')
     # directory structure on SCF
     parser.add_argument('--flatten','-F',
@@ -136,6 +136,9 @@ def main():
 # PURPOSE: copy ICESat-2 files to data directory with data subdirectories
 def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
     RELEASE, VERSIONS, GRANULES, CYCLES, TRACKS, FLATTEN=True, MODE=0o775):
+    # check that the base directory exists
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    base_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
     # find ICESat-2 HDF5 files in the subdirectory for product and release
     if TRACKS:
         regex_track = r'|'.join([rf'{T:04d}' for T in TRACKS])
@@ -162,37 +165,34 @@ def symbolic_ICESat2_files(base_dir, scf_incoming, scf_outgoing, PRODUCT,
     # find files within scf_outgoing
     if FLATTEN:
         # find files within flattened scf_outgoing
-        file_transfers = [f for f in os.listdir(scf_outgoing) if rx.match(f)]
+        file_transfers = [f for f in scf_outgoing.iterdir() if rx.match(f.name)]
     else:
         # create list of all file transfers
         file_transfers = []
         # find each subdirectory within scf_outgoing
-        s = [s for s in os.listdir(scf_outgoing) if re.match(r'(\d+)\.(\d+)\.(\d+)',s)]
+        s = [s for s in scf_outgoing.listdir() if re.match(r'(\d+)\.(\d+)\.(\d+)',s.name)]
         for sd in s:
             # find files within subdirectory
-            file_transfers.extend([os.path.join(sd,f)
-                for f in os.listdir(os.path.join(scf_outgoing,sd)) if rx.match(f)])
+            file_transfers.extend([f for f in sd.iterdir() if rx.match(f.name)])
 
     # for each file to transfer
     for f in sorted(file_transfers):
         # extract parameters from file
-        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = rx.findall(f).pop()
+        SUB,PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = rx.findall(f.name).pop()
         # put symlinks in directories similar to NSIDC
         # check if data directory exists and recursively create if not
-        local_dir = os.path.join(base_dir, f'{YY}.{MM}.{DD}')
-        os.makedirs(local_dir,MODE) if not os.path.exists(local_dir) else None
+        destination_file = base_dir.joinpath(f'{YY}.{MM}.{DD}', f.name)
+        destination_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
         # input source file and output symbolic file
-        source_file = os.path.join(scf_outgoing,f)
-        destination_file = os.path.join(local_dir, os.path.basename(f))
         # attempt to create the symbolic link else continue
         try:
             # create symbolic link of file from scf_outgoing to local
-            os.symlink(source_file, destination_file)
+            os.symlink(f, destination_file)
         except FileExistsError:
             continue
         else:
             # print original and symbolic link of file
-            logging.info(f'{source_file} -->\n\t{destination_file}')
+            logging.info(f'{str(f)} -->\n\t{str(destination_file)}')
 
 # run main program
 if __name__ == '__main__':

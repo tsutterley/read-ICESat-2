@@ -109,6 +109,7 @@ import sys
 import os
 import re
 import logging
+import pathlib
 import argparse
 import warnings
 import posixpath
@@ -191,7 +192,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
     # build lists of files or use existing index file
     if INDEX:
         # read the index file, split at lines and remove all commented lines
-        with open(os.path.expanduser(INDEX), mode='r', encoding='utf8') as f:
+        INDEX = pathlib.Path(INDEX).expanduser().absolute()
+        with INDEX.open(mode='r', encoding='utf8') as f:
             files = [i for i in f.read().splitlines() if re.match(r'^(?!\#)',i)]
         # regular expression operator for extracting information from files
         rx = re.compile(r'(ATL\d{2})(-\d{2})?_(\d{4})(\d{2})(\d{2})(\d{2})'
@@ -199,7 +201,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
         # for each line in the index
         for f in files:
             # extract parameters from ICESat-2 ATLAS HDF5 file
-            PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(f).pop()
+            PRD,HEM,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
+                rx.findall(f).pop()
             # get directories from remote directory
             product_directory = f'{PRD}.{RL}'
             sd = f'{YY}.{MM}.{DD}'
@@ -216,7 +219,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
-                pattern=f.strip())
+                pattern=f.strip()
+            )
             # print if file was not found
             if not names:
                 logging.critical(error)
@@ -252,7 +256,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                 timeout=TIMEOUT,
                 parser=parser,
                 pattern=R2,
-                sort=True)
+                sort=True
+            )
             # print if subdirectory was not found
             if not remote_sub:
                 logging.critical(error)
@@ -274,7 +279,8 @@ def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,
                     timeout=TIMEOUT,
                     parser=parser,
                     pattern=R1,
-                    sort=True)
+                    sort=True
+                )
                 # print if file was not found
                 if not names:
                     logging.critical(error)
@@ -373,8 +379,8 @@ def retry_download(remote_file, BUCKET=None, LOCAL=None, TIMEOUT=None, RETRY=1):
             # Create and submit request.
             # There are a range of exceptions that can be thrown here
             # including HTTPError and URLError.
-            request=is2tk.utilities.urllib2.Request(remote_file)
-            response=is2tk.utilities.urllib2.urlopen(request,
+            request = is2tk.utilities.urllib2.Request(remote_file)
+            response = is2tk.utilities.urllib2.urlopen(request,
                 timeout=TIMEOUT)
             # get the length of the remote file
             remote_length = int(response.headers['content-length'])
@@ -415,8 +421,8 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # AWS credentials, bucket and path
     parser.add_argument('--aws-access-key-id',
@@ -477,7 +483,7 @@ def arguments():
         help='Sync ICESat-2 auxiliary files for each HDF5 file')
     # sync using files from an index
     group.add_argument('--index','-i',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Input index of ICESat-2 files to sync')
     # output subdirectories
     parser.add_argument('--flatten','-F',

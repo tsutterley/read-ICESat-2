@@ -67,6 +67,7 @@ import os
 import re
 import pyproj
 import logging
+import pathlib
 import datetime
 import argparse
 import warnings
@@ -123,12 +124,12 @@ def arguments():
     parser.convert_arg_line_to_args = is2tk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL06 file to run')
     # working data directory for ice shelf shapefiles
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory for mask files')
     # buffer in kilometers for extracting ice shelves (0.0 = exact)
     parser.add_argument('--buffer','-B',
@@ -157,8 +158,9 @@ def set_hemisphere(GRANULE):
 # PURPOSE: load the polygon object for the region of interest
 def load_ice_shelves(base_dir, BUFFER, HEM):
     # read ice shelves polylines from shapefile (using splat operator)
-    region_shapefile = os.path.join(base_dir,*ice_shelf_file[HEM])
-    shape_input = shapefile.Reader(region_shapefile)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    region_shapefile = base_dir.pathjoin(*ice_shelf_file[HEM])
+    shape_input = shapefile.Reader(str(region_shapefile))
     # reading regional shapefile
     shape_entities = shape_input.shapes()
     shape_attributes = shape_input.records()
@@ -205,15 +207,15 @@ def main():
     # output module information for process
     info(comm.rank,comm.size)
     if (comm.rank == 0):
-        logging.info(f'{args.file} -->')
+        logging.info(f'{str(args.file)} -->')
 
     # Open the HDF5 file for reading
+    args.file = pathlib.Path(args.file).expanduser().absolute()
     fileID = h5py.File(args.file, 'r', driver='mpio', comm=comm)
-    DIRECTORY = os.path.dirname(args.file)
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file.name).pop()
     # set the hemisphere flag based on ICESat-2 granule
     HEM = set_hemisphere(GRN)
     # pyproj transformer for converting lat/lon to polar stereographic
@@ -451,15 +453,15 @@ def main():
         # output HDF5 files with ice shelf masks
         fargs = (PRD,'ICE_SHELF_MASK',YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX)
         file_format = '{0}_{1}_{2}{3}{4}{5}{6}{7}_{8}{9}{10}_{11}_{12}{13}.h5'
-        output_file = os.path.join(DIRECTORY,file_format.format(*fargs))
+        output_file = args.file.with_name(file_format.format(*fargs))
         # print file information
-        logging.info(f'\t{output_file}')
+        logging.info(f'\t{str(output_file)}')
         # write to output HDF5 file
         HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_mask_attrs, CLOBBER=True,
-            INPUT=os.path.basename(args.file), FILL_VALUE=IS2_atl06_fill,
+            INPUT=args.file.name, FILL_VALUE=IS2_atl06_fill,
             FILENAME=output_file)
         # change the permissions mode
-        os.chmod(output_file, args.mode)
+        output_file.chmod(mode=args.mode)
     # close the input file
     fileID.close()
 
@@ -473,7 +475,8 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
 
     # create HDF5 records
     h5 = {}
@@ -584,7 +587,7 @@ def HDF5_ATL06_mask_write(IS2_atl06_mask, IS2_atl06_attrs, INPUT=None,
     fileID.attrs['references'] = 'https://nsidc.org/data/icesat-2'
     fileID.attrs['processing_level'] = '4'
     # add attributes for input ATL06 file
-    fileID.attrs['input_files'] = os.path.basename(INPUT)
+    fileID.attrs['input_files'] = pathlib.Path(INPUT).name
     # find geospatial and temporal ranges
     lnmn,lnmx,ltmn,ltmx,tmn,tmx = (np.inf,-np.inf,np.inf,-np.inf,np.inf,-np.inf)
     for gtx in beams:

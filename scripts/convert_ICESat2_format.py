@@ -76,6 +76,7 @@ import sys
 import os
 import re
 import logging
+import pathlib
 import argparse
 import traceback
 import multiprocessing as mp
@@ -130,8 +131,8 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
     for p in PRODUCTS:
         logging.info(f'PRODUCT={p}')
         # local file directory
-        ddir = os.path.join(DIRECTORY,f'{p}.{RELEASE}')
-        subdirectories = [sd for sd in os.listdir(ddir) if R2.match(sd)]
+        ddir = DIRECTORY.joinpath(f'{p}.{RELEASE}')
+        subdirectories = [sd for sd in ddir.iterdir() if R2.match(sd.name)]
         # compile regular expression operator for product, release and version
         args = (p,regex_track,regex_cycle,regex_granule,RELEASE,regex_version)
         R1 = re.compile(regex_pattern.format(*args), re.VERBOSE)
@@ -139,16 +140,19 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         for sd in subdirectories:
             # find matching files (for granule, release, version, track)
             # add to list of HDF5 files
-            hdf5_file_list.extend([os.path.join(ddir,sd,f) for f in
-                os.listdir(os.path.join(ddir,sd)) if R1.match(f)])
+            hdf5_file_list.extend([f for f in sd.iterdir() if R1.match(f.name)])
 
     # convert in series if PROCESSES = 0
     if (PROCESSES == 0):
         # convert each ICESat-2 data file
         for f in hdf5_file_list:
             # convert ICESat-2 file to output format
-            output = convert_HDF5(f,FORMAT=FORMAT,CHUNKS=CHUNKS,
-                CLOBBER=CLOBBER,MODE=MODE)
+            output = convert_HDF5(f,
+                FORMAT=FORMAT,
+                CHUNKS=CHUNKS,
+                CLOBBER=CLOBBER,
+                MODE=MODE
+            )
             # print the output string
             logging.info(output)
     else:
@@ -160,10 +164,13 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         output = []
         for hdf5_file in hdf5_file_list:
             # convert ICESat-2 file to output format
-            kwds = dict(FORMAT=FORMAT, CHUNKS=CHUNKS, CLOBBER=CLOBBER,
-                MODE=MODE)
+            kwds = dict(FORMAT=FORMAT,
+                CHUNKS=CHUNKS,
+                CLOBBER=CLOBBER,
+                MODE=MODE
+            )
             output.append(pool.apply_async(multiprocess_convert,
-                args=(hdf5_file,),kwds=kwds))
+                args=(hdf5_file,), kwds=kwds))
         # start multiprocessing jobs
         # close the pool
         # prevents more tasks from being submitted to the pool
@@ -178,8 +185,12 @@ def convert_ICESat2_format(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
 def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
     MODE=0o775):
     try:
-        output = convert_HDF5(hdf5_file,FORMAT=FORMAT,CHUNKS=CHUNKS,
-            CLOBBER=CLOBBER,MODE=MODE)
+        output = convert_HDF5(hdf5_file,
+            FORMAT=FORMAT,
+            CHUNKS=CHUNKS,
+            CLOBBER=CLOBBER,
+            MODE=MODE
+        )
     except Exception as exc:
         # if there has been an error exception
         # print the type, value, and stack trace of the
@@ -190,25 +201,28 @@ def multiprocess_convert(hdf5_file, FORMAT=None, CHUNKS=None, CLOBBER=False,
         return output
 
 # PURPOSE: convert the HDF5 file and change permissions
-def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
-    # split extension from input HDF5 file
-    fileBasename,fileExtension = os.path.splitext(hdf5_file)
+def convert_HDF5(input_file,
+        FORMAT=None,
+        CHUNKS=None,
+        CLOBBER=False,
+        MODE=0o775
+    ):
     # convert HDF5 file into output format
     if (FORMAT == 'zarr'):
-        output_file = f'{fileBasename}.zarr'
+        output_file = input_file.with_suffix('.zarr')
     elif (FORMAT == 'HDF5'):
-        output_file = f'{fileBasename}.h5'
+        output_file = input_file.with_suffix('.h5')
     # if output file exists in file system: check if HDF5 file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
     # last modification time of HDF5 file
-    hdf5_mtime = os.stat(hdf5_file).st_mtime
+    input_mtime = input_file.stat().st_mtime
     # check if local version of file exists
-    if os.access(output_file, os.F_OK):
+    if output_file.exists():
         # check last modification time of output file
-        zarr_mtime = os.stat(output_file).st_mtime
+        output_mtime = output_file.stat().st_mtime
         # if HDF5 file is newer: overwrite the output file
-        if (hdf5_mtime > zarr_mtime):
+        if (input_mtime > output_mtime):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
@@ -218,13 +232,14 @@ def convert_HDF5(hdf5_file,FORMAT=None,CHUNKS=None,CLOBBER=False,MODE=0o775):
     # if file does not exist, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # output string for printing files transferred
-        output = '{0} -->\n\t{1}{2}\n'.format(hdf5_file,output_file,OVERWRITE)
+        args = (str(input_file), str(output_file), OVERWRITE)
+        output = '{0} -->\n\t{1}{2}\n'.format(*args)
         # copy everything from the HDF5 file to the output file
-        conv = is2tk.convert(filename=hdf5_file, reformat=FORMAT)
+        conv = is2tk.convert(filename=input_file, reformat=FORMAT)
         conv.file_converter(chunks=CHUNKS)
         # keep remote modification time of file and local access time
-        os.utime(output_file, (os.stat(output_file).st_atime, hdf5_mtime))
-        os.chmod(output_file, MODE)
+        os.utime(output_file, (output_file.stat().st_atime, input_mtime))
+        output_file.chmod(mode=MODE)
         # return the output string
         return output
 
@@ -255,8 +270,8 @@ def arguments():
         help='ICESat-2 products to convert')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
         help='Working data directory')
     # years of data to run
     parser.add_argument('--year','-Y',

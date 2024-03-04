@@ -203,18 +203,18 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
             sd = f'{YY}.{MM}.{DD}'
             PATH = [HOST,'ATLAS',product_directory,sd]
             remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
-            # local directory for product and subdirectory
-            if FLATTEN:
-                local_dir = copy.copy(DIRECTORY)
-            else:
-                local_dir = DIRECTORY.joinpath(product_directory,sd)
+            # local directory
+            local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+            if not FLATTEN:
+                local_dir = local_dir.joinpath(product_directory,sd)
             # find ICESat-2 data file to get last modified time
             # find matching files (for granule, release, version, track)
             names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
                 build=False,
                 timeout=TIMEOUT,
                 parser=parser,
-                pattern=f.strip())
+                pattern=f.strip()
+            )
             # print if file was not found
             if not names:
                 logging.critical(error)
@@ -257,14 +257,13 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                 continue
             # for each remote subdirectory
             for sd in remote_sub:
-                # local directory for product and subdirectory
-                if FLATTEN:
-                    local_dir = copy.copy(DIRECTORY)
-                else:
-                    local_dir = DIRECTORY.joinpath(product_directory,sd)
+                # local directory
+                local_dir = pathlib.Path(DIRECTORY).expanduser().absolute()
+                if not FLATTEN:
+                    local_dir = local_dir.joinpath(product_directory,sd)
                 logging.info(f"Building file list: {sd}")
                 # find ICESat-2 data files
-                PATH = [HOST,'ATLAS',product_directory,sd]
+                PATH = [HOST, 'ATLAS', product_directory, sd]
                 remote_dir = posixpath.join(HOST,'ATLAS',product_directory,sd)
                 # find matching files (for granule, release, version, track)
                 names,lastmod,error = is2tk.utilities.nsidc_list(PATH,
@@ -272,7 +271,8 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
                     timeout=TIMEOUT,
                     parser=parser,
                     pattern=R1,
-                    sort=True)
+                    sort=True
+                )
                 # print if file was not found
                 if not names:
                     logging.critical(error)
@@ -289,9 +289,14 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         # sync each ICESat-2 data file
         for i,remote_file in enumerate(remote_files):
             # sync ICESat-2 files with NSIDC server
-            args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            args = (remote_file, remote_mtimes[i], local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT,
+                RETRY=RETRY,
+                LIST=LIST,
+                CLOBBER=CLOBBER,
+                CHECKSUM=CHECKSUM,
+                MODE=MODE
+            )
             output = http_pull_file(*args, **kwds)
             # print the output string
             logging.info(output) if output else None
@@ -304,9 +309,14 @@ def nsidc_icesat2_sync(DIRECTORY, PRODUCTS, RELEASE, VERSIONS, GRANULES,
         out = []
         for i,remote_file in enumerate(remote_files):
             # sync ICESat-2 files with NSIDC server
-            args = (remote_file,remote_mtimes[i],local_files[i])
-            kwds = dict(TIMEOUT=TIMEOUT, RETRY=RETRY, LIST=LIST,
-                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            args = (remote_file, remote_mtimes[i], local_files[i])
+            kwds = dict(TIMEOUT=TIMEOUT,
+                RETRY=RETRY,
+                LIST=LIST,
+                CLOBBER=CLOBBER,
+                CHECKSUM=CHECKSUM,
+                MODE=MODE
+            )
             out.append(pool.apply_async(multiprocess_sync,
                 args=args,kwds=kwds))
         # start multiprocessing jobs

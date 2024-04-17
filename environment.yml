@@ -21,6 +21,7 @@ dependencies:
   - scikit-learn
   - scipy
   - scp
+  - timescale
   - zarr
   - pip:
      - git+https://github.com/tsutterley/yapc.git

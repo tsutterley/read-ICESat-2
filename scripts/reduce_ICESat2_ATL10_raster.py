@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL10_raster.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (04/2024)
 
 Create masks for reducing ICESat-2 ATL10 data using raster imagery
 
@@ -34,15 +34,16 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL/
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
+    timescale: Python tools for time and astronomical calculations
+        https://pypi.org/project/timescale/
 
 PROGRAM DEPENDENCIES:
     io/ATL10.py: reads ICESat-2 sea ice freeboard data files
-    convert_delta_time.py: converts from delta time into Julian and year-decimal
     spatial.py: utilities for reading and writing spatial data
-    time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
         refactored ICESat-2 data product read programs under io
@@ -535,24 +536,13 @@ def HDF5_ATL10_mask_write(IS2_atl10_mask, IS2_atl10_attrs, INPUT=None,
     fileID.attrs['geospatial_ellipsoid'] = "WGS84"
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
-    # convert start and end time from ATLAS SDP seconds into GPS seconds
-    atlas_sdp_gps_epoch=IS2_atl10_mask['ancillary_data']['atlas_sdp_gps_epoch']
-    gps_seconds = atlas_sdp_gps_epoch + np.array([tmn,tmx])
-    # calculate leap seconds
-    leaps = is2tk.time.count_leap_seconds(gps_seconds)
-    # convert from seconds since 1980-01-06T00:00:00 to Modified Julian days
-    MJD = is2tk.time.convert_delta_time(gps_seconds - leaps,
-        epoch1=(1980,1,6,0,0,0), epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
-    # convert to calendar date
-    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(MJD + 2400000.5,
-        format='tuple')
+    # convert start and end time from ATLAS SDP seconds into timescale
+    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+        epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
+    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
-        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
-    fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
-        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
-    fileID.attrs['time_coverage_end'] = tce.isoformat()
+    fileID.attrs['time_coverage_start'] = str(dt[0])
+    fileID.attrs['time_coverage_end'] = str(dt[1])
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
     # add software information
     fileID.attrs['software_reference'] = is2tk.version.project_name

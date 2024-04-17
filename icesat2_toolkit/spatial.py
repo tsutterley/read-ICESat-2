@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (03/2024)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 03/2024: can calculate polar stereographic distortion for distances
     Updated 05/2023: using pathlib to define and expand paths
     Updated 04/2023: copy inputs in cartesian to not modify original arrays
         added iterative methods for converting from cartesian to geodetic
@@ -978,14 +979,20 @@ def _zhu_closed_form(
     # return latitude, longitude and height
     return (lon, lat, h)
 
-def scale_areas(
+def scale_areas(*args, **kwargs):
+    warnings.warn("Deprecated. Please use scale_factors instead",
+        DeprecationWarning)
+    return scale_factors(*args, **kwargs)
+
+def scale_factors(
         lat: np.ndarray,
-        flat: float=1.0/298.257223563,
-        ref: float=70.0
+        flat: float = 1.0/298.257223563,
+        reference_latitude: float = 70.0,
+        metric: str = 'area'
     ):
     """
-    Calculates area scaling factors for a polar stereographic projection
-    including special case of at the exact pole [1]_ [2]_
+    Calculates scaling factors to account for polar stereographic
+    distortion including special case of at the exact pole [1]_ [2]_
 
     Parameters
     ----------
@@ -993,13 +1000,18 @@ def scale_areas(
         latitude (degrees north)
     flat: float, default 1.0/298.257223563
         ellipsoidal flattening
-    ref: float, default 70.0
+    reference_latitude: float, default 70.0
         reference latitude (true scale latitude)
+    metric: str, default 'area'
+        metric to calculate scaling factors
+
+            - ``'distance'``: scale factors for distance
+            - ``'area'``: scale factors for area
 
     Returns
     -------
     scale: np.ndarray
-        area scaling factors at input latitudes
+        scaling factors at input latitudes
 
     References
     ----------
@@ -1007,10 +1019,11 @@ def scale_areas(
         Geological Survey Bulletin 1532, U.S. Government Printing Office, (1982).
     .. [2] JPL Technical Memorandum 3349-85-101
     """
+    assert metric.lower() in ['distance', 'area'], 'Unknown metric'
     # convert latitude from degrees to positive radians
     theta = np.abs(lat)*np.pi/180.0
     # convert reference latitude from degrees to positive radians
-    theta_ref = np.abs(ref)*np.pi/180.0
+    theta_ref = np.abs(reference_latitude)*np.pi/180.0
     # square of the eccentricity of the ellipsoid
     # ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
     ecc2 = 2.0*flat - flat**2
@@ -1027,8 +1040,12 @@ def scale_areas(
     # distance scaling
     k = (mref/m)*(t/tref)
     kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
-    # area scaling
-    scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/(kp**2), 1.0/(k**2))
+    if (metric.lower() == 'distance'):
+        # distance scaling
+        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/kp, 1.0/k)
+    elif (metric.lower() == 'area'):
+        # area scaling
+        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/(kp**2), 1.0/(k**2))
     return scale
 
 # PURPOSE: check a specified 2D point is inside a specified 2D polygon

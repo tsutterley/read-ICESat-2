@@ -15,10 +15,10 @@ OUTPUTS:
     decimal: time in year-decimal
 
 PYTHON DEPENDENCIES:
-    numpy: Scientific Computing Tools For Python (https://numpy.org)
-
-PROGRAM DEPENDENCIES:
-    time.py: Utilities for calculating time operations
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+    timescale: Python tools for time and astronomical calculations
+        https://pypi.org/project/timescale/
 
 UPDATE HISTORY:
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -28,7 +28,7 @@ UPDATE HISTORY:
     Written 05/2020
 """
 import numpy as np
-import icesat2_toolkit.time
+import timescale.time
 
 # PURPOSE: convert time from delta seconds into Julian and year-decimal
 def convert_delta_time(delta_time, gps_epoch=1198800018.0):
@@ -53,15 +53,15 @@ def convert_delta_time(delta_time, gps_epoch=1198800018.0):
     delta_time = np.atleast_1d(delta_time)
     # calculate gps time from delta_time
     gps_seconds = gps_epoch + delta_time
-    time_leaps = icesat2_toolkit.time.count_leap_seconds(gps_seconds)
+    time_leaps = timescale.time.count_leap_seconds(gps_seconds)
     # calculate Julian time (UTC) by converting to MJD and then adding offset
-    time_julian = 2400000.5 + icesat2_toolkit.time.convert_delta_time(
+    time_julian = 2400000.5 + timescale.time.convert_delta_time(
         gps_seconds - time_leaps, epoch1=(1980,1,6,0,0,0),
         epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
     # convert to calendar date
-    Y,M,D,h,m,s = icesat2_toolkit.time.convert_julian(time_julian,format='tuple')
+    Y,M,D,h,m,s = timescale.time.convert_julian(time_julian,format='tuple')
     # calculate year-decimal time (UTC)
-    time_decimal = icesat2_toolkit.time.convert_calendar_decimal(Y,M,day=D,
+    time_decimal = timescale.time.convert_calendar_decimal(Y,M,day=D,
         hour=h,minute=m,second=s)
     # return both the Julian and year-decimal formatted dates
     return dict(julian=np.squeeze(time_julian),decimal=np.squeeze(time_decimal))

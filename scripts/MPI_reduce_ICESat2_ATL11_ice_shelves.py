@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL11_ice_shelves.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (04/2024)
 
 Create masks for reducing ICESat-2 data into regions of floating ice shelves
 
@@ -32,13 +32,14 @@ PYTHON DEPENDENCIES:
         https://github.com/GeospatialPython/pyshp
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
+    timescale: Python tools for time and astronomical calculations
+        https://pypi.org/project/timescale/
 
 PROGRAM DEPENDENCIES:
-    convert_delta_time.py: converts from delta time into Julian and year-decimal
-    time.py: Utilities for calculating time operations
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
     Updated 07/2022: place some imports behind try/except statements
@@ -623,18 +624,13 @@ def HDF5_ATL11_mask_write(IS2_atl11_mask, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['geospatial_ellipsoid'] = "WGS84"
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
-    # convert start and end time from ATLAS SDP seconds into UTC time
-    time_utc = is2tk.convert_delta_time(np.array([tmn,tmx]))
-    # convert to calendar date
-    YY,MM,DD,HH,MN,SS = is2tk.time.convert_julian(time_utc['julian'],
-        format='tuple')
+    # convert start and end time from ATLAS SDP seconds into timescale
+    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+        epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
+    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
-    tcs = datetime.datetime(int(YY[0]), int(MM[0]), int(DD[0]),
-        int(HH[0]), int(MN[0]), int(SS[0]), int(1e6*(SS[0] % 1)))
-    fileID.attrs['time_coverage_start'] = tcs.isoformat()
-    tce = datetime.datetime(int(YY[1]), int(MM[1]), int(DD[1]),
-        int(HH[1]), int(MN[1]), int(SS[1]), int(1e6*(SS[1] % 1)))
-    fileID.attrs['time_coverage_end'] = tce.isoformat()
+    fileID.attrs['time_coverage_start'] = str(dt[0])
+    fileID.attrs['time_coverage_end'] = str(dt[1])
     fileID.attrs['time_coverage_duration'] = f'{tmx-tmn:0.0f}'
     # add software information
     fileID.attrs['software_reference'] = is2tk.version.project_name

@@ -79,6 +79,5 @@ setup(
     keywords=keywords,
     packages=find_packages(),
     install_requires=install_requires,
-    scripts=scripts,
-    include_package_data=True,
+    scripts=scripts
 )

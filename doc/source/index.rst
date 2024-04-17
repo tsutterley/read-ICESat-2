@@ -38,7 +38,6 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     api_reference/io/ATL11.rst
     api_reference/io/ATL12.rst
     api_reference/spatial.rst
-    api_reference/time.rst
     api_reference/tools.rst
     api_reference/utilities.rst
 

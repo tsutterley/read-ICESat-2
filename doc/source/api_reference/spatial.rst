@@ -58,6 +58,6 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.spatial._zhu_closed_form
 
-.. autofunction:: icesat2_toolkit.spatial.scale_areas
+.. autofunction:: icesat2_toolkit.spatial.scale_factors
 
 .. autofunction:: icesat2_toolkit.spatial.inside_polygon

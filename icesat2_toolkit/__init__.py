@@ -16,7 +16,6 @@ Documentation is available at https://read-icesat-2.readthedocs.io
 """
 import icesat2_toolkit.fit
 import icesat2_toolkit.spatial
-import icesat2_toolkit.time
 import icesat2_toolkit.utilities
 import icesat2_toolkit.version
 from icesat2_toolkit.convert_delta_time import convert_delta_time

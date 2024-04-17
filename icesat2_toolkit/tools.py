@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 tools.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (04/2024)
 Plotting tools and utilities
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://github.com/matplotlib/matplotlib
 
 UPDATE HISTORY:
+    Updated 04/2024: add catch for existing colormaps
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 12/2021: added custom colormap function for some common scales
@@ -136,7 +137,10 @@ def from_cpt(filename, use_extremes=True, **kwargs):
     if use_extremes:
         cmap = cmap.with_extremes(**extremes)
     # register colormap to be recognizable by cm.get_cmap()
-    cm.register_cmap(name=filename.stem, cmap=cmap)
+    try:
+        cm.register_cmap(name=filename.stem, cmap=cmap)
+    except:
+        pass
     # return the colormap
     return cmap
 
@@ -234,6 +238,9 @@ def custom_colormap(N, map_name, **kwargs):
     # create colormap for use in matplotlib
     cmap = colors.LinearSegmentedColormap(map_name, cdict, **kwargs)
     # register colormap to be recognizable by cm.get_cmap()
-    cm.register_cmap(name=map_name, cmap=cmap)
+    try:
+        cm.register_cmap(name=map_name, cmap=cmap)
+    except:
+        pass
     # return the colormap
     return cmap

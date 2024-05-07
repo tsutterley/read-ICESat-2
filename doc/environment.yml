@@ -20,6 +20,7 @@ dependencies:
   - scp
   - sphinx
   - sphinx_rtd_theme
+  - timescale
   - pip:
     - sphinx-argparse>=0.4
     - ..

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL11.py (03/2024)
+ATL11.py (05/2024)
 Read ICESat-2 ATL11 (Annual Land Ice Height) data files
 
 OPTIONS:
@@ -18,6 +18,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 05/2024: check if input filename is an open HDF5 file object
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL11 files
@@ -80,6 +81,8 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')
@@ -243,6 +246,8 @@ def find_pairs(FILENAME, **kwargs):
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')
@@ -300,6 +305,8 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')

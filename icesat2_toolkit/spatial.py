@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (05/2024)
 
 Utilities for reading and operating on spatial data
 
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pypi.python.org/pypi/GDAL
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 03/2024: can calculate polar stereographic distortion for distances
     Updated 05/2023: using pathlib to define and expand paths
     Updated 04/2023: copy inputs in cartesian to not modify original arrays
@@ -42,19 +43,14 @@ import logging
 import pathlib
 import warnings
 import numpy as np
+from icesat2_toolkit.utilities import import_dependency
+
 # attempt imports
-try:
-    import osgeo.gdal, osgeo.osr, osgeo.gdalconst
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("GDAL not available", ImportWarning)
-try:
-    import h5py
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("h5py not available", ImportWarning)
-try:
-    import netCDF4
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("netCDF4 not available", ImportWarning)
+gdal = import_dependency('osgeo.gdal')
+osr = import_dependency('osgeo.osr')
+gdalconst = import_dependency('osgeo.gdalconst')
+h5py = import_dependency('h5py')
+netCDF4 = import_dependency('netCDF4')
 
 def case_insensitive_filename(filename: str | pathlib.Path):
     """
@@ -193,7 +189,7 @@ def from_netCDF4(filename: str, **kwargs):
                 fileID.variables[grid_mapping].getncattr(att_name)
         # get the spatial projection reference information from wkt
         # and overwrite the file-level projection attribute (if existing)
-        srs = osgeo.osr.SpatialReference()
+        srs = osr.SpatialReference()
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     # convert to masked array if fill values
@@ -298,7 +294,7 @@ def from_HDF5(filename: str | pathlib.Path, **kwargs):
             dinput['attributes']['crs'][att_name] = att_val
         # get the spatial projection reference information from wkt
         # and overwrite the file-level projection attribute (if existing)
-        srs = osgeo.osr.SpatialReference()
+        srs = osr.SpatialReference()
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     # convert to masked array if fill values
@@ -331,16 +327,16 @@ def from_geotiff(filename: str, **kwargs):
     if (kwargs['compression'] == 'gzip'):
         # read as GDAL gzip virtual geotiff dataset
         mmap_name = f"/vsigzip/{str(case_insensitive_filename(filename))}"
-        ds = osgeo.gdal.Open(mmap_name)
+        ds = gdal.Open(mmap_name)
     elif (kwargs['compression'] == 'bytes'):
         # read as GDAL memory-mapped (diskless) geotiff dataset
         mmap_name = f"/vsimem/{uuid.uuid4().hex}"
-        osgeo.gdal.FileFromMemBuffer(mmap_name, filename.read())
-        ds = osgeo.gdal.Open(mmap_name)
+        gdal.FileFromMemBuffer(mmap_name, filename.read())
+        ds = gdal.Open(mmap_name)
     else:
         # read geotiff dataset
-        ds = osgeo.gdal.Open(str(case_insensitive_filename(filename)),
-            osgeo.gdalconst.GA_ReadOnly)
+        ds = gdal.Open(str(case_insensitive_filename(filename)),
+            gdalconst.GA_ReadOnly)
     # print geotiff file if verbose
     logging.info(str(filename))
     # create python dictionary for output variables and attributes

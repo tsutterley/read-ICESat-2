@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-MPI_ICESat2_ATL03_histogram.py (04/2024)
+MPI_ICESat2_ATL03_histogram.py (05/2024)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -75,6 +75,7 @@ REFERENCES:
         Geophysical Journal International (1997) 131, 267-280
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
@@ -126,25 +127,13 @@ import scipy.signal
 import scipy.optimize
 import scipy.interpolate
 import icesat2_toolkit as is2tk
+import timescale.time
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
-try:
-    from mpi4py import MPI
-except ModuleNotFoundError:
-    warnings.warn("mpi4py not available", ImportWarning)
-try:
-    import sklearn.neighbors
-    import sklearn.cluster
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("scikit-learn not available", ImportWarning)
-try:
-    import yapc.classify_photons
-except ModuleNotFoundError:
-    warnings.warn("pyYAPC not available", ImportWarning)
+h5py = is2tk.utilities.import_dependency('h5py')
+MPI = is2tk.utilities.import_dependency('mpi4py.MPI')
+cluster = is2tk.utilities.import_dependency('sklearn.cluster')
+yapc = is2tk.utilities.import_dependency('yapc')
 
 # PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -666,7 +655,7 @@ def main():
                 # and that the spread of photons is greater than 20m
                 if (ice_sig_low_count > 10) & (along_X_spread > 20):
                     # use density-based spatial clustering in segment
-                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
+                    db = cluster.DBSCAN(eps=0.5).fit(
                         np.c_[distance_along_X, segment_heights],
                         sample_weight=photon_snr)
                     labels = db.labels_
@@ -875,7 +864,7 @@ def main():
                 # and that the spread of photons is greater than 40m
                 if (pe_sig_low_count > 10) & (along_X_spread > 40):
                     # use density-based spatial clustering in segment
-                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
+                    db = cluster.DBSCAN(eps=0.5).fit(
                         np.c_[distance_along_X, segment_heights],
                         sample_weight=photon_snr)
                     labels = db.labels_
@@ -2712,9 +2701,9 @@ def HDF5_ATL03_write(IS2_atl03_data, IS2_atl03_attrs, COMM=None, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into timescale
-    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+    ts = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
         epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
-    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
+    dt = np.datetime_as_string(ts.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
     fileID.attrs['time_coverage_start'] = str(dt[0])
     fileID.attrs['time_coverage_end'] = str(dt[1])

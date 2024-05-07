@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reduce_ICESat2_ATL07_raster.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (05/2024)
 
 Create masks for reducing ICESat-2 ATL07 data using raster imagery
 
@@ -43,6 +43,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
@@ -54,7 +55,6 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import re
-import pyproj
 import logging
 import pathlib
 import argparse
@@ -65,12 +65,11 @@ import scipy.ndimage
 import scipy.spatial
 import scipy.interpolate
 import icesat2_toolkit as is2tk
+import timescale.time
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
+h5py = is2tk.utilities.import_dependency('h5py')
+pyproj = is2tk.utilities.import_dependency('pyproj')
 
 # PURPOSE: try to get the projection information for the input file
 def get_projection(attributes, PROJECTION):
@@ -577,9 +576,9 @@ def HDF5_ATL07_mask_write(IS2_atl07_mask, IS2_atl07_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into timescale
-    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+    ts = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
         epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
-    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
+    dt = np.datetime_as_string(ts.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
     fileID.attrs['time_coverage_start'] = str(dt[0])
     fileID.attrs['time_coverage_end'] = str(dt[1])

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 fit.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2024)
 Utilities for calculating average fits from ATL03 Geolocated Photon Data
 
 PYTHON DEPENDENCIES:
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://github.com/scikit-learn/scikit-learn
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 12/2022: place some imports behind try/except statements
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 05/2021
@@ -26,12 +27,10 @@ import numpy as np
 import scipy.stats
 import scipy.signal
 import scipy.optimize
+from icesat2_toolkit.utilities import import_dependency
 
 # attempt imports
-try:
-    import sklearn.neighbors
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("scikit-learn not available", ImportWarning)
+neighbors = import_dependency('sklearn.neighbors')
 
 # PURPOSE: compress complete list of valid indices into a set of ranges
 def compress_list(i,n):
@@ -527,7 +526,7 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
     # using kernel density functions from scikit-learn neighbors
     # gaussian kernels will reflect more accurate distributions of the data
     # with less sensitivity to sampling width than histograms (tophat kernels)
-    kde = sklearn.neighbors.KernelDensity(bandwidth=dz,kernel='gaussian')
+    kde = neighbors.KernelDensity(bandwidth=dz, kernel='gaussian')
     kde.fit(z[:,None])
     # kde score_samples outputs are normalized log density functions
     hist = np.exp(kde.score_samples(z_full[:,None]) + np.log(n_max*dz))
@@ -655,7 +654,7 @@ def reduce_histogram_fit(x, y, z, ind, dt, FIT_TYPE='gaussian',
             # using kernel density functions from scikit-learn neighbors
             # gaussian kernels will reflect more accurate distributions of the data
             # with less sensitivity to sampling width than histograms (tophat kernels)
-            kde = sklearn.neighbors.KernelDensity(bandwidth=dz,kernel='gaussian')
+            kde = neighbors.KernelDensity(bandwidth=dz,kernel='gaussian')
             kde.fit(z_filt[:,None])
             # kde score_samples outputs are normalized log density functions
             hist = np.exp(kde.score_samples(z_full[:,None]) + np.log(nz*dz))
@@ -990,7 +989,7 @@ def calc_first_photon_bias(temporal_residuals,n_pulses,n_pixels,dead_time,dt,
     # using kernel density functions from scikit-learn neighbors
     # gaussian kernels will reflect more accurate distributions of the data
     # with less sensitivity to sampling width than histograms (tophat kernels)
-    kde = sklearn.neighbors.KernelDensity(bandwidth=dt,kernel='gaussian')
+    kde = neighbors.KernelDensity(bandwidth=dt,kernel='gaussian')
     kde.fit(temporal_residuals[:,None])
     # kde score_samples outputs are normalized log density functions
     hist = np.exp(kde.score_samples(t_full[:,None]) + np.log(cnt*dt))

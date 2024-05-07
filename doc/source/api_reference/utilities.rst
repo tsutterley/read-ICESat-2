@@ -19,6 +19,8 @@ General Methods
 
 .. autofunction:: icesat2_toolkit.utilities.get_data_path
 
+.. autofunction:: icesat2_toolkit.utilities.import_dependency
+
 .. autofunction:: icesat2_toolkit.utilities.get_hash
 
 .. autofunction:: icesat2_toolkit.utilities.get_git_revision_hash

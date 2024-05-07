@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (05/2024)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
+    boto3: Amazon Web Services (AWS) SDK for Python
+        https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
     lxml: processing XML and HTML in Python
         https://pypi.python.org/pypi/lxml
+    s3fs: FUSE-based file system backed by Amazon S3
+        https://s3fs.readthedocs.io/en/latest/
 
 UPDATE HISTORY:
+    Updated 04/2024: add wrapper to importlib for optional dependencies
     Updated 03/2024: can use regions to filter sea ice products in cmr queries
     Updated 11/2023: updated ssl context to fix deprecation error
     Updated 07/2023: add function for S3 filesystem
@@ -67,6 +72,7 @@ import builtins
 import datetime
 import dateutil
 import warnings
+import importlib
 import posixpath
 import lxml.etree
 import subprocess
@@ -79,16 +85,6 @@ else:
     from http.cookiejar import CookieJar
     from urllib.parse import urlencode
     import urllib.request as urllib2
-
-# attempt imports
-try:
-    import boto3
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("boto3 not available", ImportWarning)
-try:
-    import s3fs
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("s3fs not available", ImportWarning)
 
 # PURPOSE: get absolute path within a package from a relative path
 def get_data_path(relpath: list | str | pathlib.Path):
@@ -108,6 +104,46 @@ def get_data_path(relpath: list | str | pathlib.Path):
         return filepath.joinpath(*relpath)
     elif isinstance(relpath, (str, pathlib.Path)):
         return filepath.joinpath(relpath)
+
+def import_dependency(
+        name: str,
+        extra: str = "",
+        raise_exception: bool = False
+    ):
+    """
+    Import an optional dependency
+    
+    Adapted from ``pandas.compat._optional::import_optional_dependency``
+
+    Parameters
+    ----------
+    name: str
+        Module name
+    extra: str, default ""
+        Additional text to include in the ``ImportError`` message
+    raise_exception: bool, default False
+        Raise an ``ImportError`` if the module is not found
+
+    Returns
+    -------
+    module: obj
+        Imported module
+    """
+    # check if the module name is a string
+    msg = f"Invalid module name: '{name}'; must be a string"
+    assert isinstance(name, str), msg
+    # try to import the module
+    err = f"Missing optional dependency '{name}'. {extra}"
+    module = None
+    try:
+        module = importlib.import_module(name)
+    except (ImportError, ModuleNotFoundError) as exc:
+        if raise_exception:
+            raise ImportError(err) from exc
+        else:
+            logging.debug(err)
+    # return the module
+    return module
 
 # PURPOSE: get the hash value of a file
 def get_hash(
@@ -390,6 +426,7 @@ def s3_client(
     response = urllib2.urlopen(request, timeout=timeout)
     cumulus = json.loads(response.read())
     # get AWS client object
+    boto3 = import_dependency(name='boto3')
     client = boto3.client('s3',
         aws_access_key_id=cumulus['accessKeyId'],
         aws_secret_access_key=cumulus['secretAccessKey'],
@@ -426,6 +463,7 @@ def s3_filesystem(
     response = urllib2.urlopen(request, timeout=timeout)
     cumulus = json.loads(response.read())
     # get AWS file system session object
+    s3fs = import_dependency(name='s3fs')
     session = s3fs.S3FileSystem(anon=False,
         key=cumulus['accessKeyId'],
         secret=cumulus['secretAccessKey'],
@@ -530,6 +568,7 @@ def generate_presigned_url(
         s3 presigned https url
     """
     # generate a presigned URL for S3 object
+    boto3 = import_dependency(name='boto3')
     s3 = boto3.client('s3')
     try:
         response = s3.generate_presigned_url('get_object',

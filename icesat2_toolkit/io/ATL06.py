@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL06.py (03/2024)
+ATL06.py (05/2024)
 Read ICESat-2 ATL06 (Land Ice Along-Track Height Product) data files
 
 OPTIONS:
@@ -16,6 +16,8 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
+        check if input filename is an open HDF5 file object
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 11/2023: drop DIMENSION_LIST, CLASS and NAME attributes
     Updated 05/2023: extract more ancillary data from ATL06 files
@@ -39,12 +41,10 @@ import logging
 import pathlib
 import warnings
 import numpy as np
+from icesat2_toolkit.utilities import import_dependency
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
+h5py = import_dependency('h5py')
 
 # PURPOSE: read ICESat-2 ATL06 HDF5 data files
 def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
@@ -75,6 +75,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, HISTOGRAM=False,
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')
@@ -287,6 +289,8 @@ def find_beams(FILENAME, **kwargs):
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')
@@ -342,6 +346,8 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
     # Open the HDF5 file for reading
     if isinstance(FILENAME, io.IOBase):
         fileID = h5py.File(FILENAME, 'r')
+    elif isinstance(FILENAME, h5py.File):
+        fileID = FILENAME
     else:
         FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
         fileID = h5py.File(FILENAME, 'r')

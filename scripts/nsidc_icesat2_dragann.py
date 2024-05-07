@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_dragann.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (05/2024)
 
 Acquires the ATL03 geolocated photon height product and appends the
     ATL08 DRAGANN classifications from NSIDC
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
@@ -89,10 +90,7 @@ import multiprocessing as mp
 import icesat2_toolkit as is2tk
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
+h5py = is2tk.utilities.import_dependency('h5py')
 
 # PURPOSE: sync ATL03 geolocated photon height products and appends the
 # ATL08 DRAGANN classifications from NSIDC

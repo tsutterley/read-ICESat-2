@@ -1,6 +1,6 @@
 """
 convert.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (05/2024)
 Utilities for converting ICESat-2 HDF5 files into different formats
 
 PYTHON DEPENDENCIES:
@@ -17,6 +17,7 @@ PYTHON DEPENDENCIES:
         https://pandas.pydata.org/
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: place some imports behind try/except statements
     Updated 06/2022: place zarr and pandas imports behind try/except statements
@@ -35,20 +36,12 @@ import warnings
 import itertools
 import posixpath
 import numpy as np
+from icesat2_toolkit.utilities import import_dependency
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
-try:
-    import pandas
-except ModuleNotFoundError:
-    warnings.warn("pandas not available", ImportWarning)
-try:
-    import zarr
-except ModuleNotFoundError:
-    warnings.warn("zarr not available", ImportWarning)
+h5py = import_dependency('h5py')
+pandas = import_dependency('pandas')
+zarr = import_dependency('zarr')
 
 class convert():
     np.seterr(invalid='ignore')

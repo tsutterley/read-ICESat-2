@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 nsidc_icesat2_sync_s3.py
-Written by Tyler Sutterley (03/2024)
+Written by Tyler Sutterley (05/2024)
 
 Acquires ICESat-2 datafiles from the National Snow and Ice Data Center (NSIDC)
     and transfers to an AWS S3 bucket using a local machine as pass through
@@ -72,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 09/2023: generalized regular expressions for non-entered cases
     Updated 12/2022: single implicit import of altimetry tools
@@ -120,10 +121,7 @@ import multiprocessing as mp
 import icesat2_toolkit as is2tk
 
 # attempt imports
-try:
-    import boto3
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("boto3 not available", ImportWarning)
+boto3 = is2tk.utilities.import_dependency('boto3')
 
 # PURPOSE: sync the ICESat-2 elevation data from NSIDC
 def nsidc_icesat2_sync_s3(aws_access_key_id, aws_secret_access_key,

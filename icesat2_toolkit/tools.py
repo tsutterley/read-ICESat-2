@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 tools.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (05/2024)
 Plotting tools and utilities
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://github.com/matplotlib/matplotlib
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 04/2024: add catch for existing colormaps
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -25,12 +26,11 @@ import pathlib
 import colorsys
 import warnings
 import numpy as np
+from icesat2_toolkit.utilities import import_dependency
+
 # attempt imports
-try:
-    import matplotlib.cm as cm
-    import matplotlib.colors as colors
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.warn("matplotlib not available", ImportWarning)
+cm = import_dependency('matplotlib.cm')
+colors = import_dependency('matplotlib.colors')
 
 def from_cpt(filename, use_extremes=True, **kwargs):
     """

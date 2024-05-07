@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-convert_delta_time.py (04/2022)
+convert_delta_time.py (04/2024)
 Converts time from delta seconds into Julian and year-decimal
 
 INPUTS:
@@ -21,6 +21,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/timescale/
 
 UPDATE HISTORY:
+    Updated 04/2024: use timescale for temporal operations
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 01/2021: time utilities for converting times from JD and to decimal
     Updated 08/2020: time utilities for counting leap seconds and JD conversion

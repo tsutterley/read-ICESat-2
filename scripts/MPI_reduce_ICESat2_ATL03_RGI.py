@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_reduce_ICESat2_ATL03_RGI.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (05/2024)
 
 Create masks for reducing ICESat-2 data to the Randolph Glacier Inventory
     https://www.glims.org/RGI/rgi60_dl.html
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
@@ -94,24 +95,13 @@ import argparse
 import warnings
 import numpy as np
 import icesat2_toolkit as is2tk
+import timescale.time
 
 # attempt imports
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
-try:
-    from mpi4py import MPI
-except ModuleNotFoundError:
-    warnings.warn("mpi4py not available", ImportWarning)
-try:
-    import shapefile
-except ModuleNotFoundError:
-    warnings.warn("shapefile not available", ImportWarning)
-try:
-    from shapely.geometry import MultiPoint, Polygon
-except ModuleNotFoundError:
-    warnings.warn("shapely not available", ImportWarning)
+h5py = is2tk.utilities.import_dependency('h5py')
+MPI = is2tk.utilities.import_dependency('mpi4py.MPI')
+shapefile = is2tk.utilities.import_dependency('shapefile')
+geometry = is2tk.utilities.import_dependency('shapely.geometry')
 
 # PURPOSE: keep track of MPI threads
 def info(rank, size):
@@ -200,10 +190,10 @@ def load_glacier_inventory(RGI_DIRECTORY,RGI_REGION):
         # list object for coordinates (exterior and holes)
         poly_list = []
         # add each part to list
-        for p1,p2 in zip(parts[:-1],parts[1:]):
-            poly_list.append(list(zip(points[p1:p2,0],points[p1:p2,1])))
+        for p1,p2 in zip(parts[:-1], parts[1:]):
+            poly_list.append(np.c_[points[p1:p2,0], points[p1:p2,1]])
         # convert poly_list into Polygon object with holes
-        poly_obj = Polygon(poly_list[0],poly_list[1:])
+        poly_obj = geometry.Polygon(poly_list[0], poly_list[1:])
         # Valid Polygon may not possess overlapping exterior or interior rings
         if (not poly_obj.is_valid):
             poly_obj = poly_obj.buffer(0)
@@ -239,7 +229,8 @@ def main():
     # extract parameters from ICESat-2 ATLAS HDF5 file name
     rx = re.compile(r'(processed_)?(ATL\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})'
         r'(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})_(\d{3})_(\d{2})(.*?).h5$')
-    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX=rx.findall(args.file.name).pop()
+    SUB,PRD,YY,MM,DD,HH,MN,SS,TRK,CYC,GRN,RL,VRS,AUX = \
+        rx.findall(args.file.name).pop()
 
     # read data on rank 0
     if (comm.rank == 0):
@@ -312,7 +303,7 @@ def main():
         latitude = fileID[gtx]['heights']['lat_ph'][:]
 
         # convert reduced lat/lon to shapely multipoint object
-        xy_point = MultiPoint(list(zip(longitude[ind],latitude[ind])))
+        xy_point = geometry.MultiPoint(np.c_[longitude[ind], latitude[ind]])
 
         # create distributed intersection map for calculation
         distributed_map = np.zeros((n_pe),dtype=bool)
@@ -587,9 +578,9 @@ def HDF5_ATL03_mask_write(IS2_atl03_mask, IS2_atl03_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into timescale
-    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+    ts = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
         epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
-    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
+    dt = np.datetime_as_string(ts.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
     fileID.attrs['time_coverage_start'] = str(dt[0])
     fileID.attrs['time_coverage_end'] = str(dt[1])

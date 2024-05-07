@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 MPI_DEM_ICESat2_ATL11.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (05/2024)
 Determines which digital elevation model tiles to read for a given ATL11 file
 Reads 3x3 array of tiles for points within bounding box of central mosaic tile
 Interpolates digital elevation model to locations of ICESat-2 ATL11 segments
@@ -60,6 +60,7 @@ REFERENCES:
     https://nsidc.org/data/nsidc-0645/versions/1
 
 UPDATE HISTORY:
+    Updated 05/2024: use wrapper to importlib for optional dependencies
     Updated 04/2024: use timescale for temporal operations
     Updated 03/2024: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of altimetry tools
@@ -81,7 +82,6 @@ import sys
 import os
 import re
 import uuid
-import pyproj
 import logging
 import pathlib
 import tarfile
@@ -92,29 +92,15 @@ import collections
 import numpy as np
 import scipy.interpolate
 import icesat2_toolkit as is2tk
+import timescale.time
 
 # attempt imports
-try:
-    import fiona
-except ModuleNotFoundError:
-    warnings.warn("fiona not available")
-    warnings.warn("Some functions will throw an exception if called")
-try:
-    import h5py
-except ModuleNotFoundError:
-    warnings.warn("h5py not available", ImportWarning)
-try:
-    from mpi4py import MPI
-except ModuleNotFoundError:
-    warnings.warn("mpi4py not available", ImportWarning)
-try:
-    import osgeo.gdal
-except ModuleNotFoundError:
-    warnings.warn("GDAL not available", ImportWarning)
-try:
-    from shapely.geometry import MultiPoint, Polygon
-except ModuleNotFoundError:
-    warnings.warn("shapely not available", ImportWarning)
+fiona = is2tk.utilities.import_dependency('fiona')
+gdal = is2tk.utilities.import_dependency('osgeo.gdal')
+h5py = is2tk.utilities.import_dependency('h5py')
+MPI = is2tk.utilities.import_dependency('mpi4py.MPI')
+pyproj = is2tk.utilities.import_dependency('pyproj')
+geometry = is2tk.utilities.import_dependency('shapely.geometry')
 
 # digital elevation models
 elevation_dir = {}
@@ -272,7 +258,7 @@ def read_DEM_index(index_file, DEM_MODEL):
         # extract Polar Stereographic coordinates for entity
         x = [ul[0],ur[0],lr[0],ll[0],ul2[0]]
         y = [ul[1],ur[1],lr[1],ll[1],ul2[1]]
-        poly_obj = Polygon(list(zip(x,y)))
+        poly_obj = geometry.Polygon(np.c_[x, y])
         # Valid Polygon may not possess overlapping exterior or interior rings
         if (not poly_obj.is_valid):
             poly_obj = poly_obj.buffer(0)
@@ -291,7 +277,7 @@ def read_DEM_file(elevation_file, nd_value):
     member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     # use GDAL virtual file systems to read dem
     mmap_name = f"/vsitar/{str(elevation_file)}/{member.name}"
-    ds = osgeo.gdal.Open(mmap_name)
+    ds = gdal.Open(mmap_name)
     # read data matrix
     im = ds.GetRasterBand(1).ReadAsArray()
     fill_value = ds.GetRasterBand(1).GetNoDataValue()
@@ -315,7 +301,7 @@ def read_DEM_file(elevation_file, nd_value):
     ymin = ymax + (ysize-1)*info_geotiff[5]
     # close files
     ds = None
-    osgeo.gdal.Unlink(mmap_name)
+    gdal.Unlink(mmap_name)
     tar.close()
     # create image x and y arrays
     xi = np.arange(xmin,xmax+info_geotiff[1],info_geotiff[1])
@@ -332,7 +318,7 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     member, = [m for m in tar.getmembers() if re.search(r'dem\.tif',m.name)]
     # use GDAL virtual file systems to read dem
     mmap_name = f"/vsitar/{str(elevation_file)}/{member.name}"
-    ds = osgeo.gdal.Open(mmap_name)
+    ds = gdal.Open(mmap_name)
     # get geotiff info
     info_geotiff = ds.GetGeoTransform()
     # original image extents
@@ -362,7 +348,7 @@ def read_DEM_buffer(elevation_file, xlimits, ylimits, nd_value):
     ymin_reduced = ymax + yoffset*info_geotiff[5] + (ycount-1)*info_geotiff[5]
     # close files
     ds = None
-    osgeo.gdal.Unlink(mmap_name)
+    gdal.Unlink(mmap_name)
     tar.close()
     # create image x and y arrays
     xi = np.arange(xmin_reduced,xmax_reduced+info_geotiff[1],info_geotiff[1])
@@ -485,7 +471,7 @@ def main():
             fileID[ptx]['latitude'][:])
 
         # convert reduced x and y to shapely multipoint object
-        xy_point = MultiPoint(list(zip(X[ind], Y[ind])))
+        xy_point = geometry.MultiPoint(np.c_[X[ind], Y[ind]])
 
         # create complete masks for each DEM tile
         associated_map = {}
@@ -962,9 +948,9 @@ def HDF5_ATL11_dem_write(IS2_atl11_dem, IS2_atl11_attrs, INPUT=None,
     fileID.attrs['date_type'] = 'UTC'
     fileID.attrs['time_type'] = 'CCSDS UTC-A'
     # convert start and end time from ATLAS SDP seconds into timescale
-    timescale = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
+    ts = timescale.time.Timescale().from_deltatime(np.array([tmn,tmx]),
         epoch=timescale.time._atlas_sdp_epoch, standard='GPS')
-    dt = np.datetime_as_string(timescale.to_datetime(), unit='s')
+    dt = np.datetime_as_string(ts.to_datetime(), unit='s')
     # add attributes with measurement date start, end and duration
     fileID.attrs['time_coverage_start'] = str(dt[0])
     fileID.attrs['time_coverage_end'] = str(dt[1])

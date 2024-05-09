@@ -49,7 +49,8 @@ h5py = import_dependency('h5py')
 
 # PURPOSE: read ICESat-2 ATL11 HDF5 data files
 def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
-    REFERENCE=False, CROSSOVERS=False, SUBSETTING=False, **kwargs):
+    REFERENCE=False, CROSSOVERS=False, SUBSETTING=False, KEEP=False,
+    **kwargs):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
 
@@ -67,6 +68,8 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
         read ATL11 crossover height variables
     SUBSETTING: bool, default False
         read ATL11 subsetting variables
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -222,12 +225,13 @@ def read_granule(FILENAME, GROUPS=['cycle_stats'], ATTRIBUTES=False,
                     IS2_atl11_attrs['quality_assessment'][key][att_name]= att_val
 
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # Return the datasets and variables
     return (IS2_atl11_mds, IS2_atl11_attrs, IS2_atl11_pairs)
 
 # PURPOSE: find valid beam pair groups within ICESat-2 ATL11 HDF5 data files
-def find_pairs(FILENAME, **kwargs):
+def find_pairs(FILENAME, KEEP=False, **kwargs):
     """
     Find valid beam pair groups within ICESat-2 ATL11 (Annual Land Ice Height)
     data files
@@ -236,6 +240,8 @@ def find_pairs(FILENAME, **kwargs):
     ----------
     FILENAME: str
         full path to ATL11 file
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -261,14 +267,15 @@ def find_pairs(FILENAME, **kwargs):
         else:
             IS2_atl11_pairs.append(ptx)
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # return the list of beam pairs
     return IS2_atl11_pairs
 
 # PURPOSE: read ICESat-2 ATL11 HDF5 data files for a specific beam pair
 def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
     ATTRIBUTES=False, REFERENCE=False, CROSSOVERS=False,
-    SUBSETTING=False, **kwargs):
+    SUBSETTING=False, KEEP=False, **kwargs):
     """
     Reads ICESat-2 ATL11 (Annual Land Ice Height) data files
     for a specific beam pair
@@ -293,6 +300,8 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
         read ATL11 crossover height variables
     SUBSETTING: bool, default False
         read ATL11 subsetting variables
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -380,6 +389,7 @@ def read_pair(FILENAME, ptx, GROUPS=['cycle_stats'],
                 pass
 
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # Return the datasets and variables
     return (IS2_atl11_mds, IS2_atl11_attrs)

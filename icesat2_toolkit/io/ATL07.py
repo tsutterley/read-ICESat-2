@@ -40,7 +40,7 @@ from icesat2_toolkit.utilities import import_dependency
 h5py = import_dependency('h5py')
 
 # PURPOSE: read ICESat-2 ATL07 HDF5 data files
-def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
+def read_granule(FILENAME, ATTRIBUTES=False, KEEP=False, **kwargs):
     """
     Reads ICESat-2 ATL07 (Sea Ice Height) data files
 
@@ -50,6 +50,8 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
         full path to ATL07 file
     ATTRIBUTES: bool, default False
         read HDF5 attributes for groups and variables
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -210,12 +212,13 @@ def read_granule(FILENAME, ATTRIBUTES=False, **kwargs):
                             IS2_atl07_attrs['quality_assessment'][key][k][att_name]= att_val
 
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # Return the datasets and variables
     return (IS2_atl07_mds, IS2_atl07_attrs, IS2_atl07_beams)
 
 # PURPOSE: find valid beam groups within ICESat-2 ATL07 HDF5 data files
-def find_beams(FILENAME, **kwargs):
+def find_beams(FILENAME, KEEP=False, **kwargs):
     """
     Find valid beam groups within ICESat-2 ATL07 (Sea Ice Height) data files
 
@@ -223,6 +226,8 @@ def find_beams(FILENAME, **kwargs):
     ----------
     FILENAME: str
         full path to ATL07 file
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -249,12 +254,13 @@ def find_beams(FILENAME, **kwargs):
         else:
             IS2_atl07_beams.append(gtx)
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # return the list of beams
     return IS2_atl07_beams
 
 # PURPOSE: read ICESat-2 ATL07 HDF5 data files for beam variables
-def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
+def read_beam(FILENAME, gtx, ATTRIBUTES=False, KEEP=False, **kwargs):
     """
     Reads ICESat-2 ATL07 (Sea Ice Height) data files for a specific beam
 
@@ -273,6 +279,8 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
             - ``'gt3r'``
     ATTRIBUTES: bool, default False
         read HDF5 attributes for groups and variables
+    KEEP: bool, default False
+        keep file object open
 
     Returns
     -------
@@ -340,6 +348,7 @@ def read_beam(FILENAME, gtx, ATTRIBUTES=False, **kwargs):
                             IS2_atl07_attrs[gtx]['sea_ice_segments'][key][k][att_name] = att_val
 
     # Closing the HDF5 file
-    fileID.close()
+    if not KEEP:
+        fileID.close()
     # Return the datasets and variables
     return (IS2_atl07_mds, IS2_atl07_attrs)

@@ -15,6 +15,6 @@ Software
  - `captoolkit <https://github.com/fspaolo/captoolkit>`_: NASA JPL Cryosphere Altimetry Processing Toolkit
  - `icepyx <https://github.com/icesat2py/icepyx>`_: Python tools for obtaining and working with ICESat-2 data
  - `icesat2-viz <https://github.com/abarciauskas-bgse/icesat2-viz>`_: Icesat-2 Visualization Sandbox
- - `pyTMD <https://github.com/tsutterley/pyTMD>`_: Python-based tidal prediction software for ICESat-2 and Operation IceBridge
+ - `Grounding-Zones <https://github.com/tsutterley/Grounding-Zones>`_: Tools for Estimating Grounding Zone Locations with data from NASA Polar Altimetry Missions
  - `ATL11 <https://github.com/suzanne64/ATL11>`_: Python code for producing the ICESat-2 Land-Ice Along-Track product (ATL11)
  - `ICESat-2HackWeek <https://github.com/ICESAT-2HackWeek>`_: University of Washington ICESat-2 Hack Week Repositories

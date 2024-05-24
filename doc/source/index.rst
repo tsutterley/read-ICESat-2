@@ -55,28 +55,12 @@ Python tools for obtaining and working with elevation data from the NASA ICESat-
     api_reference/nsidc_icesat2_sync_s3.rst
     api_reference/scp_ICESat2_files.rst
     api_reference/scp_scf_ICESat2_files.rst
-    api_reference/symbolic_ICESat2_files.rst
 
 .. toctree::
     :maxdepth: 1
     :hidden:
     :caption: Use Cases
 
-    api_reference/MPI_DEM_ICESat2_ATL03.rst
-    api_reference/MPI_DEM_ICESat2_ATL06.rst
-    api_reference/MPI_DEM_ICESat2_ATL11.rst
     api_reference/MPI_ICESat2_ATL03.rst
     api_reference/MPI_ICESat2_ATL03_histogram.rst
-    api_reference/MPI_reduce_ICESat2_ATL03_RGI.rst
-    api_reference/MPI_reduce_ICESat2_ATL06_drainages.rst
-    api_reference/MPI_reduce_ICESat2_ATL06_grounded.rst
-    api_reference/MPI_reduce_ICESat2_ATL06_ice_shelves.rst
-    api_reference/MPI_reduce_ICESat2_ATL06_RGI.rst
-    api_reference/MPI_reduce_ICESat2_ATL11_drainages.rst
-    api_reference/MPI_reduce_ICESat2_ATL11_grounded.rst
-    api_reference/MPI_reduce_ICESat2_ATL11_ice_shelves.rst
-    api_reference/MPI_reduce_ICESat2_ATL11_RGI.rst
-    api_reference/reduce_ICESat2_ATL06_raster.rst
-    api_reference/reduce_ICESat2_ATL07_raster.rst
-    api_reference/reduce_ICESat2_ATL10_raster.rst
-    api_reference/reduce_ICESat2_ATL11_raster.rst
+

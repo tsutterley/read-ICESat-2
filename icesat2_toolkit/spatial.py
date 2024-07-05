@@ -46,9 +46,10 @@ import numpy as np
 from icesat2_toolkit.utilities import import_dependency
 
 # attempt imports
-gdal = import_dependency('osgeo.gdal')
-osr = import_dependency('osgeo.osr')
-gdalconst = import_dependency('osgeo.gdalconst')
+osgeo = import_dependency('osgeo')
+osgeo.gdal = import_dependency('osgeo.gdal')
+osgeo.osr = import_dependency('osgeo.osr')
+osgeo.gdalconst = import_dependency('osgeo.gdalconst')
 h5py = import_dependency('h5py')
 netCDF4 = import_dependency('netCDF4')
 
@@ -189,7 +190,7 @@ def from_netCDF4(filename: str, **kwargs):
                 fileID.variables[grid_mapping].getncattr(att_name)
         # get the spatial projection reference information from wkt
         # and overwrite the file-level projection attribute (if existing)
-        srs = osr.SpatialReference()
+        srs = osgeo.osr.SpatialReference()
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     # convert to masked array if fill values
@@ -294,7 +295,7 @@ def from_HDF5(filename: str | pathlib.Path, **kwargs):
             dinput['attributes']['crs'][att_name] = att_val
         # get the spatial projection reference information from wkt
         # and overwrite the file-level projection attribute (if existing)
-        srs = osr.SpatialReference()
+        srs = osgeo.osr.SpatialReference()
         srs.ImportFromWkt(dinput['attributes']['crs']['crs_wkt'])
         dinput['attributes']['projection'] = srs.ExportToProj4()
     # convert to masked array if fill values
@@ -327,16 +328,16 @@ def from_geotiff(filename: str, **kwargs):
     if (kwargs['compression'] == 'gzip'):
         # read as GDAL gzip virtual geotiff dataset
         mmap_name = f"/vsigzip/{str(case_insensitive_filename(filename))}"
-        ds = gdal.Open(mmap_name)
+        ds = osgeo.gdal.Open(mmap_name)
     elif (kwargs['compression'] == 'bytes'):
         # read as GDAL memory-mapped (diskless) geotiff dataset
         mmap_name = f"/vsimem/{uuid.uuid4().hex}"
-        gdal.FileFromMemBuffer(mmap_name, filename.read())
-        ds = gdal.Open(mmap_name)
+        osgeo.gdal.FileFromMemBuffer(mmap_name, filename.read())
+        ds = osgeo.gdal.Open(mmap_name)
     else:
         # read geotiff dataset
-        ds = gdal.Open(str(case_insensitive_filename(filename)),
-            gdalconst.GA_ReadOnly)
+        ds = osgeo.gdal.Open(str(case_insensitive_filename(filename)),
+            osgeo.gdalconst.GA_ReadOnly)
     # print geotiff file if verbose
     logging.info(str(filename))
     # create python dictionary for output variables and attributes

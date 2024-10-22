@@ -93,7 +93,7 @@ def from_file(filename: str, format: str, **kwargs):
         dinput = from_netCDF4(filename, **kwargs)
     elif (format == 'HDF5'):
         dinput = from_HDF5(filename, **kwargs)
-    elif (format == 'geotiff'):
+    elif format in ('GTiff','cog'):
         dinput = from_geotiff(filename, **kwargs)
     else:
         raise ValueError(f'Invalid format {format}')

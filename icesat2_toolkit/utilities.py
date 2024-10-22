@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (05/2024)
+Written by Tyler Sutterley (10/2024)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,10 @@ PYTHON DEPENDENCIES:
         https://s3fs.readthedocs.io/en/latest/
 
 UPDATE HISTORY:
+    Updated 10/2024: update CMR search utility to replace deprecated scrolling
+        https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
+    Updated 09/2024: add polygon option to NASA CMR spatial query
+    Updated 08/2024: generalize hash function to use any available algorithm
     Updated 04/2024: add wrapper to importlib for optional dependencies
     Updated 03/2024: can use regions to filter sea ice products in cmr queries
     Updated 11/2023: updated ssl context to fix deprecation error
@@ -112,7 +116,7 @@ def import_dependency(
     ):
     """
     Import an optional dependency
-    
+
     Adapted from ``pandas.compat._optional::import_optional_dependency``
 
     Parameters
@@ -149,7 +153,7 @@ def import_dependency(
 # PURPOSE: get the hash value of a file
 def get_hash(
         local: str | io.IOBase | pathlib.Path,
-        algorithm: str = 'MD5'
+        algorithm: str = 'md5'
     ):
     """
     Get the hash value from a local file or ``BytesIO`` object
@@ -158,18 +162,16 @@ def get_hash(
     ----------
     local: obj, str or pathlib.Path
         BytesIO object or path to file
-    algorithm: str, default 'MD5'
+    algorithm: str, default 'md5'
         hashing algorithm for checksum validation
-
-            - ``'MD5'``: Message Digest
-            - ``'sha1'``: Secure Hash Algorithm
     """
     # check if open file object or if local file exists
     if isinstance(local, io.IOBase):
-        if (algorithm == 'MD5'):
-            return hashlib.md5(local.getvalue()).hexdigest()
-        elif (algorithm == 'sha1'):
-            return hashlib.sha1(local.getvalue()).hexdigest()
+        # generate checksum hash for a given type
+        if algorithm in hashlib.algorithms_available:
+            return hashlib.new(algorithm, local.getvalue()).hexdigest()
+        else:
+            raise ValueError(f'Invalid hashing algorithm: {algorithm}')
     elif isinstance(local, (str, pathlib.Path)):
         # generate checksum hash for local file
         local = pathlib.Path(local).expanduser()
@@ -179,10 +181,10 @@ def get_hash(
         # open the local_file in binary read mode
         with local.open(mode='rb') as local_buffer:
             # generate checksum hash for a given type
-            if (algorithm == 'MD5'):
-                return hashlib.md5(local_buffer.read()).hexdigest()
-            elif (algorithm == 'sha1'):
-                return hashlib.sha1(local_buffer.read()).hexdigest()
+            if algorithm in hashlib.algorithms_available:
+                return hashlib.new(algorithm, local_buffer.read()).hexdigest()
+            else:
+                raise ValueError(f'Invalid hashing algorithm: {algorithm}')
     else:
         return ''
 
@@ -1865,6 +1867,7 @@ def cmr(
         regions: str | list | None = None,
         resolutions: str | list | None = None,
         bbox: list | None = None,
+        polygon: list | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
         provider: str = 'NSIDC_ECS',
@@ -1895,7 +1898,10 @@ def cmr(
         ICESat-2 ATL14/15 resolution strings to query
     bbox: list or NoneType, default None
         Spatial bounding box for CMR query in form
-        (``lon_min``, ``lat_min``, ``lon_max``, ``lat_max``)
+        [``lon_min``, ``lat_min``, ``lon_max``, ``lat_max``]
+    polygon: list or NoneType, default None
+        Spatial polygon for CMR query in form
+        [(``lon_1``, ``lat_1``), ..., (``lon_n``, ``lat_n``)]
     start_date: str or NoneType, default None
         starting date for CMR product query
     end_date: str or NoneType, default None
@@ -1949,7 +1955,6 @@ def cmr(
     CMR_KEYS.append(f'?provider={provider}')
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
-    CMR_KEYS.append('&scroll=true')
     CMR_KEYS.append(f'&page_size={cmr_page_size}')
     # append product string
     CMR_KEYS.append(f'&short_name={product}')
@@ -1964,6 +1969,10 @@ def cmr(
     if bbox is not None:
         bounding_box = ','.join([str(b) for b in bbox])
         CMR_KEYS.append(f'&bounding_box={bounding_box}')
+    # append keys for spatial polygon
+    if polygon is not None:
+        spatial_polygon = ','.join([f'{x:f},{y:f}' for x,y in polygon])
+        CMR_KEYS.append(f'&polygon={spatial_polygon}')
     # append keys for querying specific granules
     CMR_KEYS.append("&options[readable_granule_name][pattern]=true")
     CMR_KEYS.append("&options[spatial][or]=true")
@@ -1978,21 +1987,22 @@ def cmr(
     # output list of granule names and urls
     producer_granule_ids = []
     granule_urls = []
-    cmr_scroll_id = None
+    cmr_search_after = None
     while True:
         req = urllib2.Request(cmr_query_url)
-        if cmr_scroll_id:
-            req.add_header('cmr-scroll-id', cmr_scroll_id)
+        # add CMR search after header
+        if cmr_search_after:
+            req.add_header('CMR-Search-After', cmr_search_after)
+            logging.debug(f'CMR-Search-After: {cmr_search_after}')
         response = opener.open(req)
-        # get scroll id for next iteration
-        if not cmr_scroll_id:
-            headers = {k.lower():v for k,v in dict(response.info()).items()}
-            cmr_scroll_id = headers['cmr-scroll-id']
+        # get search after index for next iteration
+        headers = {k.lower():v for k,v in dict(response.info()).items()}
+        cmr_search_after = headers.get('cmr-search-after')
         # read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf-8'))
         ids,urls = cmr_filter_json(search_page,
             endpoint=endpoint, request_type=request_type)
-        if not urls:
+        if not urls or cmr_search_after is None:
             break
         # extend lists
         producer_granule_ids.extend(ids)

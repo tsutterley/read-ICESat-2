@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (10/2024)
+Written by Tyler Sutterley (07/2025)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://s3fs.readthedocs.io/en/latest/
 
 UPDATE HISTORY:
+    Updated 07/2025: switch default provider to NSIDC_CPRD
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
     Updated 09/2024: add polygon option to NASA CMR spatial query
@@ -1870,7 +1871,7 @@ def cmr(
         polygon: list | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        provider: str = 'NSIDC_ECS',
+        provider: str = 'NSIDC_CPRD',
         endpoint: str = 'data',
         request_type: str = r"application/x-hdf(eos|5)",
         opener = None,
@@ -1906,7 +1907,7 @@ def cmr(
         starting date for CMR product query
     end_date: str or NoneType, default None
         ending date for CMR product query
-    provider: str, default 'NSIDC_ECS'
+    provider: str, default 'NSIDC_CPRD'
         CMR data provider
     endpoint: str, default 'data'
         url endpoint type

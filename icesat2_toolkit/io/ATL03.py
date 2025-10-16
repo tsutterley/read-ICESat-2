@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ATL03.py (05/2024)
+ATL03.py (10/2025)
 Read ICESat-2 ATL03 and ATL09 data files to calculate average segment surfaces
     ATL03 datasets: Global Geolocated Photons
     ATL09 datasets: Atmospheric Characteristics
@@ -15,6 +15,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 10/2025: orbit_info group may now contain sub-groups
     Updated 05/2024: use wrapper to importlib for optional dependencies
         check if input filename is an open HDF5 file object
     Updated 03/2024: use pathlib to define and operate on paths
@@ -166,6 +167,12 @@ def read_granule(FILENAME, ATTRIBUTES=False, KEEP=False, **kwargs):
     IS2_atl03_attrs['orbit_info'] = {}
     for key,val in fileID['orbit_info'].items():
         IS2_atl03_mds['orbit_info'][key] = val[:]
+        if isinstance(val, h5py.Dataset):
+            IS2_atl03_mds['orbit_info'][key] = val[:]
+        elif isinstance(val, h5py.Group):
+            IS2_atl03_mds['orbit_info'][key] = {}
+            for k,v in val.items():
+                IS2_atl03_mds['orbit_info'][key][k] = v[:]
         # Getting attributes of group and included variables
         if ATTRIBUTES:
             # Global Group Attributes
@@ -463,7 +470,12 @@ def read_main(FILENAME, ATTRIBUTES=False, KEEP=False, **kwargs):
     IS2_atl03_mds['orbit_info'] = {}
     IS2_atl03_attrs['orbit_info'] = {}
     for key,val in fileID['orbit_info'].items():
-        IS2_atl03_mds['orbit_info'][key] = val[:]
+        if isinstance(val, h5py.Dataset):
+            IS2_atl03_mds['orbit_info'][key] = val[:]
+        elif isinstance(val, h5py.Group):
+            IS2_atl03_mds['orbit_info'][key] = {}
+            for k,v in val.items():
+                IS2_atl03_mds['orbit_info'][key][k] = v[:]
         # Getting attributes of group and included variables
         if ATTRIBUTES:
             # Global Group Attributes

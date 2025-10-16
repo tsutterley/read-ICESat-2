@@ -999,10 +999,10 @@ def from_http(
 def attempt_login(
         urs: str,
         context=_default_ssl_context,
-        password_manager: bool = True,
+        password_manager: bool = False,
         get_ca_certs: bool = False,
         redirect: bool = False,
-        authorization_header: bool = False,
+        authorization_header: bool = True,
         **kwargs
     ):
     """
@@ -1075,6 +1075,7 @@ def attempt_login(
             return opener
         # reattempt login
         username = builtins.input(f'Username for {urs}: ')
+        prompt = f'Password for {username}@{urs}: '
         password = getpass.getpass(prompt=prompt)
     # reached end of available retries
     raise RuntimeError('End of Retries: Check NASA Earthdata credentials')
@@ -1310,7 +1311,7 @@ def check_credentials():
     Check that entered NASA Earthdata credentials are valid
     """
     try:
-        remote_path = posixpath.join('https://n5eil01u.ecs.nsidc.org','ATLAS')
+        remote_path = 'https://urs.earthdata.nasa.gov/api/users/tokens'
         request = urllib2.Request(url=remote_path)
         response = urllib2.urlopen(request, timeout=20)
     except urllib2.HTTPError as exc:

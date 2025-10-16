@@ -6,9 +6,9 @@ from .ATL11 import *
 from .ATL12 import *
 
 # segment group names for Level-3A products
-segments = {}
-segments['ATL06'] = 'land_ice_segments'
-segments['ATL07'] = 'sea_ice_segments'
-segments['ATL08'] = 'land_segments'
-segments['ATL10'] = 'freeboard_segment'
-segments['ATL12'] = 'ssh_segments'
+_segments = {}
+_segments['ATL06'] = 'land_ice_segments'
+_segments['ATL07'] = 'sea_ice_segments'
+_segments['ATL08'] = 'land_segments'
+_segments['ATL10'] = 'freeboard_segment'
+_segments['ATL12'] = 'ssh_segments'

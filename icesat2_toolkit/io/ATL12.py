@@ -130,7 +130,6 @@ def read_granule(FILENAME, ATTRIBUTES=False, KEEP=False, **kwargs):
     # ICESat-2 orbit_info Group
     IS2_atl12_mds['orbit_info'] = {}
     for key,val in fileID['orbit_info'].items():
-        IS2_atl12_mds['orbit_info'][key] = val[:]
         if isinstance(val, h5py.Dataset):
             IS2_atl12_mds['orbit_info'][key] = val[:]
         elif isinstance(val, h5py.Group):

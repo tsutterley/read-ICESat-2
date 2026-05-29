@@ -50,7 +50,7 @@ def from_cpt(filename, use_extremes=True, **kwargs):
     """
 
     # read the cpt file and get contents
-    filename = pathlib.Path(filename)
+    filename = pathlib.Path(filename).expanduser().absolute()
     with filename.open(mode='r', encoding='utf-8') as f:
         file_contents = f.read().splitlines()
 

@@ -4,7 +4,7 @@ spatial
 
 Utilities for reading and operating on spatial data
 
- - Can read netCDF4, HDF5 or geotiff files
+ - Can read netCDF4, HDF5, or (cloud optimized) geotiff files
 
 Calling Sequence
 ================

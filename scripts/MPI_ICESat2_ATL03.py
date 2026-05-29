@@ -93,7 +93,8 @@ import timescale.time
 # attempt imports
 h5py = is2tk.utilities.import_dependency('h5py')
 MPI = is2tk.utilities.import_dependency('mpi4py.MPI')
-cluster = is2tk.utilities.import_dependency('sklearn.cluster')
+sklearn = is2tk.utilities.import_dependency('sklearn')
+sklearn.cluster = is2tk.utilities.import_dependency('sklearn.cluster')
 yapc = is2tk.utilities.import_dependency('yapc')
 
 # PURPOSE: keep track of MPI threads
@@ -578,7 +579,7 @@ def main():
                 # and that the spread of photons is greater than 20m
                 if (pe_sig_low_count > 10) & (along_X_spread > 20):
                     # use density-based spatial clustering in segment
-                    db = cluster.DBSCAN(eps=0.5).fit(
+                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
                         np.c_[distance_along_X, segment_heights],
                         sample_weight=photon_snr)
                     labels = db.labels_
@@ -772,7 +773,7 @@ def main():
                 # and that the spread of photons is greater than 40m
                 if (pe_sig_low_count > 10) & (along_X_spread > 40):
                     # use density-based spatial clustering in segment
-                    db = cluster.DBSCAN(eps=0.5).fit(
+                    db = sklearn.cluster.DBSCAN(eps=0.5).fit(
                         np.c_[distance_along_X, segment_heights],
                         sample_weight=photon_snr)
                     labels = db.labels_

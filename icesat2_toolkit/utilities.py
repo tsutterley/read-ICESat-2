@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (07/2025)
+Written by Tyler Sutterley (10/2025)
 Download and management utilities for syncing time and auxiliary files
 
 PYTHON DEPENDENCIES:
@@ -13,6 +13,7 @@ PYTHON DEPENDENCIES:
         https://s3fs.readthedocs.io/en/latest/
 
 UPDATE HISTORY:
+    Updated 10/2025: added function to calculate RGT from orbit number
     Updated 07/2025: switch default provider to NSIDC_CPRD
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
@@ -1499,6 +1500,25 @@ def from_nsidc(
         remote_buffer.seek(0)
         return (remote_buffer,None)
 
+def orbit_number_to_track(orbit_number: int) -> int:
+    """
+    Convert orbit number to reference ground track (RGT)
+
+    Parameters
+    ----------
+    orbit_number: int
+        ICESat-2 orbit number
+
+    Returns
+    -------
+    rgt: int
+        ICESat-2 reference ground track (RGT)
+    """
+    # number of orbits per cycle
+    orbits_per_cycle = 1387
+    rgt = (orbit_number - 201) % orbits_per_cycle
+    return rgt
+
 # PURPOSE: build formatted query string for ICESat-2 release
 def cmr_query_release(release: str | int | None):
     """
@@ -1851,6 +1871,8 @@ def cmr_filter_json(
             if ('rel' not in link.keys()):
                 continue
             if ('type' not in link.keys()):
+                continue
+            if ('inherited' in link.keys()):
                 continue
             # append if selected endpoint and request type
             if (link['rel'] == rel[endpoint]) and re.match(request_type, link['type']):
